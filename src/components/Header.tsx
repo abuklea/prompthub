@@ -18,6 +18,7 @@ export async function Header() {
           <div className="flex items-center gap-4">
             <Link href="/dashboard">Dashboard</Link>
             <Link href="/profile">Profile</Link>
+            <Link href="/settings">Settings</Link>
             <form action="/auth/sign-out" method="post">
               <Button type="submit">Logout</Button>
             </form>
