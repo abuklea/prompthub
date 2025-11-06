@@ -7,44 +7,29 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { signIn, signUp } from "../actions"
 import { SignInSchema, SignUpSchema } from "../schemas"
-import type { z } from "zod"
-import { toast } from "sonner"
+import { z } from "zod"
 
 export function AuthForm() {
   const [isSignIn, setIsSignIn] = useState(true)
-  const [isLoading, setIsLoading] = useState(false)
-
   const form = useForm({
     resolver: zodResolver(isSignIn ? SignInSchema : SignUpSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
   })
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = form
+  const toggleView = () => setIsSignIn(!isSignIn)
 
-  const toggleView = () => {
-    setIsSignIn(!isSignIn)
-    form.reset()
-  }
-
-  const onSubmit = async (data: z.infer<typeof SignInSchema> | z.infer<typeof SignUpSchema>) => {
-    setIsLoading(true)
-    try {
-      if (isSignIn) {
-        await signIn({ email: data.email, password: data.password })
-        toast.success("Signed in successfully!")
-      } else {
-        await signUp({ email: data.email, password: data.password })
-        toast.success("Account created successfully!")
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "An unexpected error occurred.")
-    } finally {
-      setIsLoading(false)
+  const onSubmit = async (values: z.infer<typeof SignInSchema> | z.infer<typeof SignUpSchema>) => {
+    if (isSignIn) {
+      await signIn(values)
+    } else {
+      await signUp(values)
     }
   }
 
@@ -57,30 +42,52 @@ export function AuthForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid w-full items-center gap-4">
-            <div className="flex flex-col space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" {...register("email")} placeholder="Enter your email" disabled={isLoading} />
-              {errors.email && <p className="text-red-500 text-xs">{errors.email.message as string}</p>}
-            </div>
-            <div className="flex flex-col space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" {...register("password")} placeholder="Enter your password" disabled={isLoading} />
-              {errors.password && <p className="text-red-500 text-xs">{errors.password.message as string}</p>}
-            </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter your email" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="Enter your password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {!isSignIn && (
-              <div className="flex flex-col space-y-1.5">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input id="confirmPassword" type="password" {...register("confirmPassword")} placeholder="Confirm your password" disabled={isLoading} />
-                {errors.confirmPassword && <p className="text-red-500 text-xs">{errors.confirmPassword.message as string}</p>}
-              </div>
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Confirm your password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
-            <Button className="w-full" type="submit" disabled={isLoading}>
-              {isLoading ? "Loading..." : isSignIn ? "Sign In" : "Create Account"}
-            </Button>
-          </div>
-        </form>
+            <Button className="w-full" type="submit">{isSignIn ? "Sign In" : "Create Account"}</Button>
+          </form>
+        </Form>
       </CardContent>
       <CardFooter className="flex flex-col">
         <p className="mt-4 text-xs text-center text-gray-700">
