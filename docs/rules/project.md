@@ -1,8 +1,27 @@
-# PROJECT: PromptHub
+# PROJECT: WalkingTours
 
 <brief>
-PromptHub is a centralized repository where users can efficiently store, organize, and manage their AI prompts, built with a modern, themeable, and responsive frontend.
+WalkingTours platform is a complete ground-up redesign of the AR walking tours platform, building upon the proven success and operational insights from the Walking on Country v1 implementation. The Bronze tier represents a simplified yet robust foundation that leverages Unity 6 and modern web technologies while maintaining deployment simplicity through self-hosted infrastructure and local storage solutions.
 </brief>
+
+<walkingtours-v1-walkingoncountry>
+Find the full V1 Walking Tour (Walking on Country) Unity application and review, analysis, and developer documentations, here:
+- **V1 documentation**: `./WalkingTours-V1-WalkingOnCountry`
+- **V1 unity project folder**: `./WalkingTours-V1-WalkingOnCountry/c2c-walkingtrail-unity`
+
+Reference to the V1 Walking Tours platform documentations and implementation, for the basis of this new V2 platform design and implemention. The V1 platform is a FULL and COMPLETE, store deployed and working Unity AR mobile application, built using ARCore and Google Cloud Anchors, for both Android and iOS devices. This V2 design is an improvement and rebuild of the successful V1 platform - refer to it whenever necessary.
+</walkingtours-v1-walkingoncountry>
+
+<unity-guides>
+Access the following comprehensive knowledge documentations for Unity 6:
+
+@docs/guides/Unity-OdinInspector.md
+@docs/guides/Unity-UltEvents.md
+@docs/guides/Unity6-ARFoundation.md
+@docs/guides/Unity6-ConditionalDependencies.md
+@docs/guides/Unity6-GoogleCloudAnchors.md
+@docs/guides/Unity6-UIToolkit.md
+</unity-guides>
 
 ## WEB PORTAL ARCHITECTURE
 
@@ -10,7 +29,7 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 **Backend**: Supabase (PostgreSQL+Auth+Storage+Realtime+RLS policies)
 **State Management**: Zustand for global state, React Context for local state  
 **Deployment**: Vercel hosting for frontend with Next.js API routes for serverless functions, Supabase managed backend  
-**UI Components**: Shadcn components and custom additions  
+**UI Components**: Built from a mix of Magic21st MCP tool-generated Shadcn components and custom additions
 **Development**: Node.js + npm ecosystem
 
 ## Core Instructions, rules, and Requirements
@@ -47,10 +66,12 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 
 **PROJECT SPECIFIC DETAILS**:
 {
-  - {{ARCHON_PROJECT_NAME}} = `PromptHub`
-  - {{SUPABASE_PROJECT_ID}} = `xmuysganwxygcsxwteil`
-  - {{SUPABASE_PROJECT_URL}} = `https://xmuysganwxygcsxwteil.supabase.co`
-  - {{WORKSPACE_FOLDER}} = `/mnt/c/DATA/00_Projects/PromptHub`
+  - {{ARCHON_PROJECT_NAME}} = `WalkingTours`
+  - {{SUPABASE_PROJECT_ID}} = `bwsuehpzjxbffsrlsjhu`
+  - {{SUPABASE_PROJECT_URL}} = `https://bwsuehpzjxbffsrlsjhu.supabase.co`
+  - {{WORKSPACE_FOLDER}} = `/mnt/c/DATA/00_Projects/WalkingTours`
+  - {{WEB_PORTAL_PROJECT_FOLDER}} = `/mnt/c/DATA/00_Projects/WalkingTours`
+  - {{UNITY_PROJECT_FOLDER}} = `/mnt/c/DATA/00_Projects/WalkingTours/walkingtours-unity` (Unity AR Template Project)
 
 ## Terminal Commands
 
