@@ -1,6 +1,8 @@
 import { createServer } from "@/lib/supabase";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
+import { FolderTree } from "@/features/folders/components/FolderTree";
+import { PromptList } from "@/features/prompts/components/PromptList";
 
 export default async function AppLayout({
   children,
@@ -19,11 +21,14 @@ export default async function AppLayout({
       <Header user={data.user} />
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-64 p-4 border-r">
-          {/* Folder Sidebar */}
+          <FolderTree />
         </aside>
-        <main className="flex-1 p-4">
-          {children}
+        <main className="w-96 p-4 border-r">
+          <PromptList />
         </main>
+        <section className="flex-1 p-4">
+          {children}
+        </section>
       </div>
     </div>
   );
