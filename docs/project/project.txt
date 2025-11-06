@@ -1,0 +1,1 @@
+# This folder `docs/project/` contains markdown files of all project details and complete definition of the platfom to be developed.

@@ -1,0 +1,1 @@
+# This folder `docs/guides/` contains markdown files of collections of guides on a range of useful topics; for use when planning, and throughout implementation and development
