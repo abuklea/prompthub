@@ -1,4 +1,8 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "prompt-hub",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
     "dev": "next dev -p 3010",
     "build": "next build",
@@ -41,6 +45,7 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@next/eslint-plugin-next": "^16.0.1",
     "prisma": "^6.19.0"
   }
 }

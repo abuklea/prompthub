@@ -1,0 +1,5 @@
+# This folder `wip/` contains markdown files of work in progress, and other working files stored here for convenience.
+
+## Follow the required project formatting guidelines for documentation (including PRP-related wip documents):
+@docs/rules/documentation.md
+@docs/rules/documentation-prp.md

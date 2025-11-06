@@ -1,7 +1,7 @@
 # MCP TOOL USAGE
 
 1. **ALWAYS** use `archon` and follow the ARCHON-FIRST commitment.
-- ARCHON PROJECT ID: 67f567de-8bee-4709-9e19-4123e693de61 (Walking Tours)
+- ARCHON PROJECT ID: d449f266-1f36-47ad-bd2d-30f1a0f5e999 (PromptHub)
 
 2. **ALWAYS** use `serena` for understanding code structure, relationships, and semantics through language server integration, deep code analysis and intelligent editing suggestions. Apply these capabilities as needed:
   - **Project Understanding**: Analyze entire codebases and understand architectural patterns

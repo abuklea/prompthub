@@ -50,7 +50,7 @@ PromptHub is a centralized repository where users can efficiently store, organiz
   - {{ARCHON_PROJECT_NAME}} = `PromptHub`
   - {{SUPABASE_PROJECT_ID}} = `xmuysganwxygcsxwteil`
   - {{SUPABASE_PROJECT_URL}} = `https://xmuysganwxygcsxwteil.supabase.co`
-  - {{WORKSPACE_FOLDER}} = `/mnt/c/DATA/00_Projects/PromptHub`
+  - {{WORKSPACE_FOLDER}} = `/home/allan/projects`
 
 ## Terminal Commands
 

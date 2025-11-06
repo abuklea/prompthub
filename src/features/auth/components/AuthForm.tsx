@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,8 +15,9 @@ import { z } from "zod"
 
 export function AuthForm() {
   const [isSignIn, setIsSignIn] = useState(true)
-  const form = useForm({
-    resolver: zodResolver(isSignIn ? SignInSchema : SignUpSchema),
+  const [isLoading, setIsLoading] = useState(false)
+  const form = useForm<z.infer<typeof SignInSchema> & Partial<z.infer<typeof SignUpSchema>>>({
+    resolver: zodResolver(isSignIn ? SignInSchema : SignUpSchema) as any,
     defaultValues: {
       email: "",
       password: "",
@@ -26,10 +28,30 @@ export function AuthForm() {
   const toggleView = () => setIsSignIn(!isSignIn)
 
   const onSubmit = async (values: z.infer<typeof SignInSchema> | z.infer<typeof SignUpSchema>) => {
-    if (isSignIn) {
-      await signIn(values)
-    } else {
-      await signUp(values)
+    setIsLoading(true)
+
+    try {
+      let result
+      if (isSignIn) {
+        result = await signIn(values as z.infer<typeof SignInSchema>)
+      } else {
+        result = await signUp(values as z.infer<typeof SignUpSchema>)
+      }
+
+      // Check if we got an error back
+      if (result && !result.success) {
+        toast.error(result.error || "An error occurred")
+        setIsLoading(false)
+        return
+      }
+
+      // Success - redirect will happen from server action
+      toast.success(isSignIn ? "Welcome back!" : "Account created!")
+
+    } catch (error) {
+      // Unexpected client-side errors
+      toast.error("An unexpected error occurred")
+      setIsLoading(false)
     }
   }
 
@@ -51,7 +73,12 @@ export function AuthForm() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter your email" {...field} />
+                    <Input
+                      type="email"
+                      autoComplete="email"
+                      placeholder="Enter your email"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -64,7 +91,12 @@ export function AuthForm() {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="Enter your password" {...field} />
+                    <Input
+                      type="password"
+                      autoComplete={isSignIn ? "current-password" : "new-password"}
+                      placeholder="Enter your password"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -78,14 +110,25 @@ export function AuthForm() {
                   <FormItem>
                     <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Confirm your password" {...field} />
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="Confirm your password"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             )}
-            <Button className="w-full" type="submit">{isSignIn ? "Sign In" : "Create Account"}</Button>
+            <Button
+              className="w-full"
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? "Loading..." : (isSignIn ? "Sign In" : "Create Account")}
+            </Button>
           </form>
         </Form>
       </CardContent>
