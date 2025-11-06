@@ -1,27 +1,50 @@
 "use client"
 
 import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { signIn, signUp } from "../actions"
+import { SignInSchema, SignUpSchema } from "../schemas"
+import type { z } from "zod"
+import { toast } from "sonner"
 
 export function AuthForm() {
   const [isSignIn, setIsSignIn] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const toggleView = () => setIsSignIn(!isSignIn)
+  const form = useForm({
+    resolver: zodResolver(isSignIn ? SignInSchema : SignUpSchema),
+  })
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = form
 
-    if (isSignIn) {
-      await signIn({ email, password })
-    } else {
-      await signUp({ email, password })
+  const toggleView = () => {
+    setIsSignIn(!isSignIn)
+    form.reset()
+  }
+
+  const onSubmit = async (data: z.infer<typeof SignInSchema> | z.infer<typeof SignUpSchema>) => {
+    setIsLoading(true)
+    try {
+      if (isSignIn) {
+        await signIn({ email: data.email, password: data.password })
+        toast.success("Signed in successfully!")
+      } else {
+        await signUp({ email: data.email, password: data.password })
+        toast.success("Account created successfully!")
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An unexpected error occurred.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -34,23 +57,28 @@ export function AuthForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid w-full items-center gap-4">
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" placeholder="Enter your email" />
+              <Input id="email" {...register("email")} placeholder="Enter your email" disabled={isLoading} />
+              {errors.email && <p className="text-red-500 text-xs">{errors.email.message as string}</p>}
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" placeholder="Enter your password" />
+              <Input id="password" type="password" {...register("password")} placeholder="Enter your password" disabled={isLoading} />
+              {errors.password && <p className="text-red-500 text-xs">{errors.password.message as string}</p>}
             </div>
             {!isSignIn && (
               <div className="flex flex-col space-y-1.5">
-                <Label htmlFor="confirm-password">Confirm Password</Label>
-                <Input id="confirm-password" type="password" placeholder="Confirm your password" />
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input id="confirmPassword" type="password" {...register("confirmPassword")} placeholder="Confirm your password" disabled={isLoading} />
+                {errors.confirmPassword && <p className="text-red-500 text-xs">{errors.confirmPassword.message as string}</p>}
               </div>
             )}
-            <Button className="w-full" type="submit">{isSignIn ? "Sign In" : "Create Account"}</Button>
+            <Button className="w-full" type="submit" disabled={isLoading}>
+              {isLoading ? "Loading..." : isSignIn ? "Sign In" : "Create Account"}
+            </Button>
           </div>
         </form>
       </CardContent>
