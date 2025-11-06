@@ -9,8 +9,9 @@
 -- Execution: Run in Supabase SQL Editor
 -- URL: https://supabase.com/dashboard/project/xmuysganwxygcsxwteil/sql
 
--- Step 1: Drop the existing global unique constraint
-ALTER TABLE "Tag" DROP CONSTRAINT "Tag_name_key";
+-- Step 1: Drop the existing global unique index/constraint
+-- Note: Prisma creates this as a UNIQUE INDEX, not a named constraint
+DROP INDEX IF EXISTS "Tag_name_key";
 
 -- Step 2: Create composite unique constraint (per-user unique tags)
 ALTER TABLE "Tag" ADD CONSTRAINT "Tag_name_user_id_key"
