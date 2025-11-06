@@ -55,15 +55,15 @@ CREATE POLICY "profile_select_own" ON "Profile"
   TO authenticated
   USING (
     (SELECT auth.uid()) IS NOT NULL
-    AND (SELECT auth.uid()) = id
+    AND (SELECT auth.uid())::text = id
   );
 
 -- Policy: Users can update their own profile
 CREATE POLICY "profile_update_own" ON "Profile"
   FOR UPDATE
   TO authenticated
-  USING ((SELECT auth.uid()) = id)
-  WITH CHECK ((SELECT auth.uid()) = id);
+  USING ((SELECT auth.uid())::text = id)
+  WITH CHECK ((SELECT auth.uid())::text = id);
 
 -- ============================================================================
 -- SECTION 3: Folder Policies
@@ -78,27 +78,27 @@ CREATE POLICY "folder_select_own" ON "Folder"
   TO authenticated
   USING (
     (SELECT auth.uid()) IS NOT NULL
-    AND (SELECT auth.uid()) = user_id
+    AND (SELECT auth.uid())::text = user_id
   );
 
 -- Policy: Users can create folders for themselves
 CREATE POLICY "folder_insert_own" ON "Folder"
   FOR INSERT
   TO authenticated
-  WITH CHECK ((SELECT auth.uid()) = user_id);
+  WITH CHECK ((SELECT auth.uid())::text = user_id);
 
 -- Policy: Users can update their own folders
 CREATE POLICY "folder_update_own" ON "Folder"
   FOR UPDATE
   TO authenticated
-  USING ((SELECT auth.uid()) = user_id)
-  WITH CHECK ((SELECT auth.uid()) = user_id);
+  USING ((SELECT auth.uid())::text = user_id)
+  WITH CHECK ((SELECT auth.uid())::text = user_id);
 
 -- Policy: Users can delete their own folders
 CREATE POLICY "folder_delete_own" ON "Folder"
   FOR DELETE
   TO authenticated
-  USING ((SELECT auth.uid()) = user_id);
+  USING ((SELECT auth.uid())::text = user_id);
 
 -- ============================================================================
 -- SECTION 4: Prompt Policies
@@ -113,27 +113,27 @@ CREATE POLICY "prompt_select_own" ON "Prompt"
   TO authenticated
   USING (
     (SELECT auth.uid()) IS NOT NULL
-    AND (SELECT auth.uid()) = user_id
+    AND (SELECT auth.uid())::text = user_id
   );
 
 -- Policy: Users can create prompts for themselves
 CREATE POLICY "prompt_insert_own" ON "Prompt"
   FOR INSERT
   TO authenticated
-  WITH CHECK ((SELECT auth.uid()) = user_id);
+  WITH CHECK ((SELECT auth.uid())::text = user_id);
 
 -- Policy: Users can update their own prompts
 CREATE POLICY "prompt_update_own" ON "Prompt"
   FOR UPDATE
   TO authenticated
-  USING ((SELECT auth.uid()) = user_id)
-  WITH CHECK ((SELECT auth.uid()) = user_id);
+  USING ((SELECT auth.uid())::text = user_id)
+  WITH CHECK ((SELECT auth.uid())::text = user_id);
 
 -- Policy: Users can delete their own prompts
 CREATE POLICY "prompt_delete_own" ON "Prompt"
   FOR DELETE
   TO authenticated
-  USING ((SELECT auth.uid()) = user_id);
+  USING ((SELECT auth.uid())::text = user_id);
 
 -- ============================================================================
 -- SECTION 5: Tag Policies
@@ -148,20 +148,20 @@ CREATE POLICY "tag_select_own" ON "Tag"
   TO authenticated
   USING (
     (SELECT auth.uid()) IS NOT NULL
-    AND (SELECT auth.uid()) = user_id
+    AND (SELECT auth.uid())::text = user_id
   );
 
 -- Policy: Users can create tags for themselves
 CREATE POLICY "tag_insert_own" ON "Tag"
   FOR INSERT
   TO authenticated
-  WITH CHECK ((SELECT auth.uid()) = user_id);
+  WITH CHECK ((SELECT auth.uid())::text = user_id);
 
 -- Policy: Users can delete their own tags
 CREATE POLICY "tag_delete_own" ON "Tag"
   FOR DELETE
   TO authenticated
-  USING ((SELECT auth.uid()) = user_id);
+  USING ((SELECT auth.uid())::text = user_id);
 
 -- ============================================================================
 -- SECTION 6: PromptVersion Policies
@@ -179,7 +179,7 @@ CREATE POLICY "prompt_version_select_own" ON "PromptVersion"
     EXISTS (
       SELECT 1 FROM "Prompt"
       WHERE "Prompt".id = "PromptVersion".prompt_id
-        AND "Prompt".user_id = (SELECT auth.uid())
+        AND "Prompt".user_id = (SELECT auth.uid())::text
     )
   );
 
@@ -191,7 +191,7 @@ CREATE POLICY "prompt_version_insert_own" ON "PromptVersion"
     EXISTS (
       SELECT 1 FROM "Prompt"
       WHERE "Prompt".id = prompt_id
-        AND "Prompt".user_id = (SELECT auth.uid())
+        AND "Prompt".user_id = (SELECT auth.uid())::text
     )
   );
 
@@ -210,12 +210,12 @@ CREATE POLICY "prompt_tag_select_own" ON "_PromptToTag"
     EXISTS (
       SELECT 1 FROM "Prompt"
       WHERE "Prompt".id = "A"
-        AND "Prompt".user_id = (SELECT auth.uid())
+        AND "Prompt".user_id = (SELECT auth.uid())::text
     )
     AND EXISTS (
       SELECT 1 FROM "Tag"
       WHERE "Tag".id = "B"
-        AND "Tag".user_id = (SELECT auth.uid())
+        AND "Tag".user_id = (SELECT auth.uid())::text
     )
   );
 
@@ -227,12 +227,12 @@ CREATE POLICY "prompt_tag_insert_own" ON "_PromptToTag"
     EXISTS (
       SELECT 1 FROM "Prompt"
       WHERE "Prompt".id = "A"
-        AND "Prompt".user_id = (SELECT auth.uid())
+        AND "Prompt".user_id = (SELECT auth.uid())::text
     )
     AND EXISTS (
       SELECT 1 FROM "Tag"
       WHERE "Tag".id = "B"
-        AND "Tag".user_id = (SELECT auth.uid())
+        AND "Tag".user_id = (SELECT auth.uid())::text
     )
   );
 
@@ -244,12 +244,12 @@ CREATE POLICY "prompt_tag_delete_own" ON "_PromptToTag"
     EXISTS (
       SELECT 1 FROM "Prompt"
       WHERE "Prompt".id = "A"
-        AND "Prompt".user_id = (SELECT auth.uid())
+        AND "Prompt".user_id = (SELECT auth.uid())::text
     )
     AND EXISTS (
       SELECT 1 FROM "Tag"
       WHERE "Tag".id = "B"
-        AND "Tag".user_id = (SELECT auth.uid())
+        AND "Tag".user_id = (SELECT auth.uid())::text
     )
   );
 
