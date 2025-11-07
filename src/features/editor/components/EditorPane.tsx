@@ -197,16 +197,16 @@ export function EditorPane() {
 
   // Prompt loaded
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Title Section - Fixed Height */}
-      <div className="flex-none p-4 space-y-2 border-b">
+      <div className="flex-none p-4 space-y-2 border-b overflow-hidden">
         <Label htmlFor="prompt-title">Title</Label>
         <Input
           id="prompt-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Enter prompt title..."
-          className="text-lg font-semibold"
+          className="text-lg font-semibold w-full"
         />
       </div>
 

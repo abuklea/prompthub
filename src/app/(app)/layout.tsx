@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { PanelSubheader } from "@/components/layout/PanelSubheader";
 import { HistoryButton } from "@/components/layout/HistoryButton";
+import { ResizablePanelsLayout } from "@/components/layout/ResizablePanelsLayout";
 import { FolderTree } from "@/features/folders/components/FolderTree";
 import { FolderToolbar } from "@/features/folders/components/FolderToolbar";
 import { PromptList } from "@/features/prompts/components/PromptList";
@@ -21,37 +22,38 @@ export default async function AppLayout() {
     <div className="flex flex-col h-screen">
       <Header user={data.user} />
 
-      {/* Panel Subheaders */}
-      <div className="flex border-b">
-        <div className="w-64 border-r">
-          <PanelSubheader title="Folders">
-            <FolderToolbar />
-          </PanelSubheader>
-        </div>
-        <div className="w-96 border-r">
-          <PanelSubheader title="Documents">
-            <DocumentToolbar />
-          </PanelSubheader>
-        </div>
-        <div className="flex-1">
-          <PanelSubheader title="Editor">
-            <HistoryButton />
-          </PanelSubheader>
-        </div>
-      </div>
-
-      {/* Main Content Panels */}
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-64 p-4 border-r overflow-y-auto">
-          <FolderTree />
-        </aside>
-        <main className="w-96 p-4 border-r overflow-y-auto">
-          <PromptList />
-        </main>
-        <section className="flex-1 overflow-hidden">
-          <EditorPane />
-        </section>
-      </div>
+      <ResizablePanelsLayout
+        foldersPanel={
+          <>
+            <PanelSubheader title="Folders">
+              <FolderToolbar />
+            </PanelSubheader>
+            <div className="flex-1 p-4 overflow-y-auto">
+              <FolderTree />
+            </div>
+          </>
+        }
+        documentsPanel={
+          <>
+            <PanelSubheader title="Documents">
+              <DocumentToolbar />
+            </PanelSubheader>
+            <div className="flex-1 p-4 overflow-y-auto">
+              <PromptList />
+            </div>
+          </>
+        }
+        editorPanel={
+          <>
+            <PanelSubheader title="Editor">
+              <HistoryButton />
+            </PanelSubheader>
+            <div className="flex-1 overflow-hidden">
+              <EditorPane />
+            </div>
+          </>
+        }
+      />
     </div>
   );
 }

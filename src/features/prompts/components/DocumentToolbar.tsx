@@ -55,13 +55,14 @@ export function DocumentToolbar() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 overflow-hidden">
       {/* New Doc Button */}
       <Button
         size="sm"
         disabled={!selectedFolder || creatingDoc}
         onClick={handleNewDoc}
         title={!selectedFolder ? "Select a folder first" : "Create new document"}
+        className="min-w-[80px] shrink-0"
       >
         {creatingDoc ? "Creating..." : "New Doc"}
       </Button>
@@ -72,6 +73,7 @@ export function DocumentToolbar() {
         variant="outline"
         disabled={!selectedPrompt}
         title={!selectedPrompt ? "Select a document first" : "Rename document"}
+        className="min-w-[70px] shrink-0"
       >
         Rename
       </Button>
@@ -82,6 +84,7 @@ export function DocumentToolbar() {
         variant="outline"
         disabled={!selectedPrompt}
         title={!selectedPrompt ? "Select a document first" : "Delete document"}
+        className="min-w-[60px] shrink-0"
       >
         Delete
       </Button>
@@ -89,9 +92,9 @@ export function DocumentToolbar() {
       {/* Sort Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline" className="gap-1">
-            {sortLabels[docSort]}
-            <ChevronDown className="h-4 w-4" />
+          <Button size="sm" variant="outline" className="gap-1 min-w-[120px] shrink-0">
+            <span className="truncate">{sortLabels[docSort]}</span>
+            <ChevronDown className="h-4 w-4 shrink-0" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -112,7 +115,7 @@ export function DocumentToolbar() {
         placeholder="Filter documents..."
         value={docFilter}
         onChange={(e) => setDocFilter(e.target.value)}
-        className="max-w-[200px]"
+        className="flex-1 max-w-[200px] min-w-[80px]"
       />
     </div>
   )

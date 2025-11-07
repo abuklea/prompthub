@@ -70,12 +70,13 @@ export function FolderToolbar() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 overflow-hidden">
       <Button
         variant="ghost"
         size="sm"
         onClick={handleNewFolder}
         title="New Folder"
+        className="min-w-[32px] shrink-0"
       >
         <Plus className="h-4 w-4" />
       </Button>
@@ -86,6 +87,7 @@ export function FolderToolbar() {
         onClick={handleRenameFolder}
         disabled={!selectedFolder}
         title="Rename Folder"
+        className="min-w-[32px] shrink-0"
       >
         <Edit className="h-4 w-4" />
       </Button>
@@ -96,17 +98,18 @@ export function FolderToolbar() {
         onClick={handleDeleteFolder}
         disabled={!selectedFolder}
         title="Delete Folder"
+        className="min-w-[32px] shrink-0"
       >
         <Trash2 className="h-4 w-4" />
       </Button>
 
-      <div className="h-4 w-px bg-gray-600 mx-1" />
+      <div className="h-4 w-px bg-gray-600 mx-1 shrink-0" />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" title="Sort">
+          <Button variant="ghost" size="sm" title="Sort" className="min-w-[80px] shrink-0">
             <ArrowUpDown className="h-4 w-4 mr-1" />
-            <span className="text-xs">{getSortLabel(folderSort)}</span>
+            <span className="text-xs truncate">{getSortLabel(folderSort)}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
@@ -130,7 +133,7 @@ export function FolderToolbar() {
         placeholder="Filter..."
         value={folderFilter}
         onChange={(e) => setFolderFilter(e.target.value)}
-        className="h-8 text-sm flex-1"
+        className="h-8 text-sm flex-1 max-w-[200px] min-w-[80px]"
       />
     </div>
   )
