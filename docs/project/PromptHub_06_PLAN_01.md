@@ -235,12 +235,26 @@
   - **Step Dependencies**: Phase 5, Step 3
   - **User Instructions**: (1) Monaco editor extends from title to footer on all screen sizes, (2) Cannot create duplicate titles (case-insensitive), (3) Can create subfolders up to 5 levels, (4) Three aligned subheaders visible with toolbars, (5) Sort/filter controls functional, (6) Auto-save triggers after 500ms typing pause, Ctrl+S creates version, (7) Version history button present (disabled), dashboard/settings pages render. Full validation checklist and testing guide in `PRPs/P5S3b-improved-ui-update.md`.
 
+- Step 3c: [P] Fix Subheader Layout with Resizable Columns
+  - **Task**: Transform fixed-width 3-column layout into user-resizable layout with animated drag handles. Install `react-resizable-panels`, create AnimatedResizeHandle and ResizablePanelsLayout components, update main layout to use resizable panels, and add responsive classes to toolbars. Column widths persist in localStorage, handles animate smoothly toward cursor, and min/max constraints prevent UI breakage.
+  - **Assignee**: `senior-frontend-engineer`, `qa-test-automation-engineer`
+  - **Files**:
+    - **CREATE**: `src/components/layout/AnimatedResizeHandle.tsx` - Custom drag handle with framer-motion animations
+    - **CREATE**: `src/components/layout/ResizablePanelsLayout.tsx` - Client wrapper with PanelGroup
+    - **MODIFY**: `src/app/(app)/layout.tsx` - Use ResizablePanelsLayout instead of fixed divs
+    - **MODIFY**: `src/features/folders/components/FolderToolbar.tsx` - Add responsive classes
+    - **MODIFY**: `src/features/prompts/components/DocumentToolbar.tsx` - Add responsive classes
+    - **MODIFY**: `src/features/editor/components/EditorPane.tsx` - Verify responsive behavior
+    - `package.json`: Add `react-resizable-panels` dependency
+  - **Step Dependencies**: Phase 5, Step 3b
+  - **User Instructions**: (1) Columns can be resized by dragging vertical separators, (2) Drag handles animate smoothly toward cursor when nearby and return to center when released, (3) Column widths persist across page reloads, (4) Toolbar content fits properly at all column widths without overflow, (5) Touch and keyboard navigation work correctly. Full implementation details and testing guide in `PRPs/P5S3c-fix-subheader-layout-resizable-columns.md`.
+
 - Step 4: Editor UI with Manual Save
   - **Task**: Connect the `EditorPane` to the backend. The "Save" button should invoke the `saveNewVersion` action. Implement loading and success states for the save button. The editor should be populated with the selected prompt's content.
   - **Assignee**: `Frontend_Engineer`
   - **Files**:
     - `src/features/editor/components/EditorPane.tsx`: Add state management for title and content, and an onClick handler for the "Save" button to call the server action.
-  - **Step Dependencies**: Phase 5, Step 3b
+  - **Step Dependencies**: Phase 5, Step 3c
   - **User Instructions**: Select a prompt, type content into the editor, and click "Save". The content should persist after selecting another prompt and coming back. Check the `PromptVersions` and `Prompts` tables in Supabase to confirm that a new version was created and the content was updated.
 
 - Step 5: [P] Version History UI
