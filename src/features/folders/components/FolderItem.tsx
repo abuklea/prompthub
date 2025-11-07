@@ -48,10 +48,10 @@ export function FolderItem({ folder, onUpdate, onDelete }: FolderItemProps) {
         setChildren((prev) =>
           prev.map((child) => (child.id === folder.id ? updatedFolder : child))
         )
-        toast.success("Folder renamed successfully")
+        toast.success("Folder renamed successfully", { duration: 3000 })
       } catch (error) {
         console.error("Failed to rename folder:", error)
-        toast.error("Failed to rename folder")
+        toast.error("Failed to rename folder", { duration: 6000 })
       }
     }
   }
@@ -64,10 +64,10 @@ export function FolderItem({ folder, onUpdate, onDelete }: FolderItemProps) {
         if (onDelete) {
           onDelete(folder.id)
         }
-        toast.success("Folder deleted successfully")
+        toast.success("Folder deleted successfully", { duration: 3000 })
       } catch (error) {
         console.error("Failed to delete folder:", error)
-        toast.error("Failed to delete folder")
+        toast.error("Failed to delete folder", { duration: 6000 })
       }
     }
   }

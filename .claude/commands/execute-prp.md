@@ -40,6 +40,8 @@ Implement a feature using using the PRP file.
 Note: If validation fails, use error patterns in PRP to fix and retry.
 
 ## Imports
+@docs/rules/project.md
+@docs/rules/archon.md
 @docs/rules/documentation.md
 @docs/rules/documentation-prp.md
 

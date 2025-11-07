@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -16,6 +16,8 @@ import { z } from "zod"
 export function AuthForm() {
   const [isSignIn, setIsSignIn] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
+  const [formError, setFormError] = useState<string>("")
   const form = useForm<z.infer<typeof SignInSchema> & Partial<z.infer<typeof SignUpSchema>>>({
     resolver: zodResolver(isSignIn ? SignInSchema : SignUpSchema) as any,
     defaultValues: {
@@ -25,10 +27,24 @@ export function AuthForm() {
     },
   })
 
-  const toggleView = () => setIsSignIn(!isSignIn)
+  // Clear form error when user interacts with form
+  useEffect(() => {
+    const subscription = form.watch(() => {
+      if (formError) {
+        setFormError("")
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [form, formError])
+
+  const toggleView = () => {
+    setIsSignIn(!isSignIn)
+    setFormError("") // Clear error when switching views
+  }
 
   const onSubmit = async (values: z.infer<typeof SignInSchema> | z.infer<typeof SignUpSchema>) => {
     setIsLoading(true)
+    setFormError("") // Clear any existing errors
 
     try {
       let result
@@ -40,17 +56,23 @@ export function AuthForm() {
 
       // Check if we got an error back
       if (result && !result.success) {
-        toast.error(result.error || "An error occurred")
+        const errorMessage = result.error || "An error occurred"
+        setFormError(errorMessage)
+        toast.error(errorMessage, { duration: 6000 })
         setIsLoading(false)
         return
       }
 
-      // Success - redirect will happen from server action
-      toast.success(isSignIn ? "Welcome back!" : "Account created!")
+      // Success - show redirect message before redirect happens
+      toast.success(isSignIn ? "Welcome back!" : "Account created!", { duration: 3000 })
+      setIsRedirecting(true)
+      // Redirect will happen from server action
 
     } catch (error) {
       // Unexpected client-side errors
-      toast.error("An unexpected error occurred")
+      const errorMessage = "An unexpected error occurred"
+      setFormError(errorMessage)
+      toast.error(errorMessage, { duration: 6000 })
       setIsLoading(false)
     }
   }
@@ -129,6 +151,16 @@ export function AuthForm() {
             >
               {isLoading ? "Loading..." : (isSignIn ? "Sign In" : "Create Account")}
             </Button>
+            {isRedirecting && (
+              <div className="text-sm text-muted-foreground text-center mt-2">
+                Redirecting to dashboard...
+              </div>
+            )}
+            {formError && (
+              <div className="text-sm text-destructive mt-2">
+                {formError}
+              </div>
+            )}
           </form>
         </Form>
       </CardContent>

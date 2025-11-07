@@ -32,10 +32,10 @@ export function FolderTree() {
         const newFolder = await createFolder(newName, null)
         // Immediately update local state to show the new folder
         setFolders((prev) => [...prev, newFolder].sort((a, b) => a.name.localeCompare(b.name)))
-        toast.success("Folder created successfully")
+        toast.success("Folder created successfully", { duration: 3000 })
       } catch (error) {
         console.error("Failed to create folder:", error)
-        toast.error("Failed to create folder")
+        toast.error("Failed to create folder", { duration: 6000 })
       }
     }
   }
