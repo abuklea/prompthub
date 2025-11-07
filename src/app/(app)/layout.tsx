@@ -2,13 +2,12 @@ import { createServer } from "@/lib/supabase";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { PanelSubheader } from "@/components/layout/PanelSubheader";
+import { HistoryButton } from "@/components/layout/HistoryButton";
 import { FolderTree } from "@/features/folders/components/FolderTree";
 import { FolderToolbar } from "@/features/folders/components/FolderToolbar";
 import { PromptList } from "@/features/prompts/components/PromptList";
 import { DocumentToolbar } from "@/features/prompts/components/DocumentToolbar";
 import { EditorPane } from "@/features/editor/components/EditorPane";
-import { Button } from "@/components/ui/button";
-import { History } from "lucide-react";
 
 export default async function AppLayout() {
   const supabase = createServer();
@@ -36,19 +35,7 @@ export default async function AppLayout() {
         </div>
         <div className="flex-1">
           <PanelSubheader title="Editor">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  const toast = require('sonner').toast;
-                  toast.info("Version history coming soon!");
-                }
-              }}
-            >
-              <History className="h-4 w-4 mr-1" />
-              History
-            </Button>
+            <HistoryButton />
           </PanelSubheader>
         </div>
       </div>
