@@ -3,12 +3,9 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { FolderTree } from "@/features/folders/components/FolderTree";
 import { PromptList } from "@/features/prompts/components/PromptList";
+import { EditorPane } from "@/features/editor/components/EditorPane";
 
-export default async function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function AppLayout() {
   const supabase = createServer();
   const { data, error } = await supabase.auth.getUser();
 
@@ -27,7 +24,7 @@ export default async function AppLayout({
           <PromptList />
         </main>
         <section className="flex-1 p-4">
-          {children}
+          <EditorPane />
         </section>
       </div>
     </div>
