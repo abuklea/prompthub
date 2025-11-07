@@ -1,5 +1,5 @@
 # PromptHub - Code Style & Conventions
-Last Updated: 07/11/2025 02:15 GMT+10
+Last Updated: 07/11/2025 13:33 GMT+10
 
 ## TypeScript Configuration
 - **Strict Mode**: Enabled
@@ -52,7 +52,56 @@ Last Updated: 07/11/2025 02:15 GMT+10
 - Hooks at top of component body
 - Event handlers prefixed with `handle` (e.g., `handleSubmit`)
 
-## TypeScript Patterns (P1S1)
+## SSR Handling Pattern (P5S1 - Monaco Editor)
+
+### Dynamic Import for SSR-Incompatible Libraries
+```typescript
+// Problem: Monaco uses window/document APIs, breaks during SSR
+// Solution: Dynamic import with ssr: false
+
+import dynamic from "next/dynamic"
+
+const Editor = dynamic(
+  () => import("./components/Editor").then(mod => mod.Editor),
+  {
+    loading: () => <EditorSkeleton />,
+    ssr: false  // CRITICAL: Prevents SSR execution
+  }
+)
+```
+
+**Key Principles**:
+- Use `dynamic()` from Next.js for SSR-incompatible components
+- Set `ssr: false` to skip server-side rendering
+- Provide `loading` component (EditorSkeleton) for better UX
+- Theme definition in `beforeMount` hook (timing critical)
+- Never access window/document outside of event callbacks
+
+### Theme Definition in Monaco beforeMount
+```typescript
+// Define theme BEFORE component mounts
+const onBeforeMount: BeforeMount = (monaco) => {
+  monaco.editor.defineTheme("boldSimplicity", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "comment", foreground: "94A3B8" },
+      // ... more rules
+    ],
+    colors: {
+      "editor.background": "#0F172A",      // --background
+      "editor.foreground": "#E2E8F0",      // --foreground
+      "editor.lineNumbersBackground": "#0F172A",
+      "editorLineNumber.foreground": "#94A3B8", // --muted
+      "editorCursor.foreground": "#EC4899",     // --accent
+    }
+  })
+}
+```
+
+**Why beforeMount?** Theme must be defined before editor renders, using beforeMount ensures proper timing and monaco instance availability.
+
+## TypeScript Patterns (P1S1 & P5S1)
 
 ### Server Action Pattern (Error Objects, Not Throws)
 ```typescript
@@ -270,14 +319,34 @@ useEffect(() => {
 }, [isDirty])
 ```
 
-## Styling Conventions (P1S1 Bold Simplicity)
+## Color System (P1S1 - Bold Simplicity - VERIFIED PRODUCTION READY)
+
+### CSS Variables (Implemented in globals.css)
+**Light Mode**:
+```css
+:root {
+  --primary: 239 84% 67%;      /* Indigo #4F46E5 */
+  --accent: 328 85% 70%;       /* Magenta #EC4899 */
+  --background: 222 47% 11%;   /* Dark blue-black #0F172A */
+  --card: 220 26% 14%;         /* Gray 900 #111827 */
+  --foreground: 213 31% 91%;   /* Light text #E2E8F0 */
+}
+```
+
+**Dark Mode** (`.dark`):
+- Same color mappings for consistency
+- Full light mode support via theme variables
 
 ### Design System Variables
-- **Primary**: Indigo #4F46E5 (`text-primary`, `bg-primary`)
-- **Accent**: Magenta #EC4899 (`text-accent`, `bg-accent`)
-- **Typography**: Inter font (400, 500, 600 weights)
-- **Spacing**: 4px grid system
-- **Transitions**: 150ms ease
+- **Primary**: Indigo #4F46E5 (HSL: 239 84% 67%) - Used for primary buttons, links, accents
+- **Accent**: Magenta #EC4899 (HSL: 328 85% 70%) - Used for secondary actions, highlights
+- **Typography**: Inter font family (400=normal, 500=medium, 600=semibold)
+  - Body text: Inter 400
+  - Labels/Navigation: Inter 500
+  - Headers/Important: Inter 600
+- **Spacing**: 4px grid system (0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24px increments)
+- **Transitions**: 150ms ease (smooth animations)
+- **Border Radius**: Consistent rounded corners throughout
 
 ### Tailwind CSS Classes
 ```typescript
@@ -299,7 +368,51 @@ className="border border-input bg-background rounded-md px-3 py-2"
 - CSS variables defined for dark mode
 - Light mode support via theme variables
 
-## Best Practices (P1S1 Patterns)
+## Editor Component Pattern (P5S1)
+
+### EditorProps Interface
+```typescript
+interface EditorProps {
+  value: string;                        // Current editor content
+  onChange?: (value: string) => void;   // Change callback
+  language?: string;                    // Language (markdown, javascript, etc.)
+  height?: string;                      // CSS height (default: 500px)
+  theme?: string;                       // Monaco theme (default: boldSimplicity)
+  readOnly?: boolean;                   // Read-only mode
+  options?: IStandaloneEditorConstructionOptions; // Monaco options
+  onMount?: OnMount;                    // Mount callback
+  beforeMount?: BeforeMount;            // Before mount callback
+  className?: string;                   // CSS class
+  disabled?: boolean;                   // Disabled state
+}
+```
+
+### Usage Pattern
+```typescript
+import { Editor } from "@/features/editor"
+
+function PromptEditor() {
+  const [content, setContent] = useState("")
+
+  return (
+    <Editor
+      value={content}
+      onChange={setContent}
+      language="markdown"
+      height="600px"
+      onMount={(editor) => console.log("Editor mounted")}
+    />
+  )
+}
+```
+
+### Loading Pattern
+```typescript
+// Automatic with dynamic import
+<Editor ... /> // Shows EditorSkeleton while loading
+```
+
+## Best Practices (P1S1 & P5S1 Patterns)
 
 ### Error Handling
 - **Server Actions**: Return error objects, never throw
@@ -360,6 +473,31 @@ className="border border-input bg-background rounded-md px-3 py-2"
 - Open/Closed: FormError accepts any message prop
 - Dependency Inversion: Components depend on abstractions (props)
 
+## P5S1 Specific Patterns
+
+### Dynamic Import with SSR Safety
+- ✅ Use `dynamic()` from next/dynamic
+- ✅ Set `ssr: false` for window/document dependent code
+- ✅ Provide loading component (EditorSkeleton)
+- ✅ Don't access window/document in module scope
+
+### Monaco Theme Integration
+- ✅ Define theme in `beforeMount` hook
+- ✅ Match design system colors exactly
+- ✅ Use CSS variable mappings for consistency
+- ✅ Set cursor and selection colors for visibility
+
+### Component Props Interface
+- ✅ Document all props with JSDoc comments
+- ✅ Provide sensible defaults (height: 500px, language: javascript)
+- ✅ Support Monaco callback types (OnMount, BeforeMount)
+- ✅ Allow custom className and options
+
+### Loading States
+- ✅ EditorSkeleton shows during Monaco initialization
+- ✅ Pulse animation provides visual feedback
+- ✅ Automatic with dynamic import loading prop
+
 ## P1S1 Specific Patterns
 
 ### Server Action Error Handling
@@ -398,6 +536,38 @@ className="border border-input bg-background rounded-md px-3 py-2"
 - Expected results documented
 - Edge cases covered
 - Accessibility checks included
+
+## Common Patterns in Project (P1S1 & P5S1)
+
+### Monaco Editor Integration (P5S1)
+```typescript
+// Dynamic import for SSR safety
+const Editor = dynamic(() => import("./Editor").then(mod => mod.Editor), {
+  loading: () => <EditorSkeleton />,
+  ssr: false
+})
+
+// Theme definition in beforeMount
+const onBeforeMount: BeforeMount = (monaco) => {
+  monaco.editor.defineTheme("boldSimplicity", {
+    base: "vs-dark",
+    inherit: true,
+    colors: {
+      "editor.background": "#0F172A",
+      "editor.foreground": "#E2E8F0",
+      "editorCursor.foreground": "#EC4899"
+    }
+  })
+}
+
+// Usage
+<Editor
+  value={content}
+  onChange={setContent}
+  language="markdown"
+  height="600px"
+/>
+```
 
 ## Common Patterns in Project (P1S1)
 

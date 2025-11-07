@@ -1,32 +1,45 @@
 # PromptHub - Suggested Commands
 
-## Development Commands
+**Last Updated**: 07/11/2025 13:10 GMT+10
+**Project Status**: P1S1 Complete (100% - 15/15 tasks)
+**Server Status**: Dev server can run on port 3010 (`npm run dev`)
+
+## Development Commands (P1S1 Proven Workflow)
 
 ### Server Management
 ```bash
 # Start development server (port 3010)
 npm run dev
 
-# Build for production
+# Build for production (verified in P1S1 - zero errors)
 npm run build
 
 # Start production server
 npm start
 
-# IMPORTANT: Server uses HMR - avoid unnecessary restarts
-# Stop existing servers before starting new ones if needed
+# CRITICAL: Server uses HMR (Hot Module Replacement)
+# - Avoid unnecessary restarts
+# - Changes reflect immediately
+# - Stop existing servers before starting new ones
+# - Port 3010 must be available
 ```
 
-### Code Quality
+### Code Quality (Pre-Commit MANDATORY)
 ```bash
-# Run ESLint
+# Run ESLint (MUST pass before committing)
 npm run lint
 
-# Run TypeScript type checking
+# Run TypeScript type checking (MUST pass before committing)
 npx tsc --noEmit
 
-# Run both (recommended before commits)
+# Run both (recommended before all commits)
 npm run lint && npx tsc --noEmit
+
+# Production build test (P1S1: Verified zero errors)
+npm run build
+
+# Build + start for testing
+npm run build && npm start
 ```
 
 ### Database Management
@@ -149,23 +162,46 @@ pwd
 - NEVER use template variables like `{{WORKSPACE_FOLDER}}`
 - Use actual path: `/home/allan/projects/PromptHub`
 
-## Task Completion Checklist
+## Task Completion Checklist (P1S1 PROVEN PATTERNS)
 
-### Before Committing
-1. ✓ Run `npm run lint` - Fix all errors
-2. ✓ Run `npx tsc --noEmit` - Fix type errors
-3. ✓ Run `npm run build` - Verify build success
-4. ✓ Test primary functionality
-5. ✓ Test database migrations (up/down cycles)
-6. ✓ Update documentation if needed
-7. ✓ Stage and commit with proper prefix
+### Pre-Commit Checks (MANDATORY - P1S1 Pattern)
+1. ✅ Run `npm run lint` - Fix all errors
+2. ✅ Run `npx tsc --noEmit` - Fix type errors
+3. ✅ Run `npm run build` - Verify build success (P1S1: Zero errors achieved)
+4. ✅ Test primary functionality in browser
+5. ✅ Test database migrations (up/down cycles) if applicable
+6. ✅ Check console for errors/warnings
+7. ✅ Test in light and dark modes (if UI affected)
+8. ✅ Verify responsive behavior
+9. ✅ Update documentation if needed
+10. ✅ Stage and commit with proper prefix format
 
-### After Task Completion
-1. ✓ Verify tests passing (80%+ coverage)
-2. ✓ Check code follows style guidelines
-3. ✓ Confirm no secrets committed
-4. ✓ Update task status in tracking system
-5. ✓ Create completion summary if required
+### Code Quality Verification (P1S1 Pattern)
+1. ✅ File sizes under 500 lines (checked in P1S1)
+2. ✅ Functions under 50 lines
+3. ✅ Lines under 100 characters
+4. ✅ No console.log or debug code
+5. ✅ No secrets in code
+6. ✅ Proper error handling (try-catch, error objects)
+7. ✅ All imports organized correctly
+
+### After Task Completion (P1S1 Pattern)
+1. ✅ Verify all tests passing (E2E testing with Chrome DevTools MCP)
+2. ✅ Check code follows style guidelines
+3. ✅ Confirm no secrets committed
+4. ✅ Update Archon task status: `doing` → `review` → `done`
+5. ✅ Create completion summary/documentation
+6. ✅ Update PRP document if applicable
+7. ✅ Update Serena memories if architecture changed
+
+### P1S1 Success Pattern Applied
+- E2E tests run with Chrome DevTools MCP
+- Accessibility audit performed
+- Manual testing guide created
+- INITIAL and REPORT documents delivered
+- Task verification completed for all core tasks
+- Archon status updates tracked
+- Console errors: Zero achieved
 
 ## Environment Setup
 
