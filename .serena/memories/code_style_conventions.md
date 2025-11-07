@@ -1,5 +1,5 @@
 # PromptHub - Code Style & Conventions
-Last Updated: 06/11/2025 19:56 GMT+10
+Last Updated: 07/11/2025 02:15 GMT+10
 
 ## TypeScript Configuration
 - **Strict Mode**: Enabled
@@ -14,21 +14,20 @@ Last Updated: 06/11/2025 19:56 GMT+10
 ### Files
 | Type | Convention | Example |
 |------|------------|---------|
-| Components | PascalCase.tsx | `FolderTree.tsx`, `AuthForm.tsx` |
-| Pages | kebab-case or lowercase | `login/page.tsx`, `dashboard/page.tsx` |
+| Components | PascalCase.tsx | `AuthForm.tsx`, `FormError.tsx` |
+| Pages | kebab-case or lowercase | `login.tsx`, `dashboard.tsx` |
 | Actions | actions.ts | `features/auth/actions.ts` |
 | Schemas | schemas.ts | `features/auth/schemas.ts` |
 | Utils | camelCase.ts | `utils.ts` |
 | Types | *.types.ts | `user.types.ts` (if needed) |
-| Stores | use-*.ts | `use-ui-store.ts` |
 
 ### Code Naming
-- **Components**: PascalCase (`FolderTree`, `AuthForm`)
-- **Functions**: camelCase (`signIn`, `createFolder`)
-- **Variables**: camelCase (`userData`, `folderList`)
+- **Components**: PascalCase (`AuthForm`, `FormError`)
+- **Functions**: camelCase (`signIn`, `signUp`)
+- **Variables**: camelCase (`userData`, `isRedirecting`)
 - **Constants**: UPPER_SNAKE_CASE or camelCase (project uses camelCase)
-- **Interfaces/Types**: PascalCase (`SignUpSchema`, `FolderItemProps`)
-- **Server Actions**: camelCase with descriptive verbs (`getRootFolders`, `saveNewVersion`)
+- **Interfaces/Types**: PascalCase (`SignUpSchema`, `AuthFormProps`)
+- **Server Actions**: camelCase with descriptive verbs (`signIn`, `signUp`, `signOut`)
 
 ## Code Structure Rules
 
@@ -36,7 +35,7 @@ Last Updated: 06/11/2025 19:56 GMT+10
 - **Max 500 lines per file** (mandatory)
 - **Max 50 lines per function** (single responsibility)
 - **Max 100 characters per line**
-- Current status: All files well under limits
+- Current status: All P1S1 files well under limits
 
 ### Function Guidelines
 - Single, clear responsibility
@@ -49,115 +48,208 @@ Last Updated: 06/11/2025 19:56 GMT+10
 ### Component Guidelines
 - Functional components with TypeScript interfaces
 - Props interface defined at top of file or inline
-- Server Components by default
 - Client Components marked with `"use client"`
 - Hooks at top of component body
-- Event handlers prefixed with `handle` (e.g., `handleNewFolder`)
+- Event handlers prefixed with `handle` (e.g., `handleSubmit`)
 
-## TypeScript Patterns
+## TypeScript Patterns (P1S1)
 
-### Server Actions Pattern
+### Server Action Pattern (Error Objects, Not Throws)
 ```typescript
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import db from "@/lib/db"
-import { revalidatePath } from "next/cache"
+import { signInSchema } from "./schemas"
 
-export async function actionName(params: Type) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error("User not found")
+export async function signIn(data: unknown) {
+  // Validate input
+  const parsed = signInSchema.safeParse(data)
+  if (!parsed.success) {
+    return { error: "Invalid input" }
   }
 
-  // Database operation
-  const result = await db.model.operation({
-    where: { user_id: user.id },
-    data: { ...params }
+  // Supabase operation
+  const supabase = createClient()
+  const { error } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password
   })
 
-  revalidatePath("/")
-  return result
+  // Return error object (NEVER throw)
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true }
 }
 ```
 
-### Client Component with Props Pattern
+**Key Pattern**: Server actions return `{ error: string }` or `{ success: true }`, never throw exceptions.
+
+### Client Component with Dual Feedback Pattern
 ```typescript
 "use client"
 
 import { useState } from "react"
 import { toast } from "sonner"
+import { signIn } from "@/features/auth/actions"
 
-interface ComponentNameProps {
-  requiredProp: string
-  optionalProp?: number
-  onAction?: (data: DataType) => void
-}
+export function AuthForm() {
+  const [formError, setFormError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-export function ComponentName({
-  requiredProp,
-  optionalProp = defaultValue,
-  onAction
-}: ComponentNameProps) {
-  const [state, setState] = useState<Type>(initialValue)
+  const handleSubmit = async (data: FormData) => {
+    setIsLoading(true)
+    setFormError("") // Clear previous inline error
 
-  const handleAction = async () => {
-    try {
-      // Logic
-      toast.success("Action completed")
-      onAction?.(data)
-    } catch (error) {
-      console.error("Action failed:", error)
-      toast.error("Action failed")
+    const result = await signIn(data)
+
+    if (result.error) {
+      // Dual feedback
+      setFormError(result.error)           // Inline error
+      toast.error(result.error, {          // Toast notification
+        duration: 6000
+      })
+      setIsLoading(false)
+      return
     }
+
+    // Success feedback
+    toast.success("Signed in successfully", {
+      duration: 3000
+    })
+    setIsRedirecting(true)
+    router.push("/dashboard")
   }
 
   return (
-    // JSX
+    <form onSubmit={handleSubmit}>
+      {/* Form fields */}
+      <FormError message={formError} />
+    </form>
   )
 }
 ```
 
-### Optimistic UI Update Pattern
+**Key Patterns**:
+- **Dual Feedback**: Toast + inline errors
+- **Toast Durations**: 6s for errors, 3s for success
+- **State Management**: Separate loading/error/redirecting states
+- **Error Clearing**: Clear inline errors on new submission
+
+### Form Error Component Pattern
 ```typescript
-const handleCreate = async () => {
-  try {
-    const newItem = await createAction(data)
-    // Immediately update local state
-    setItems((prev) => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)))
-    toast.success("Created successfully")
-  } catch (error) {
-    console.error("Failed:", error)
-    toast.error("Failed to create")
-  }
+interface FormErrorProps {
+  message?: string
+}
+
+export function FormError({ message }: FormErrorProps) {
+  if (!message) return null
+
+  return (
+    <div className="flex items-center gap-2 text-sm text-red-500">
+      <AlertCircle className="h-4 w-4" />
+      <p>{message}</p>
+    </div>
+  )
 }
 ```
 
+**Key Pattern**: Conditional rendering based on message presence.
+
+### Context-Aware Component Pattern
+```typescript
+"use client"
+
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
+
+export function Header() {
+  const [user, setUser] = useState<User | null>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+    getUser()
+  }, [])
+
+  return (
+    <header>
+      {user ? (
+        <button onClick={handleSignOut}>Sign Out</button>
+      ) : (
+        <Link href="/login">Sign In</Link>
+      )}
+    </header>
+  )
+}
+```
+
+**Key Pattern**: Component adapts UI based on authentication state.
+
+### Form Change Detection Pattern
+```typescript
+"use client"
+
+import { useEffect } from "react"
+import { useFormState } from "react-hook-form"
+
+export function AuthForm() {
+  const { isDirty } = useFormState()
+  const [formError, setFormError] = useState("")
+
+  // Clear inline error when user changes form
+  useEffect(() => {
+    if (isDirty) {
+      setFormError("")
+    }
+  }, [isDirty])
+
+  // ...
+}
+```
+
+**Key Pattern**: Clear errors when user modifies form, improving UX.
+
+### Loading and Redirect States Pattern
+```typescript
+const [isLoading, setIsLoading] = useState(false)
+const [isRedirecting, setIsRedirecting] = useState(false)
+
+// During submission
+if (isLoading) {
+  return <Button disabled>Signing in...</Button>
+}
+
+// After success
+if (isRedirecting) {
+  return <p>Redirecting to dashboard...</p>
+}
+```
+
+**Key Pattern**: Separate states for loading and redirecting feedback.
+
 ## Import Organization
-1. External libraries (React, Next.js, etc.)
-2. Internal absolute imports (`@/...`)
-3. Relative imports
-4. Types (if needed separately)
+1. React and Next.js
+2. Third-party libraries
+3. Internal absolute imports (`@/...`)
+4. Relative imports
+5. Types (if needed separately)
 
 ```typescript
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "next/router"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { createFolder } from "@/features/folders/actions"
-import db from "@/lib/db"
+import { signIn } from "@/features/auth/actions"
+import { createClient } from "@/lib/supabase/client"
 
-import { FolderItem } from "./FolderItem"
+import { FormError } from "./FormError"
 ```
-
-## Important Import Rules
-- **Prisma db**: Use `import db from "@/lib/db"` (default export, NOT named export)
-- **Supabase Server**: Use `createClient()` from `@/lib/supabase/server`
-- **Supabase Client**: Use `createClient()` from `@/lib/supabase`
-- **Toast**: Import `toast` from `"sonner"` for notifications
 
 ## Documentation
 
@@ -170,136 +262,174 @@ import { FolderItem } from "./FolderItem"
 
 ### Example
 ```typescript
-// Reason: Update parent's state immediately for optimistic UI
-if (onUpdate) {
-  onUpdate(folder.id, updatedFolder)
-}
+// Reason: Clear inline error when user changes form
+useEffect(() => {
+  if (isDirty) {
+    setFormError("")
+  }
+}, [isDirty])
 ```
 
-## Styling Conventions
+## Styling Conventions (P1S1 Bold Simplicity)
 
-### Tailwind CSS
-- Use utility classes
-- No hardcoded colors (use theme variables)
-- Responsive design patterns (`sm:`, `md:`, `lg:`)
-- Dark mode support via `next-themes`
-- Conditional classes using template literals
+### Design System Variables
+- **Primary**: Indigo #4F46E5 (`text-primary`, `bg-primary`)
+- **Accent**: Magenta #EC4899 (`text-accent`, `bg-accent`)
+- **Typography**: Inter font (400, 500, 600 weights)
+- **Spacing**: 4px grid system
+- **Transitions**: 150ms ease
 
-### Example
+### Tailwind CSS Classes
 ```typescript
-className={`flex items-center p-1 rounded-md cursor-pointer ${
-  isSelected ? "bg-gray-700" : "hover:bg-gray-800"
-}`}
+// Primary button
+className="bg-primary text-primary-foreground hover:bg-primary/90"
+
+// Accent button
+className="bg-accent text-accent-foreground hover:bg-accent/90"
+
+// Card
+className="border border-border bg-card rounded-lg p-6"
+
+// Input
+className="border border-input bg-background rounded-md px-3 py-2"
 ```
 
-### CSS Variables
-- Use Shadcn Studio theme system
-- Variables defined in `globals.css`
-- Supports light/dark mode automatically
-- Example: `bg-background`, `text-foreground`, `border-input`
+### Dark Mode First
+- Default theme is dark
+- CSS variables defined for dark mode
+- Light mode support via theme variables
 
-## Best Practices
+## Best Practices (P1S1 Patterns)
+
+### Error Handling
+- **Server Actions**: Return error objects, never throw
+- **Client Components**: Handle errors with try-catch
+- **Dual Feedback**: Toast + inline errors
+- **Error Clearing**: Clear on form change
+- **User-Friendly Messages**: Clear, actionable errors
+
+### Loading States
+- **Form Submission**: Disable form, show loading text
+- **Redirecting**: Show redirect feedback
+- **Button States**: "Sign in" → "Signing in..." → "Redirecting..."
+
+### User Feedback
+- **Toast Durations**:
+  - Errors: 6000ms (6 seconds)
+  - Success: 3000ms (3 seconds)
+- **Toast Positioning**: Top center (default)
+- **Inline Errors**: Below form fields with icon
 
 ### Security
 - Never commit secrets
-- Use environment variables
-- Validate all user input with Zod
-- Parameterized database queries (Prisma handles this)
-- RLS policies for data isolation
-- User authentication check in all server actions
+- Validate all input with Zod schemas
+- Use Supabase Auth for authentication
+- Protected routes via middleware
+- Server-side session checks
 
 ### Performance
 - Prefer async/await
-- Debounce user input handlers (when needed)
-- Optimize database queries with indexes
-- Implement loading states
-- Handle Supabase server client cookie operations carefully
-- Optimistic UI updates for instant feedback
-
-### Error Handling
-- Fail fast: Check errors early
-- Throw errors in server actions
-- Handle errors in components with try-catch
-- Provide user feedback via toast
-- Log errors to console for debugging
-- Never suppress errors silently
+- Client-side navigation (next/router)
+- Optimistic UI updates (planned)
+- Debounce form submissions (planned)
 
 ### User Experience
-- Toast notifications for all mutations (success/error)
-- Loading states for async operations
-- Confirmation dialogs for destructive actions
-- Immediate UI updates (optimistic)
+- Dual feedback system (toast + inline)
+- Loading states for all async operations
 - Clear error messages
-
-### Testing (Target: 80%+ coverage)
-- Test-Driven Development (TDD) approach
-- Unit tests for functions
-- Integration tests for components
-- E2E tests for critical paths
-- Test error conditions
+- Immediate feedback on form changes
+- Smooth transitions (150ms)
 
 ## Design Principles
 
 ### KISS (Keep It Simple, Stupid)
 - Simple solutions over complex ones
 - Easy to understand and maintain
+- P1S1 example: Error objects instead of try-catch chains
 
 ### YAGNI (You Aren't Gonna Need It)
 - Implement features only when needed
-- Avoid speculative development
+- P1S1 example: Basic auth only, no OAuth yet
 
 ### DRY (Don't Repeat Yourself)
 - Centralize common components
-- Single Source of Truth (SSOT)
-- Reuse server actions
+- P1S1 example: FormError component for reusable error display
 
 ### SOLID Principles
-- Single Responsibility
-- Open/Closed
-- Dependency Inversion
+- Single Responsibility: AuthForm handles auth, FormError handles errors
+- Open/Closed: FormError accepts any message prop
+- Dependency Inversion: Components depend on abstractions (props)
 
-## Common Patterns in Project
+## P1S1 Specific Patterns
 
-### Callback Props Pattern (for state propagation)
+### Server Action Error Handling
+- ✅ Return error objects
+- ❌ Don't throw exceptions
+- ✅ Validate with Zod
+- ✅ Return success: true on success
+
+### Dual Feedback System
+- ✅ Toast for global feedback
+- ✅ Inline errors for form feedback
+- ✅ Different durations for errors/success
+- ✅ Clear inline errors on form change
+
+### Context-Aware Components
+- ✅ Check auth state in useEffect
+- ✅ Render different UI based on state
+- ✅ Use Supabase client for auth checks
+
+### Loading and Redirect States
+- ✅ Separate isLoading and isRedirecting states
+- ✅ Show appropriate feedback for each state
+- ✅ Disable form during submission
+
+## Testing Patterns (P1S1)
+
+### E2E Testing with Chrome DevTools MCP
+- Test complete user flows
+- Verify form submissions
+- Check error handling
+- Validate success paths
+- Test accessibility
+
+### Manual Testing Guides
+- Step-by-step instructions
+- Expected results documented
+- Edge cases covered
+- Accessibility checks included
+
+## Common Patterns in Project (P1S1)
+
+### Zod Schema Validation
 ```typescript
-interface ItemProps {
-  item: Item
-  onUpdate?: (itemId: string, updatedItem: Item) => void
-  onDelete?: (itemId: string) => void
-}
+import { z } from "zod"
+
+export const signInSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters")
+})
+
+export type SignInSchema = z.infer<typeof signInSchema>
 ```
 
-### Zustand Store Pattern
+### Supabase Server Client
 ```typescript
-interface UiStore {
-  expandedFolders: Set<string>
-  selectedFolder: string | null
-  toggleFolder: (folderId: string) => void
-  selectFolder: (folderId: string) => void
-}
+import { createClient } from "@/lib/supabase/server"
 
-export const useUiStore = create<UiStore>((set) => ({
-  expandedFolders: new Set(),
-  selectedFolder: null,
-  toggleFolder: (folderId) => set((state) => {
-    const newExpanded = new Set(state.expandedFolders)
-    // toggle logic
-    return { expandedFolders: newExpanded }
-  }),
-  selectFolder: (folderId) => set({ selectedFolder: folderId })
-}))
-```
-
-### Server Action with Auth Check
-```typescript
-export async function protectedAction(params: Type) {
+export async function serverAction() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  // ...
+}
+```
 
-  if (!user) {
-    throw new Error("User not found")
-  }
+### Supabase Client (Browser)
+```typescript
+import { createClient } from "@/lib/supabase/client"
 
-  // Operation with user.id
+export function ClientComponent() {
+  const supabase = createClient()
+  // ...
 }
 ```

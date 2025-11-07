@@ -1,0 +1,47 @@
+{
+  "env": {
+    "MALLOC_MMAP_THRESHOLD": "268435456",
+    "NODE_OPTIONS": "--max-old-space-size=8192 --max-semi-space-size=512",
+    "V8_FLAGS": "--thin-strings --lazy",
+    "USE_BUILTIN_RIPGREP": "0",
+    "MCP_TIMEOUT": "1000000"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "mcp__chrome-devtools__new_page",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__fill_form",
+      "mcp__chrome-devtools__wait_for"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./secrets/**)",
+      "Read(./build)"
+    ],
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": []
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [],
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify-send 'Claude Code' 'Awaiting your input'"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "/home/allan/projects/.claude/hooks/statusline.sh"
+  }
+}

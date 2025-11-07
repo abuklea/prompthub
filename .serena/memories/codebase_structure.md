@@ -1,5 +1,5 @@
 # PromptHub - Codebase Structure
-Last Updated: 06/11/2025 19:56 GMT+10
+Last Updated: 07/11/2025 02:15 GMT+10
 
 ## Root Directory Structure
 ```
@@ -7,9 +7,10 @@ Last Updated: 06/11/2025 19:56 GMT+10
 ├── src/                    # Source code
 ├── prisma/                 # Database schema and migrations
 ├── supabase/              # Supabase configuration
-├── public/                # Static assets (favicon, etc.)
+├── public/                # Static assets
 ├── docs/                  # Project documentation and rules
 ├── PRPs/                  # Product Requirements & Planning
+│   └── reports/          # PRP INITIAL and REPORT documents
 ├── wip/                   # Work in progress files
 ├── mermaid/               # Generated diagrams
 ├── .claude/               # Claude configuration and agents
@@ -30,166 +31,189 @@ Configuration Files:
 
 ## Source Code Structure (`src/`)
 
-### Feature-Based Organization
+### P1S1 Implemented Structure
 ```
 src/
 ├── features/              # Feature modules (domain-driven)
-│   ├── auth/             # Authentication
-│   │   ├── actions.ts    # Server actions (signUp, signIn, signOut)
-│   │   ├── schemas.ts    # Zod validation schemas
-│   │   └── components/   # Auth UI components
-│   │       └── AuthForm.tsx
-│   ├── folders/          # Folder management
-│   │   ├── actions.ts    # CRUD operations (getRootFolders, createFolder, etc.)
-│   │   └── components/   # Folder UI
-│   │       ├── FolderTree.tsx    # Container with optimistic updates
-│   │       └── FolderItem.tsx    # Recursive folder item
-│   └── prompts/          # Prompt management
-│       ├── actions.ts    # Prompt operations
-│       └── components/   # Prompt UI
-│           └── PromptList.tsx
+│   └── auth/             # Authentication (P1S1)
+│       ├── actions.ts    # Server actions (signUp, signIn, signOut)
+│       ├── schemas.ts    # Zod validation schemas
+│       └── components/   # Auth UI components
+│           ├── AuthForm.tsx        # Main auth form (sign in/up)
+│           └── FormError.tsx       # Error display component
 │
 ├── components/           # Shared components
-│   ├── layout/          # Layout components
-│   │   └── Header.tsx
-│   ├── theme-provider.tsx
+│   ├── layout/          # Layout components (P1S1)
+│   │   └── Header.tsx   # Context-aware header
 │   └── ui/              # Shadcn UI components
 │       ├── button.tsx
-│       ├── input.tsx
 │       ├── card.tsx
-│       ├── form.tsx
+│       ├── input.tsx
 │       ├── label.tsx
-│       ├── dropdown-menu.tsx
-│       └── sonner.tsx (toast)
+│       └── toaster.tsx  # Sonner toast wrapper
 │
 ├── lib/                 # Shared utilities
-│   ├── db.ts           # Prisma client singleton (default export)
-│   ├── supabase.ts     # Supabase client factory
-│   ├── supabase/
-│   │   └── server.ts   # Server-side Supabase client
-│   └── utils.ts        # Utility functions (cn helper)
+│   └── supabase/
+│       ├── client.ts    # Client-side Supabase client
+│       └── server.ts    # Server-side Supabase client
 │
-├── stores/             # Zustand state stores
-│   └── use-ui-store.ts # UI state (expanded folders, selected items)
+├── pages/               # Next.js Pages Router (P1S1)
+│   ├── _app.tsx        # App wrapper (fonts, toaster)
+│   ├── _document.tsx   # Document (dark mode)
+│   ├── index.tsx       # Landing page
+│   ├── login.tsx       # Auth page
+│   └── dashboard.tsx   # Protected dashboard
 │
-├── app/                # Next.js App Router
-│   ├── (auth)/        # Authentication routes (route group)
-│   │   ├── login/
-│   │   │   └── page.tsx
-│   │   └── layout.tsx
-│   ├── (app)/         # Authenticated app routes (route group)
-│   │   ├── dashboard/
-│   │   │   └── page.tsx
-│   │   ├── profile/
-│   │   │   └── page.tsx
-│   │   ├── settings/
-│   │   │   └── page.tsx
-│   │   ├── page.tsx
-│   │   └── layout.tsx  # Three-pane layout
-│   ├── auth/          # Auth API routes
-│   │   └── sign-out/
-│   │       └── route.ts
-│   └── layout.tsx     # Root layout (theme, fonts)
+├── styles/             # Global styles
+│   └── globals.css     # Bold Simplicity design system
 │
-├── styles/            # Global styles
-│   └── globals.css    # Tailwind directives + theme variables
-│
-└── middleware.ts      # Next.js middleware (auth check)
+└── middleware.ts       # Auth protection middleware
 ```
+
+## Key File Locations (P1S1)
+
+### Design System
+- **CSS Variables**: `src/styles/globals.css`
+- **Colors**: Indigo #4F46E5, Magenta #EC4899
+- **Typography**: Inter font (400, 500, 600)
+- **Spacing**: 4px grid system
+
+### Authentication
+- **Server Actions**: `src/features/auth/actions.ts`
+- **Validation Schemas**: `src/features/auth/schemas.ts`
+- **Auth Form**: `src/features/auth/components/AuthForm.tsx`
+- **Error Component**: `src/features/auth/components/FormError.tsx`
+
+### Layout Components
+- **Header**: `src/components/layout/Header.tsx`
+- **Context-aware**: Shows different content based on auth state
+
+### Supabase Integration
+- **Client**: `src/lib/supabase/client.ts` (browser)
+- **Server**: `src/lib/supabase/server.ts` (API/SSR)
+
+### Pages
+- **Landing**: `src/pages/index.tsx`
+- **Login**: `src/pages/login.tsx`
+- **Dashboard**: `src/pages/dashboard.tsx` (protected)
 
 ## Database Schema (Prisma)
 
-### Current Models
+### Current Models (P1S1)
+- **User**: Managed by Supabase Auth (auth.users)
+  - No custom user table yet
+  - RLS policies enforce data isolation
+
+### Planned Models
 - **Profile**: User profiles (1:1 with auth.users)
-  - id (String, PK, from Supabase auth)
-  - display_name (optional)
-  - created_at
+- **Folder**: Hierarchical folder structure
+- **Prompt**: User prompts with content
+- **PromptVersion**: Version control
+- **Tag**: User-scoped tags
 
-- **Folder**: Hierarchical folder structure (self-referencing)
-  - id (UUID, PK)
-  - name
-  - user_id (FK → Profile)
-  - parent_id (FK → Folder, self-reference)
-  - children (relation)
-  - prompts (relation)
-  - created_at
-
-- **Prompt**: User prompts with content and metadata
-  - id (UUID, PK)
-  - title
-  - content (text)
-  - content_tsv (tsvector for full-text search)
-  - user_id (FK → Profile)
-  - folder_id (FK → Folder, nullable)
-  - versions (relation)
-  - tags (relation)
-  - created_at, updated_at
-
-- **PromptVersion**: Version control with diff-match-patch
-  - id (Int, PK, auto-increment)
-  - diff (text, stores patch)
-  - prompt_id (FK → Prompt)
-  - created_at
-
-- **Tag**: User-scoped tags (many-to-many with Prompts)
-  - id (UUID, PK)
-  - name (unique)
-  - user_id
-  - prompts (relation)
-
-### Key Relationships
-- Profile → Folders (1:many)
-- Profile → Prompts (1:many)
-- Folder → Folder (self-referencing parent/children)
-- Folder → Prompts (1:many)
-- Prompt → PromptVersion (1:many)
-- Prompt ↔ Tag (many-to-many)
-
-### Indexes
-- Folder: user_id + parent_id
-- Prompt: user_id + folder_id
-- Prompt: content_tsv (GIN index for full-text search)
-- PromptVersion: prompt_id
-- Tag: user_id
-
-## Architecture Patterns
-
-### Next.js App Router Patterns
-- **Server Components** by default for data fetching
-- **Client Components** only when needed (marked with `"use client"`)
-- **Server Actions** for mutations (marked with `"use server"`)
-- **Route Groups**: `(auth)` and `(app)` for layout isolation
-- **Middleware**: Authentication checks for protected routes
+## Architecture Patterns (P1S1)
 
 ### Authentication Flow
-1. Supabase Auth for user management
-2. Middleware checks session on all routes
-3. Server actions validate user before mutations
-4. RLS policies enforce data isolation in database
+1. **Client**: AuthForm captures credentials
+2. **Server Action**: Validates with Zod schema
+3. **Supabase Auth**: Creates/verifies user
+4. **Error Handling**: Returns error objects (never throws)
+5. **Feedback**: Dual system (toast + inline)
+6. **Redirect**: Client-side navigation on success
 
-### State Management Strategy
-- **Server State**: Fetched in Server Components, passed to Client Components
-- **Global UI State**: Zustand for expanded folders, selected items
-- **Form State**: React Hook Form with Zod validation
-- **Theme State**: next-themes for dark/light mode
-- **Notifications**: Sonner toast library
+### Error Handling Pattern
+```typescript
+// Server actions return error objects
+const result = await signIn(data)
+if (result.error) {
+  // Show inline error
+  // Show toast notification
+}
+```
 
-### Optimistic UI Pattern
-- Folder operations update local state immediately
-- Server actions return updated data
-- Parent-child callback props for state propagation
-- Toast notifications for feedback
+### Dual Feedback System
+- **Toast Notifications**: 
+  - Errors: 6000ms duration
+  - Success: 3000ms duration
+- **Inline Errors**: 
+  - Below form fields
+  - Red text with error icon
+  - FormError component
+
+### Loading States
+- **Form Submission**: Button shows "Signing in..."
+- **Redirecting**: "Redirecting to dashboard..."
+- **Disabled**: Form disabled during submission
+
+### Context-Aware Components
+- **Header**: Shows sign out when authenticated
+- **Pages**: Different content for auth/unauth users
+- **Middleware**: Protects routes automatically
+
+## Component Patterns (P1S1)
+
+### FormError Component
+```typescript
+// Reusable error display
+<FormError message={error} />
+```
+
+### Context-Aware Header
+```typescript
+// Shows sign out when authenticated
+<Header />
+```
+
+### AuthForm Pattern
+- Mode switching (sign in/up)
+- Form change detection (useEffect)
+- Dual error feedback
+- Loading states
+- Redirect feedback
+
+## Styling Architecture (P1S1)
+
+### Bold Simplicity Design System
+- **Dark Mode First**: Default dark theme
+- **Primary Color**: Indigo #4F46E5
+- **Accent Color**: Magenta #EC4899
+- **Typography**: Inter font family
+- **Spacing**: 4px grid (0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24)
+- **Borders**: Rounded corners throughout
+- **Transitions**: Smooth 150ms ease
+
+### CSS Variable System
+```css
+:root {
+  --primary: 263.4 70% 50.4%;     /* Indigo */
+  --accent: 330 81% 60%;          /* Magenta */
+  --background: 224 71% 4%;       /* Dark blue-black */
+  --foreground: 213 31% 91%;      /* Light text */
+  /* ... */
+}
+```
 
 ## File Size Policy
 - **Maximum 500 lines per file** (mandatory)
-- Use modular architecture to keep files manageable
-- Refactor when approaching limit
-- Current files are well within limits
+- Current P1S1 files well within limits:
+  - AuthForm.tsx: ~200 lines
+  - actions.ts: ~100 lines
+  - Header.tsx: ~50 lines
+  - globals.css: ~150 lines
 
 ## Current Implementation Status
-✅ Phase 1: Project Setup (Complete)
-✅ Phase 2: Authentication (Complete)
-✅ Phase 3: Data Security (RLS policies needed)
-🔄 Phase 4: Folder & Prompt Organization (In Progress)
-⏳ Phase 5: Monaco Editor & Versioning (Pending)
-⏳ Phase 6: Search & Tags (Pending)
+✅ Phase 1: Authentication & Design (P1S1 Complete)
+⏳ Phase 2: Core Application Features (Pending)
+⏳ Phase 3: Advanced Features (Pending)
+
+## P1S1 Deliverables
+✅ Design system implementation
+✅ Authentication server actions
+✅ Auth form components
+✅ Error handling patterns
+✅ Toast notification system
+✅ Context-aware header
+✅ Protected routes
+✅ E2E testing completed
+✅ Accessibility audit passed
+✅ Full documentation delivered
