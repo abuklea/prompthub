@@ -1,5 +1,5 @@
 # PromptHub - Code Style & Conventions
-Last Updated: 07/11/2025 13:33 GMT+10
+Last Updated: 07/11/2025 20:05 GMT+10
 
 ## TypeScript Configuration
 - **Strict Mode**: Enabled
@@ -331,22 +331,35 @@ useEffect(() => {
   --card: 220 26% 14%;         /* Gray 900 #111827 */
   --foreground: 213 31% 91%;   /* Light text #E2E8F0 */
 }
+
+html {
+  font-size: 12px;  /* P5S3d: Compact UI (was 16px) */
+}
 ```
 
 **Dark Mode** (`.dark`):
 - Same color mappings for consistency
 - Full light mode support via theme variables
 
-### Design System Variables
+### Design System Variables (P5S3d: Compact UI Standards)
+- **Base Font Size**: 12px (P5S3d: reduced 25% from 16px)
 - **Primary**: Indigo #4F46E5 (HSL: 239 84% 67%) - Used for primary buttons, links, accents
 - **Accent**: Magenta #EC4899 (HSL: 328 85% 70%) - Used for secondary actions, highlights
 - **Typography**: Inter font family (400=normal, 500=medium, 600=semibold)
-  - Body text: Inter 400
-  - Labels/Navigation: Inter 500
-  - Headers/Important: Inter 600
+  - Body text: Inter 400, text-xs (P5S3d)
+  - Labels/Navigation: Inter 500, text-xs (P5S3d)
+  - Headers/Important: Inter 600, text-xs (P5S3d)
+  - Monaco Code: 14px (preserved for readability)
 - **Spacing**: 4px grid system (0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24px increments)
 - **Transitions**: 150ms ease (smooth animations)
 - **Border Radius**: Consistent rounded corners throughout
+
+### Component Sizing Standards (P5S3d: Compact UI)
+- **Button Default**: `h-8 px-3 text-xs` (was h-9 px-4 text-sm)
+- **Button Small**: `h-7 px-2.5 text-xs` (was h-8 px-3 text-xs)
+- **Input**: `h-8 px-2.5 py-1.5` (was h-9 px-3 py-2)
+- **Label**: `text-xs` (was text-sm)
+- **PanelSubheader**: `h-10 px-3 text-xs` (was h-12 px-4 text-sm)
 
 ### Tailwind CSS Classes
 ```typescript
@@ -411,6 +424,39 @@ function PromptEditor() {
 // Automatic with dynamic import
 <Editor ... /> // Shows EditorSkeleton while loading
 ```
+
+### Monaco Editor Height in Flex Containers (P5S3d - CRITICAL PATTERN)
+
+**Problem**: Monaco's `height="100%"` doesn't work in flex containers without explicit height propagation.
+
+**Solution**: Wrap Monaco in absolute positioned container with explicit `h-full` on ALL wrapper ancestors.
+
+```typescript
+// EditorPane.tsx (P5S3d fix)
+<div className="flex-1 overflow-hidden relative">  {/* flex-1 for flex container */}
+  <div className="absolute inset-0 h-full">       {/* CRITICAL: h-full wrapper */}
+    <Editor
+      height="100%"     {/* Now resolves to correct height */}
+      value={content}
+      onChange={onChange}
+    />
+  </div>
+</div>
+```
+
+**Key Principles** (P5S3d):
+- Monaco needs explicit height context when used in flex layouts
+- ALL wrapper divs between flex parent and Monaco MUST have `h-full`
+- Use `absolute inset-0 h-full` pattern for direct Monaco wrapper
+- Pattern: `flex-1 overflow-hidden relative` → `absolute inset-0 h-full` → `<Editor height="100%" />`
+- Result: Monaco renders at full available height (e.g., 657px vs 5px broken state)
+
+**Why This Works**:
+- `flex-1`: Takes available vertical space in flex container
+- `overflow-hidden relative`: Creates positioning context
+- `absolute inset-0`: Stretches to parent bounds
+- `h-full`: Explicitly sets height to 100% of parent
+- Monaco `height="100%"`: Now has explicit height reference
 
 ## Best Practices (P1S1 & P5S1 Patterns)
 

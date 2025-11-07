@@ -249,6 +249,20 @@
   - **Step Dependencies**: Phase 5, Step 3b
   - **User Instructions**: (1) Columns can be resized by dragging vertical separators, (2) Drag handles animate smoothly toward cursor when nearby and return to center when released, (3) Column widths persist across page reloads, (4) Toolbar content fits properly at all column widths without overflow, (5) Touch and keyboard navigation work correctly. Full implementation details and testing guide in `PRPs/P5S3c-fix-subheader-layout-resizable-columns.md`.
 
+- Step 3d: [P] Compact UI and Monaco Editor Fix
+  - **Task**: Reduce all UI text by 25-30% for a more compact, power-user interface and fix Monaco editor rendering bug where editor renders extremely small instead of filling available vertical space. Implement hybrid CSS base + Shadcn overrides approach: reduce base font in globals.css (16px → 12px), then override Shadcn component sizes explicitly. Fix Monaco editor with absolute positioning wrapper to give Monaco measurable dimensions.
+  - **Assignee**: `senior-frontend-engineer`, `qa-test-automation-engineer`
+  - **Files**:
+    - **MODIFY**: `src/styles/globals.css` - Reduce root font-size from 16px to 12px
+    - **MODIFY**: `src/components/ui/button.tsx` - Update default and small variant sizing
+    - **MODIFY**: `src/components/ui/input.tsx` - Reduce height and padding
+    - **MODIFY**: `src/components/ui/label.tsx` - Change text-sm to text-xs
+    - **MODIFY**: `src/components/layout/PanelSubheader.tsx` - Reduce height and font size
+    - **MODIFY**: `src/features/editor/components/EditorPane.tsx` - Add absolute positioning wrapper for Monaco
+    - **MODIFY**: `src/features/editor/components/Editor.tsx` - Verify font size preservation (14px)
+  - **Step Dependencies**: Phase 5, Step 3c
+  - **User Instructions**: (1) All UI text is ~25% smaller (12px base vs 16px), (2) Monaco editor fills vertical space from subheader to footer, (3) Editor font remains at 14px for code readability, (4) All breakpoints render without overflow (375px, 768px, 1920px), (5) Panel resizing works smoothly at all widths, (6) Build passes without errors. Full implementation details and design rationale in `docs/plans/compact-ui-editor-fix-design.md` and validation guide in `PRPs/P5S3d-compact-ui-and-monaco-editor-fix.md`.
+
 - Step 4: Editor UI with Manual Save
   - **Task**: Connect the `EditorPane` to the backend. The "Save" button should invoke the `saveNewVersion` action. Implement loading and success states for the save button. The editor should be populated with the selected prompt's content.
   - **Assignee**: `Frontend_Engineer`

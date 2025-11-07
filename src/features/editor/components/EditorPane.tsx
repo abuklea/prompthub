@@ -211,13 +211,16 @@ export function EditorPane() {
       </div>
 
       {/* Editor Section - Takes Remaining Space */}
-      <div className="flex-1 overflow-hidden">
-        <Editor
-          value={content}
-          onChange={(value) => setContent(value || "")}
-          language="markdown"
-          height="100%"
-        />
+      <div className="flex-1 overflow-hidden relative">
+        {/* Reason: Absolute wrapper gives Monaco measurable dimensions for height="100%" */}
+        <div className="absolute inset-0 h-full">
+          <Editor
+            value={content}
+            onChange={(value) => setContent(value || "")}
+            language="markdown"
+            height="100%"
+          />
+        </div>
       </div>
 
       {/* Footer Section - Fixed Height */}

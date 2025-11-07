@@ -1,5 +1,5 @@
 # PromptHub - Codebase Structure
-Last Updated: 07/11/2025 13:33 GMT+10
+Last Updated: 07/11/2025 20:05 GMT+10
 
 ## Root Directory Structure
 ```
@@ -42,22 +42,24 @@ src/
 │   │       ├── AuthForm.tsx        # Main auth form (sign in/up)
 │   │       └── FormError.tsx       # Error display component
 │   │
-│   └── editor/           # Monaco Editor Integration (P5S1)
+│   └── editor/           # Monaco Editor Integration (P5S1, P5S3d)
 │       ├── types.ts      # TypeScript interfaces (Editor, EditorSkeleton)
 │       ├── components/   # Editor UI components
-│       │   ├── Editor.tsx           # Monaco wrapper with SSR handling
+│       │   ├── Editor.tsx           # Monaco wrapper with SSR handling (P5S3d: h-full fix)
+│       │   ├── EditorPane.tsx       # Editor panel wrapper (P5S3d: h-full fix)
 │       │   └── EditorSkeleton.tsx   # Loading state component
 │       └── index.ts      # Centralized exports
 │
 ├── components/           # Shared components
-│   ├── layout/          # Layout components (P1S1)
-│   │   └── Header.tsx   # Context-aware header
-│   └── ui/              # Shadcn UI components
-│       ├── button.tsx
+│   ├── layout/          # Layout components (P1S1, P5S3d)
+│   │   ├── Header.tsx         # Context-aware header
+│   │   └── PanelSubheader.tsx # Panel subheader (P5S3d: compact sizing)
+│   └── ui/              # Shadcn UI components (P5S3d: compact sizing)
+│       ├── button.tsx         # P5S3d: h-8/h-7, text-xs
 │       ├── card.tsx
-│       ├── input.tsx
-│       ├── label.tsx
-│       └── toaster.tsx  # Sonner toast wrapper
+│       ├── input.tsx          # P5S3d: h-8
+│       ├── label.tsx          # P5S3d: text-xs
+│       └── toaster.tsx        # Sonner toast wrapper
 │
 ├── lib/                 # Shared utilities
 │   └── supabase/
@@ -72,7 +74,7 @@ src/
 │   └── dashboard.tsx   # Protected dashboard
 │
 ├── styles/             # Global styles
-│   └── globals.css     # Bold Simplicity design system
+│   └── globals.css     # Bold Simplicity design system (P5S3d: 12px base font)
 │
 └── middleware.ts       # Auth protection middleware
 ```
@@ -93,11 +95,13 @@ src/
 - **Loading State**: EditorSkeleton provides loading animation
 - **Event Callbacks**: onChange, onMount, beforeMount support
 
-### Design System
+### Design System (P5S3d: Compact UI)
 - **CSS Variables**: `src/styles/globals.css`
+- **Base Font Size**: 12px (P5S3d: reduced from 16px)
 - **Colors**: Indigo #4F46E5, Magenta #EC4899
 - **Typography**: Inter font (400, 500, 600)
 - **Spacing**: 4px grid system
+- **Component Sizes**: Reduced 25% (h-8/h-7 buttons, text-xs labels)
 
 ### Authentication
 - **Server Actions**: `src/features/auth/actions.ts`
@@ -224,7 +228,14 @@ if (result.error) {
 
 ## Current Implementation Status
 
-### Phase 5 Step 1 (P5S1) - 100% Complete (LATEST)
+### Phase 5 Step 3d (P5S3d) - 100% Complete (LATEST)
+**Date Completed**: 07/11/2025 19:57 GMT+10
+**Status**: Production Ready
+**Build Status**: Success (zero errors)
+**Files Modified**: 7 (globals.css, button.tsx, input.tsx, label.tsx, PanelSubheader.tsx, EditorPane.tsx, Editor.tsx)
+**Critical Fix**: Monaco editor height rendering (657px achieved)
+
+### Phase 5 Step 1 (P5S1) - 100% Complete
 **Date Completed**: 07/11/2025 13:30 GMT+10
 **Status**: Production Ready
 **Build Status**: Success (zero errors)
@@ -237,6 +248,17 @@ if (result.error) {
 **Status**: Production Ready
 **E2E Test Pass Rate**: 8/8 (100%)
 **Console Errors**: 0 (Zero)
+
+### P5S3d Deliverables (4 Tasks) - LATEST
+
+#### Compact UI & Monaco Editor Fix (P5S3dT1-T4)
+✅ T1: Global font size reduction (16px → 12px in globals.css)
+✅ T2: Component sizing updates (button, input, label, PanelSubheader)
+✅ T3: Monaco editor height fix (h-full on wrapper ancestors)
+✅ T4: Build verification and visual testing
+
+**Key Achievement**: Monaco editor now renders at 657px height (was 5px)
+**Critical Pattern**: Monaco requires explicit `h-full` on ALL wrapper divs for `height="100%"` to work in flex containers
 
 ### P5S1 Deliverables (5 Tasks)
 

@@ -142,7 +142,7 @@ export default function Editor({
   }
 
   return (
-    <div className={cn("rounded-md border border-border overflow-hidden", className)}>
+    <div className={cn("rounded-md border border-border overflow-hidden h-full", className)}>
       <MonacoEditor
         height={height}
         language={language}

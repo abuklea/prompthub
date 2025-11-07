@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  /* Reduce root font size by 25% (16px → 12px) */
+  html {
+    font-size: 12px;
+  }
+
   :root {
     /* Light mode - PromptHub Style Guide */
     --background: 220 14% 96%;              /* Gray 100 #F3F4F6 */
