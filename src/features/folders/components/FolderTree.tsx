@@ -1,15 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { getRootFolders, createFolder } from "../actions"
 import { Folder } from "@prisma/client"
 import { FolderItem } from "./FolderItem"
-import { Button } from "@/components/ui/button"
+import { useUiStore } from "@/stores/use-ui-store"
 import { toast } from "sonner"
 
 export function FolderTree() {
   const [folders, setFolders] = useState<Folder[]>([])
   const [loading, setLoading] = useState(true)
+  const { folderSort, folderFilter } = useUiStore()
 
   useEffect(() => {
     async function loadFolders() {
@@ -51,30 +52,51 @@ export function FolderTree() {
     setFolders((prev) => prev.filter((folder) => folder.id !== folderId))
   }
 
+  // Apply filter and sort logic
+  const displayedFolders = useMemo(() => {
+    let result = [...folders]
+
+    // Apply filter (case-insensitive)
+    if (folderFilter) {
+      const filterLower = folderFilter.toLowerCase()
+      result = result.filter(folder =>
+        folder.name.toLowerCase().includes(filterLower)
+      )
+    }
+
+    // Apply sort
+    switch (folderSort) {
+      case 'name-asc':
+        result.sort((a, b) => a.name.localeCompare(b.name))
+        break
+      case 'name-desc':
+        result.sort((a, b) => b.name.localeCompare(a.name))
+        break
+      case 'date-asc':
+        result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        break
+      case 'date-desc':
+        result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        break
+    }
+
+    return result
+  }, [folders, folderSort, folderFilter])
+
   if (loading) {
     return <div>Loading...</div>
   }
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-2">
-        <h2 className="text-lg font-semibold">Folders</h2>
-        <Button variant="ghost" size="sm" onClick={handleNewFolder}>
-          +
-        </Button>
-      </div>
-      {loading ? (
-        <div>Loading...</div>
-      ) : (
-        folders.map((folder) => (
-          <FolderItem
-            key={folder.id}
-            folder={folder}
-            onUpdate={handleFolderUpdate}
-            onDelete={handleFolderDelete}
-          />
-        ))
-      )}
+      {displayedFolders.map((folder) => (
+        <FolderItem
+          key={folder.id}
+          folder={folder}
+          onUpdate={handleFolderUpdate}
+          onDelete={handleFolderDelete}
+        />
+      ))}
     </div>
   )
 }

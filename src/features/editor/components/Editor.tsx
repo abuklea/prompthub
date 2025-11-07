@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:27 GMT+10
-Last modified: 07/11/2025 13:27 GMT+10
+Last modified: 07/11/2025 16:16 GMT+10
 ---------------
 Monaco Editor wrapper component with Next.js SSR handling and Bold Simplicity theme.
 Uses dynamic import to prevent SSR issues with Monaco's browser dependencies.
 
 Changelog:
+07/11/2025 16:16 GMT+10 | Enabled full Monaco features (context menu, find/replace) (P5S3bT15)
 07/11/2025 13:27 GMT+10 | Initial creation with dynamic import and custom theme
 */
 
@@ -129,6 +130,14 @@ export default function Editor({
       verticalScrollbarSize: 8,
       horizontalScrollbarSize: 8,
     },
+    // Reason: Enable full Monaco feature set (P5S3bT15)
+    contextmenu: true,  // Enable right-click context menu
+    find: {
+      seedSearchStringFromSelection: 'always' as const,
+      autoFindInSelection: 'multiline' as const,
+    },
+    quickSuggestions: true,  // Enable IntelliSense suggestions
+    suggestOnTriggerCharacters: true,  // Trigger suggestions on typing
     ...options
   }
 

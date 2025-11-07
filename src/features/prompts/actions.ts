@@ -3,11 +3,7 @@
 import db from "@/lib/db"
 import { createClient } from "@/lib/supabase/server"
 import { createPromptSchema, getPromptDetailsSchema } from "./schemas"
-
-// Reason: ActionResult type for consistent server action return values
-type ActionResult<T = any> =
-  | { success: true; data: T }
-  | { success: false; error: string }
+import { ActionResult } from "@/types/actions"
 
 export async function getPromptsByFolder(folderId: string) {
   const supabase = createClient()
@@ -49,12 +45,32 @@ export async function createPrompt(data: unknown): Promise<ActionResult<{ prompt
       return { success: false, error: "Unauthorized. Please sign in." }
     }
 
+    // Reason: Check for duplicate title in the same folder (case-insensitive)
+    const title = parsed.data.title || "Untitled Prompt"
+    const existing = await db.prompt.findFirst({
+      where: {
+        folder_id: parsed.data.folderId,
+        user_id: user.id,
+        title: {
+          equals: title,
+          mode: 'insensitive'
+        }
+      }
+    })
+
+    if (existing) {
+      return {
+        success: false,
+        error: `A document named "${title}" already exists in this folder. Please choose a different title.`
+      }
+    }
+
     // Create prompt in database
     const prompt = await db.prompt.create({
       data: {
         user_id: user.id,
         folder_id: parsed.data.folderId,
-        title: parsed.data.title || "Untitled Prompt",
+        title: title,
         content: "",
       }
     })

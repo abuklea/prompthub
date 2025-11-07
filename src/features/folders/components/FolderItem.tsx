@@ -3,22 +3,25 @@
 import { useState } from "react"
 import { Folder } from "@prisma/client"
 import { useUiStore } from "@/stores/use-ui-store"
-import { getFolderChildren, renameFolder, deleteFolder } from "../actions"
-import { ChevronRight, Folder as FolderIcon } from "lucide-react"
+import { getFolderChildren, renameFolder, deleteFolder, createFolder } from "../actions"
+import { ChevronRight, Folder as FolderIcon, Plus } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 
 interface FolderItemProps {
   folder: Folder
+  depth?: number
   onUpdate?: (folderId: string, updatedFolder: Folder) => void
   onDelete?: (folderId: string) => void
 }
 
-export function FolderItem({ folder, onUpdate, onDelete }: FolderItemProps) {
+export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItemProps) {
   const { expandedFolders, toggleFolder, selectFolder, selectedFolder } = useUiStore()
   const [children, setChildren] = useState<Folder[]>([])
   const [loading, setLoading] = useState(false)
   const isExpanded = expandedFolders.has(folder.id)
+  const MAX_DEPTH = 5
 
   const handleToggle = async () => {
     toggleFolder(folder.id)
@@ -72,41 +75,80 @@ export function FolderItem({ folder, onUpdate, onDelete }: FolderItemProps) {
     }
   }
 
+  const handleAddSubfolder = async () => {
+    const newName = prompt("Enter subfolder name")
+    if (newName) {
+      try {
+        const newFolder = await createFolder(newName, folder.id)
+        // Add to children state immediately
+        setChildren((prev) => [...prev, newFolder].sort((a, b) => a.name.localeCompare(b.name)))
+        // Expand folder if not already expanded
+        if (!isExpanded) {
+          toggleFolder(folder.id)
+        }
+        toast.success("Subfolder created successfully", { duration: 3000 })
+      } catch (error) {
+        console.error("Failed to create subfolder:", error)
+        toast.error("Failed to create subfolder", { duration: 6000 })
+      }
+    }
+  }
+
   const isSelected = selectedFolder === folder.id
+  // Calculate indentation based on depth (pl-4, pl-8, pl-12, pl-16)
+  const indentClass = depth === 0 ? "pl-4" : `pl-${Math.min(depth, 4) * 4}`
 
   return (
-    <div className="pl-4">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <div
-            className={`flex items-center p-1 rounded-md cursor-pointer ${
-              isSelected ? "bg-gray-700" : "hover:bg-gray-800"
-            }`}
-            onClick={() => selectFolder(folder.id)}
+    <div className={indentClass}>
+      <div
+        className={`flex items-center p-1 rounded-md cursor-pointer ${
+          isSelected ? "bg-gray-700" : "hover:bg-gray-800"
+        }`}
+        onClick={() => selectFolder(folder.id)}
+      >
+        <ChevronRight
+          className={`h-4 w-4 mr-1 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            handleToggle()
+          }}
+        />
+        <FolderIcon className="h-4 w-4 mr-2" />
+        <span className="flex-1">{folder.name}</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="p-1 hover:bg-gray-600 rounded"
+            onClick={(e) => e.stopPropagation()}
           >
-            <ChevronRight
-              className={`h-4 w-4 mr-1 transition-transform ${isExpanded ? "rotate-90" : ""}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                handleToggle()
-              }}
-            />
-            <FolderIcon className="h-4 w-4 mr-2" />
-            <span>{folder.name}</span>
-          </div>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={handleRename}>Rename</DropdownMenuItem>
-          <DropdownMenuItem onClick={handleDelete}>Delete</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <span className="text-xs">⋮</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={handleRename}>Rename</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleDelete}>Delete</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       {loading && <div className="pl-6">Loading...</div>}
       {isExpanded && !loading && (
         <div>
+          {depth < MAX_DEPTH && (
+            <div className="pl-4 py-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={handleAddSubfolder}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add Subfolder
+              </Button>
+            </div>
+          )}
           {children.map((child) => (
             <FolderItem
               key={child.id}
               folder={child}
+              depth={depth + 1}
               onUpdate={(childId, updatedChild) => {
                 setChildren((prev) =>
                   prev.map((c) => (c.id === childId ? updatedChild : c))

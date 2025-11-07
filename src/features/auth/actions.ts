@@ -6,11 +6,7 @@ import { z } from "zod"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import db from "@/lib/db"
-
-type ActionResult = {
-  success: boolean
-  error?: string
-}
+import { ActionResult } from "@/types/actions"
 
 async function ensureProfileExists(userId: string) {
   // Check if profile exists

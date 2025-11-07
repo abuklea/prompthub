@@ -210,12 +210,37 @@
   - **Step Dependencies**: Phase 5, Step 2
   - **User Instructions**: This is a backend step. The logic for creating versions should be complete and ready for the UI to use.
 
+- Step 3b: [P] Improved UI Update: Layout, Editor, Toolbars & Features
+  - **Task**: Transform the UI from basic 3-panel layout into a professional application with: (1) Full-height Monaco editor with scrolling and toolbar, (2) Duplicate title prevention, (3) Subfolder creation capability, (4) Consistent panel subheaders with context-aware toolbars, (5) Comprehensive sort/filter systems for folders and documents, (6) Auto-save with manual versioning (auto-save updates current content, manual save creates versions), (7) Placeholder UI for future features (version history, dashboard, settings).
+  - **Assignee**: `senior-frontend-engineer`, `ux-ui-designer`
+  - **Files**:
+    - **CREATE**: `src/components/layout/PanelSubheader.tsx` - Reusable subheader component
+    - **CREATE**: `src/features/editor/hooks/useAutoSave.ts` - Debounced auto-save hook
+    - **CREATE**: `src/features/editor/hooks/useLocalStorage.ts` - localStorage persistence hook
+    - **CREATE**: `src/features/editor/schemas.ts` - Validation schemas
+    - **CREATE**: `src/features/folders/components/FolderToolbar.tsx` - Folder operations toolbar
+    - **CREATE**: `src/features/prompts/components/DocumentToolbar.tsx` - Document operations toolbar
+    - **CREATE**: `src/app/(app)/dashboard/page.tsx` - Dashboard placeholder
+    - **MODIFY**: `src/app/(app)/layout.tsx` - Add 3 subheaders, fix panel heights
+    - **MODIFY**: `src/features/editor/components/EditorPane.tsx` - Fix flex layout for full-height Monaco
+    - **MODIFY**: `src/features/editor/components/Editor.tsx` - Enable full Monaco features
+    - **MODIFY**: `src/features/editor/actions.ts` - Add autoSavePrompt action
+    - **MODIFY**: `src/features/folders/components/FolderItem.tsx` - Add recursive subfolder support
+    - **MODIFY**: `src/features/folders/components/FolderTree.tsx` - Integrate toolbar
+    - **MODIFY**: `src/features/prompts/actions.ts` - Add duplicate title validation
+    - **MODIFY**: `src/features/prompts/components/PromptList.tsx` - Rename to "Documents", integrate toolbar
+    - **MODIFY**: `src/stores/use-ui-store.ts` - Add sort/filter state
+    - **MODIFY**: `src/lib/utils.ts` - Add debounce utility
+    - **MODIFY**: `src/app/(app)/settings/page.tsx` - Add placeholder sections
+  - **Step Dependencies**: Phase 5, Step 3
+  - **User Instructions**: (1) Monaco editor extends from title to footer on all screen sizes, (2) Cannot create duplicate titles (case-insensitive), (3) Can create subfolders up to 5 levels, (4) Three aligned subheaders visible with toolbars, (5) Sort/filter controls functional, (6) Auto-save triggers after 500ms typing pause, Ctrl+S creates version, (7) Version history button present (disabled), dashboard/settings pages render. Full validation checklist and testing guide in `PRPs/P5S3b-improved-ui-update.md`.
+
 - Step 4: Editor UI with Manual Save
   - **Task**: Connect the `EditorPane` to the backend. The "Save" button should invoke the `saveNewVersion` action. Implement loading and success states for the save button. The editor should be populated with the selected prompt's content.
   - **Assignee**: `Frontend_Engineer`
   - **Files**:
     - `src/features/editor/components/EditorPane.tsx`: Add state management for title and content, and an onClick handler for the "Save" button to call the server action.
-  - **Step Dependencies**: Phase 5, Step 3
+  - **Step Dependencies**: Phase 5, Step 3b
   - **User Instructions**: Select a prompt, type content into the editor, and click "Save". The content should persist after selecting another prompt and coming back. Check the `PromptVersions` and `Prompts` tables in Supabase to confirm that a new version was created and the content was updated.
 
 - Step 5: [P] Version History UI

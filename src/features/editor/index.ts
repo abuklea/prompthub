@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript
 
 Created: 07/11/2025 13:28 GMT+10
-Last modified: 07/11/2025 13:28 GMT+10
+Last modified: 07/11/2025 14:16 GMT+10
 ---------------
 Centralized exports for the editor feature module.
 Provides clean import paths for Editor components and types.
 
 Changelog:
+07/11/2025 14:16 GMT+10 | Added schema exports
 07/11/2025 13:28 GMT+10 | Initial creation with component and type exports
 */
 
@@ -27,3 +28,7 @@ export type {
   OnMount,
   BeforeMount
 } from './types'
+
+// Schema exports
+export { saveNewVersionSchema } from './schemas'
+export type { SaveNewVersionInput } from './schemas'
