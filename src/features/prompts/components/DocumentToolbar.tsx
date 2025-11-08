@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUiStore, type DocSort } from "@/stores/use-ui-store"
+import { useTabStore } from "@/stores/use-tab-store"
 import { createPrompt, renamePrompt, deletePrompt, getPromptDetails } from "../actions"
 import { toast } from "sonner"
 import { Plus, Edit, Trash2, ArrowUpDown } from "lucide-react"
@@ -19,6 +20,7 @@ import { CreateDocumentDialog, RenameDocumentDialog, DeleteDocumentDialog } from
 
 export function DocumentToolbar() {
   const { selectedFolder, selectedPrompt, docSort, docFilter, setDocSort, setDocFilter, selectPrompt, triggerPromptRefetch } = useUiStore()
+  const { closeTabsByPromptId } = useTabStore()
   const [creatingDoc, setCreatingDoc] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -109,6 +111,8 @@ export function DocumentToolbar() {
     const result = await deletePrompt(selectedPrompt)
     if (result.success) {
       toast.success("Document deleted successfully", { duration: 3000 })
+      // Reason: Close all tabs displaying this document
+      closeTabsByPromptId(selectedPrompt)
       // Reason: Clear selection and trigger refetch
       selectPrompt(null)
       triggerPromptRefetch()

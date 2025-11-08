@@ -1,7 +1,26 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/features/prompts/components/PromptList.tsx
+MIME: text/typescript
+Type: React Component (TypeScript)
+
+Created: 08/11/2025 13:08 GMT+10
+Last modified: 08/11/2025 13:39 GMT+10
+---------------
+Component for displaying and managing the list of prompts in a folder.
+Now uses tab system for opening documents instead of selectedPrompt.
+
+Changelog:
+08/11/2025 13:39 GMT+10 | Added single-click (preview) vs double-click (permanent) tab behavior
+08/11/2025 13:08 GMT+10 | Updated to use tab system instead of selectedPrompt
+*/
+
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
 import { useUiStore } from "@/stores/use-ui-store"
+import { useTabStore } from "@/stores/use-tab-store"
 import { getPromptsByFolder } from "../actions"
 import { Prompt } from "@prisma/client"
 import { cn } from "@/lib/utils"
@@ -11,12 +30,15 @@ import { createPrompt } from "../actions"
 import { toast } from "sonner"
 
 export function PromptList() {
-  const { selectedFolder, selectPrompt, selectedPrompt, docSort, docFilter, promptRefetchTrigger, triggerPromptRefetch, prompts, setPrompts } = useUiStore()
+  const { selectedFolder, docSort, docFilter, promptRefetchTrigger, triggerPromptRefetch, prompts, setPrompts } = useUiStore()
+  const openTab = useTabStore(state => state.openTab)
+  const promotePreviewTab = useTabStore(state => state.promotePreviewTab)
+  const activeTabId = useTabStore(state => state.activeTabId)
+  const tabs = useTabStore(state => state.tabs)
   const [loading, setLoading] = useState(false)
   const [creatingDoc, setCreatingDoc] = useState(false)
 
   // Reason: Load prompts when folder changes or when refetch is triggered
-  // Note: DO NOT include selectedPrompt as dependency to avoid reloading on every document switch
   useEffect(() => {
     async function loadPrompts() {
       if (!selectedFolder) {
@@ -54,9 +76,13 @@ export function PromptList() {
 
     toast.success("Document created successfully", { duration: 3000 })
 
-    // Reason: Auto-select newly created document and trigger list refresh
+    // Reason: Auto-open newly created document in tab and trigger list refresh
     if (result.data?.promptId) {
-      selectPrompt(result.data.promptId)
+      openTab({
+        type: 'document',
+        title: "My First Prompt",
+        promptId: result.data.promptId,
+      })
       triggerPromptRefetch()
     }
     setCreatingDoc(false)
@@ -132,20 +158,72 @@ export function PromptList() {
           </div>
         ) : (
           <div className="space-y-1">
-            {filteredAndSortedPrompts.map((prompt) => (
-              <div
-                key={prompt.id}
-                className={cn(
-                  "p-2 rounded-md cursor-pointer transition-colors",
-                  selectedPrompt === prompt.id
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-accent"
-                )}
-                onClick={() => selectPrompt(prompt.id)}
-              >
-                {prompt.title}
-              </div>
-            ))}
+            {filteredAndSortedPrompts.map((prompt) => {
+              // Reason: Check if this prompt is open in the currently active tab
+              const activeTab = tabs.find(t => t.id === activeTabId)
+              const isActive = activeTab?.type === 'document' && activeTab?.promptId === prompt.id
+
+              // Reason: Handle single-click for preview, double-click for permanent tab
+              const handleSingleClick = () => {
+                // Check if this document already has a permanent (non-preview) tab open
+                const existingTab = tabs.find(
+                  t => t.type === 'document' && t.promptId === prompt.id && !t.isPreview
+                )
+
+                if (existingTab) {
+                  // If permanent tab exists, just switch to it
+                  openTab({
+                    type: 'document',
+                    title: prompt.title,
+                    promptId: prompt.id,
+                  })
+                } else {
+                  // Open as preview tab (replaces existing preview)
+                  openTab({
+                    type: 'document',
+                    title: prompt.title,
+                    promptId: prompt.id,
+                    isPreview: true,
+                  })
+                }
+              }
+
+              const handleDoubleClick = () => {
+                // Find any tab (preview or permanent) with this promptId
+                const existingTab = tabs.find(
+                  t => t.type === 'document' && t.promptId === prompt.id
+                )
+
+                if (existingTab && existingTab.isPreview) {
+                  // Promote existing preview tab to permanent
+                  promotePreviewTab(existingTab.id)
+                } else if (!existingTab) {
+                  // Open as permanent tab
+                  openTab({
+                    type: 'document',
+                    title: prompt.title,
+                    promptId: prompt.id,
+                    isPreview: false,
+                  })
+                }
+              }
+
+              return (
+                <div
+                  key={prompt.id}
+                  className={cn(
+                    "p-2 rounded-md cursor-pointer transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-accent"
+                  )}
+                  onClick={handleSingleClick}
+                  onDoubleClick={handleDoubleClick}
+                >
+                  {prompt.title}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

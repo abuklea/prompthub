@@ -73,6 +73,20 @@ export async function deleteFolder(folderId: string) {
     throw new Error("User not found")
   }
 
+  // Reason: Get all prompts in this folder BEFORE deleting
+  // so we can return their IDs to close related tabs
+  const prompts = await db.prompt.findMany({
+    where: {
+      folder_id: folderId,
+      user_id: user.id,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  const promptIds = prompts.map(p => p.id)
+
   await db.folder.delete({
     where: {
       id: folderId,
@@ -81,6 +95,9 @@ export async function deleteFolder(folderId: string) {
   })
 
   revalidatePath("/")
+
+  // Return prompt IDs so caller can close related tabs
+  return promptIds
 }
 
 export async function getFolderChildren(parentId: string) {

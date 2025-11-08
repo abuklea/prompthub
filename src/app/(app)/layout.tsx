@@ -8,8 +8,9 @@ import { FolderTree } from "@/features/folders/components/FolderTree";
 import { FolderToolbar } from "@/features/folders/components/FolderToolbar";
 import { PromptList } from "@/features/prompts/components/PromptList";
 import { DocumentToolbar } from "@/features/prompts/components/DocumentToolbar";
-import { EditorPane } from "@/features/editor/components/EditorPane";
+import { TabbedEditorContainer } from "@/features/tabs/components/TabbedEditorContainer";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { TabCleanupProvider } from "@/components/layout/TabCleanupProvider";
 
 export default async function AppLayout() {
   const supabase = createServer();
@@ -20,11 +21,12 @@ export default async function AppLayout() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
-      <Header user={data.user} />
+    <TabCleanupProvider>
+      <div className="flex flex-col h-screen">
+        <Header user={data.user} />
 
-      <TooltipProvider delayDuration={700}>
-        <ResizablePanelsLayout
+        <TooltipProvider delayDuration={700}>
+          <ResizablePanelsLayout
           foldersPanel={
           <>
             <PanelSubheader title="Folders">
@@ -51,12 +53,13 @@ export default async function AppLayout() {
               <HistoryButton />
             </PanelSubheader>
             <div className="flex-1 overflow-hidden">
-              <EditorPane />
+              <TabbedEditorContainer />
             </div>
           </>
         }
         />
       </TooltipProvider>
     </div>
+    </TabCleanupProvider>
   );
 }

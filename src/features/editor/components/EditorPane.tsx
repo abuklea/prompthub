@@ -6,13 +6,16 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 07/11/2025 16:17 GMT+10
+Last modified: 08/11/2025 13:45 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
 Features: Auto-save (500ms debounce), localStorage persistence, manual save (Ctrl+S).
 
 Changelog:
+08/11/2025 13:45 GMT+10 | CRITICAL FIX: Resolved infinite loop in tab update useEffect by removing 'tabs' dependency
+08/11/2025 13:40 GMT+10 | Added auto-promotion of preview tabs to permanent when edited (P5S4dT3)
+08/11/2025 13:06 GMT+10 | Refactored to accept promptId and tabId props for tab system integration (P5S4cT7)
 07/11/2025 16:17 GMT+10 | Integrated auto-save, localStorage, and Ctrl+S manual save (P5S3bT14)
 07/11/2025 16:07 GMT+10 | Restructured layout for full-height Monaco editor (P5S3bT3)
 07/11/2025 14:21 GMT+10 | Added save functionality with Editor component integration (P5S3T4)
@@ -23,6 +26,7 @@ Changelog:
 
 import { useEffect, useState, useCallback } from "react"
 import { useUiStore } from "@/stores/use-ui-store"
+import { useTabStore } from "@/stores/use-tab-store"
 import { getPromptDetails } from "@/features/prompts/actions"
 import { saveNewVersion, autoSavePrompt } from "@/features/editor/actions"
 import { useAutoSave } from "@/features/editor/hooks/useAutoSave"
@@ -41,8 +45,14 @@ type PromptWithFolder = Prompt & {
   }
 }
 
-export function EditorPane() {
-  const { selectedPrompt, triggerPromptRefetch, updatePromptTitle } = useUiStore()
+interface EditorPaneProps {
+  promptId: string
+  tabId: string
+}
+
+export function EditorPane({ promptId, tabId }: EditorPaneProps) {
+  const { triggerPromptRefetch, updatePromptTitle } = useUiStore()
+  const { updateTab, promotePreviewTab, tabs } = useTabStore()
   const [promptData, setPromptData] = useState<PromptWithFolder | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -54,14 +64,14 @@ export function EditorPane() {
 
   // Reason: localStorage for unsaved changes (P5S3bT14)
   const [localContent, setLocalContent, clearLocalContent] = useLocalStorage({
-    key: selectedPrompt ? `prompt-${selectedPrompt}` : 'prompt-draft',
+    key: promptId ? `prompt-${promptId}` : 'prompt-draft',
     initialValue: ''
   })
 
   // Reason: Fetch prompt details when selection changes
   useEffect(() => {
     async function loadPrompt() {
-      if (!selectedPrompt) {
+      if (!promptId) {
         setPromptData(null)
         setTitle("")
         setError("")
@@ -71,7 +81,7 @@ export function EditorPane() {
       setLoading(true)
       setError("")
 
-      const result = await getPromptDetails({ promptId: selectedPrompt })
+      const result = await getPromptDetails({ promptId })
 
       // Reason: Check success field for discriminated union type
       if (!result.success) {
@@ -89,14 +99,14 @@ export function EditorPane() {
     }
 
     loadPrompt()
-  }, [selectedPrompt])
+  }, [promptId])
 
   // Reason: Reset content when switching documents to prevent stale localStorage bug (P5S4bT1)
   useEffect(() => {
-    if (selectedPrompt) {
+    if (promptId) {
       setContent("")  // Clear immediately to prevent showing wrong document
     }
-  }, [selectedPrompt])
+  }, [promptId])
 
   // Reason: Sync content state when prompt data loads (only run when promptData changes)
   useEffect(() => {
@@ -135,28 +145,50 @@ export function EditorPane() {
   useAutoSave({
     title,
     content,
-    promptId: loading ? null : selectedPrompt,  // Disable during loading
+    promptId: loading ? null : promptId,  // Disable during loading
     delay: 500,
     onSave: handleAutoSave
   })
 
   // Reason: Sync content to localStorage
-  // CRITICAL: Only depend on content, NOT selectedPrompt
-  // If selectedPrompt is in deps, it saves OLD content to NEW document's key during switch
+  // CRITICAL: Only depend on content, NOT promptId
+  // If promptId is in deps, it saves OLD content to NEW document's key during switch
   useEffect(() => {
-    if (content && selectedPrompt) {
+    if (content && promptId) {
       setLocalContent(content)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content, setLocalContent])
 
+  // Reason: Update tab metadata when title or content changes
+  useEffect(() => {
+    if (title && promptData) {
+      const isDirty = content !== promptData.content
+
+      // Reason: Get current tab state from store to check if preview
+      const currentTab = useTabStore.getState().tabs.find(t => t.id === tabId)
+
+      // Reason: Auto-promote preview tab to permanent when content is edited (P5S4dT3)
+      // CRITICAL: Only promote on first edit to avoid infinite loop
+      if (isDirty && currentTab?.isPreview) {
+        promotePreviewTab(tabId)
+      }
+
+      // Update tab after promotion check
+      updateTab(tabId, {
+        title,
+        isDirty
+      })
+    }
+  }, [title, content, promptData, tabId, updateTab, promotePreviewTab])
+
   // Reason: Handle manual save with version creation and localStorage clear (P5S3bT14)
   const handleSave = useCallback(async () => {
-    if (!selectedPrompt) return
+    if (!promptId) return
 
     setSaving(true)
     const result = await saveNewVersion({
-      promptId: selectedPrompt,
+      promptId,
       newTitle: title,
       newContent: content,
     })
@@ -177,13 +209,16 @@ export function EditorPane() {
         })
       }
 
+      // Reason: Update tab to mark as clean after save
+      updateTab(tabId, { isDirty: false })
+
       // Reason: Trigger refetch to sync PromptList with new title
       triggerPromptRefetch()
     } else {
       toast.error(result.error, { duration: 6000 })
     }
     setSaving(false)
-  }, [selectedPrompt, title, content, clearLocalContent, promptData, triggerPromptRefetch])
+  }, [promptId, title, content, clearLocalContent, promptData, tabId, updateTab, triggerPromptRefetch])
 
   // Reason: Keyboard listener for Ctrl+S manual save (P5S3bT14)
   useEffect(() => {
@@ -200,7 +235,7 @@ export function EditorPane() {
   }, [handleSave])
 
   // No prompt selected
-  if (!selectedPrompt) {
+  if (!promptId) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-muted-foreground">
@@ -267,7 +302,7 @@ export function EditorPane() {
           <div className="flex gap-2">
             <Button
               onClick={handleSave}
-              disabled={saving || !selectedPrompt}
+              disabled={saving || !promptId}
               variant="default"
             >
               {saving ? "Saving..." : "Save Version (Ctrl+S)"}

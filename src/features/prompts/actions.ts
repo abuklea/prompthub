@@ -247,3 +247,44 @@ export async function deletePrompt(promptId: string): Promise<ActionResult> {
     return { success: false, error: "Failed to delete prompt" }
   }
 }
+
+/**
+ * Validate multiple promptIds exist in database
+ *
+ * Used for cleaning orphaned tabs after logout/login.
+ * Returns list of valid promptIds that exist for current user.
+ *
+ * @param promptIds - Array of prompt UUIDs to validate
+ * @returns ActionResult with array of valid promptIds
+ */
+export async function validatePrompts(promptIds: string[]): Promise<ActionResult<{ validIds: string[] }>> {
+  try {
+    // Get authenticated user
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: "Unauthorized. Please sign in." }
+    }
+
+    // Reason: Batch query all promptIds with user_id filter
+    const prompts = await db.prompt.findMany({
+      where: {
+        id: { in: promptIds },
+        user_id: user.id
+      },
+      select: {
+        id: true
+      }
+    })
+
+    const validIds = prompts.map(p => p.id)
+
+    return { success: true, data: { validIds } }
+  } catch (error) {
+    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
+      throw error
+    }
+    console.error("validatePrompts error:", error)
+    return { success: false, error: "Failed to validate prompts" }
+  }
+}

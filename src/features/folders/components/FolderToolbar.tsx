@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUiStore, FolderSort } from "@/stores/use-ui-store"
+import { useTabStore } from "@/stores/use-tab-store"
 import { createFolder, renameFolder, deleteFolder } from "../actions"
 import { CreateFolderDialog, RenameFolderDialog, DeleteFolderDialog } from "./FolderDialogs"
 import { Plus, Edit, Trash2, ArrowUpDown } from "lucide-react"
@@ -13,6 +14,7 @@ import { toast } from "sonner"
 
 export function FolderToolbar() {
   const { selectedFolder, folderSort, folderFilter, setFolderSort, setFolderFilter, triggerFolderRefetch, triggerPromptRefetch, selectFolder } = useUiStore()
+  const { closeTabsByPromptId } = useTabStore()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -43,7 +45,14 @@ export function FolderToolbar() {
   const handleDeleteFolder = async () => {
     if (!selectedFolder) return
     try {
-      await deleteFolder(selectedFolder)
+      // Reason: deleteFolder now returns promptIds from the deleted folder
+      const promptIds = await deleteFolder(selectedFolder)
+
+      // Reason: Close all tabs for documents in this folder
+      promptIds.forEach(promptId => {
+        closeTabsByPromptId(promptId)
+      })
+
       // Reason: Clear folder selection since it's been deleted (P5S4b - folder deletion fix)
       selectFolder(null)
       // Reason: Trigger both folder and prompt refetch to update both panels (P5S4b)

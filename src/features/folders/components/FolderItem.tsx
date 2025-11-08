@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Folder } from "@prisma/client"
 import { useUiStore } from "@/stores/use-ui-store"
+import { useTabStore } from "@/stores/use-tab-store"
 import { getFolderChildren, renameFolder, deleteFolder, createFolder } from "../actions"
 import { ChevronRight, Folder as FolderIcon, Plus } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -19,6 +20,7 @@ interface FolderItemProps {
 
 export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItemProps) {
   const { expandedFolders, toggleFolder, selectFolder, selectedFolder } = useUiStore()
+  const { closeTabsByPromptId } = useTabStore()
   const [children, setChildren] = useState<Folder[]>([])
   const [loading, setLoading] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
@@ -70,7 +72,14 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
 
   const handleConfirmDelete = async () => {
     try {
-      await deleteFolder(folder.id)
+      // Reason: deleteFolder now returns promptIds from the deleted folder
+      const promptIds = await deleteFolder(folder.id)
+
+      // Reason: Close all tabs for documents in this folder
+      promptIds.forEach(promptId => {
+        closeTabsByPromptId(promptId)
+      })
+
       // Update parent's state immediately
       if (onDelete) {
         onDelete(folder.id)
