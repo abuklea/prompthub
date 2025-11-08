@@ -6,17 +6,17 @@ import { getPromptsByFolder } from "../actions"
 import { Prompt } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { EmptyState } from "@/components/ui/empty-state"
-import { FilePlus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { createPrompt } from "../actions"
 import { toast } from "sonner"
 
 export function PromptList() {
-  const { selectedFolder, selectPrompt, selectedPrompt, docSort, docFilter, promptRefetchTrigger, triggerPromptRefetch } = useUiStore()
-  const [prompts, setPrompts] = useState<Prompt[]>([])
+  const { selectedFolder, selectPrompt, selectedPrompt, docSort, docFilter, promptRefetchTrigger, triggerPromptRefetch, prompts, setPrompts } = useUiStore()
   const [loading, setLoading] = useState(false)
   const [creatingDoc, setCreatingDoc] = useState(false)
 
-  // Reason: Load prompts when folder changes or when a new prompt is selected (to refresh list)
+  // Reason: Load prompts when folder changes or when refetch is triggered
+  // Note: DO NOT include selectedPrompt as dependency to avoid reloading on every document switch
   useEffect(() => {
     async function loadPrompts() {
       if (!selectedFolder) {
@@ -34,7 +34,7 @@ export function PromptList() {
       }
     }
     loadPrompts()
-  }, [selectedFolder, selectedPrompt, promptRefetchTrigger])
+  }, [selectedFolder, promptRefetchTrigger, setPrompts])
 
   // Reason: Handle new document creation from empty state
   const handleCreateFirstDoc = async () => {
@@ -112,7 +112,7 @@ export function PromptList() {
   if (selectedFolder && prompts.length === 0 && !docFilter) {
     return (
       <EmptyState
-        icon={FilePlus}
+        icon={Plus}
         title="No documents yet"
         description="This folder is empty. Create your first document to start capturing your prompts and ideas."
         actionLabel="Create Your First Document"

@@ -42,7 +42,7 @@ type PromptWithFolder = Prompt & {
 }
 
 export function EditorPane() {
-  const { selectedPrompt } = useUiStore()
+  const { selectedPrompt, triggerPromptRefetch, updatePromptTitle } = useUiStore()
   const [promptData, setPromptData] = useState<PromptWithFolder | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -115,18 +115,23 @@ export function EditorPane() {
   }, [promptData])
 
   // Reason: Auto-save callback (P5S3bT14)
-  const handleAutoSave = useCallback(async (promptId: string, content: string) => {
+  const handleAutoSave = useCallback(async (promptId: string, title: string, content: string) => {
     setAutoSaving(true)
-    const result = await autoSavePrompt({ promptId, content })
+    const result = await autoSavePrompt({ promptId, title, content })
 
     if (result.success) {
       setLastSaved(new Date())
+      // Reason: Update PromptList title in Zustand store for immediate UI update
+      updatePromptTitle(promptId, title)
+      // Reason: DO NOT update local promptData here to avoid infinite loop
+      // The promptData will be refreshed on next document load or manual save
     }
     setAutoSaving(false)
-  }, [])
+  }, [updatePromptTitle])
 
   // Reason: Enable auto-save with 500ms debounce (P5S3bT14)
   useAutoSave({
+    title,
     content,
     promptId: selectedPrompt,
     delay: 500,
@@ -156,11 +161,24 @@ export function EditorPane() {
       // Reason: Clear localStorage after successful manual save
       clearLocalContent()
       setLastSaved(new Date())
+
+      // Reason: Update local promptData immediately to reflect title change
+      if (promptData) {
+        setPromptData({
+          ...promptData,
+          title: title,
+          content: content,
+          updated_at: new Date()
+        })
+      }
+
+      // Reason: Trigger refetch to sync PromptList with new title
+      triggerPromptRefetch()
     } else {
       toast.error(result.error, { duration: 6000 })
     }
     setSaving(false)
-  }, [selectedPrompt, title, content, clearLocalContent])
+  }, [selectedPrompt, title, content, clearLocalContent, promptData, triggerPromptRefetch])
 
   // Reason: Keyboard listener for Ctrl+S manual save (P5S3bT14)
   useEffect(() => {

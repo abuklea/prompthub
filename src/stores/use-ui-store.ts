@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { Prompt } from '@prisma/client'
 
 // Sort and filter types
 export type FolderSort = 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc'
@@ -20,6 +21,9 @@ interface UiState {
   folderRefetchTrigger: number
   promptRefetchTrigger: number
 
+  // Prompts state (for auto-save updates without refetch)
+  prompts: Prompt[]
+
   // Selection actions
   toggleFolder: (folderId: string) => void
   selectFolder: (folderId: string | null) => void
@@ -34,6 +38,10 @@ interface UiState {
   // Refetch trigger actions (P5S4bT2)
   triggerFolderRefetch: () => void
   triggerPromptRefetch: () => void
+
+  // Prompts management actions
+  setPrompts: (prompts: Prompt[]) => void
+  updatePromptTitle: (promptId: string, newTitle: string) => void
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -51,6 +59,9 @@ export const useUiStore = create<UiState>((set) => ({
   // Refetch triggers (P5S4bT2)
   folderRefetchTrigger: 0,
   promptRefetchTrigger: 0,
+
+  // Prompts state
+  prompts: [],
 
   // Selection actions
   toggleFolder: (folderId) =>
@@ -77,4 +88,13 @@ export const useUiStore = create<UiState>((set) => ({
     set((state) => ({ folderRefetchTrigger: state.folderRefetchTrigger + 1 })),
   triggerPromptRefetch: () =>
     set((state) => ({ promptRefetchTrigger: state.promptRefetchTrigger + 1 })),
+
+  // Prompts management actions
+  setPrompts: (prompts) => set({ prompts }),
+  updatePromptTitle: (promptId, newTitle) =>
+    set((state) => ({
+      prompts: state.prompts.map((prompt) =>
+        prompt.id === promptId ? { ...prompt, title: newTitle } : prompt
+      ),
+    })),
 }))

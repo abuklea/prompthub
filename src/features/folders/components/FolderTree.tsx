@@ -7,7 +7,7 @@ import { FolderItem } from "./FolderItem"
 import { useUiStore } from "@/stores/use-ui-store"
 import { toast } from "sonner"
 import { EmptyState } from "@/components/ui/empty-state"
-import { FolderPlus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { CreateFolderDialog } from "./FolderDialogs"
 
 export function FolderTree() {
@@ -95,13 +95,21 @@ export function FolderTree() {
   // Show empty state when no folders exist
   if (folders.length === 0) {
     return (
-      <EmptyState
-        icon={FolderPlus}
-        title="No folders yet"
-        description="Create your first folder to start organizing your prompts. Folders help you keep your work structured and easy to find."
-        actionLabel="Create Your First Folder"
-        onAction={handleNewFolder}
-      />
+      <>
+        <EmptyState
+          icon={Plus}
+          title="No folders yet"
+          description="Create your first folder to start organizing your prompts. Folders help you keep your work structured and easy to find."
+          actionLabel="Create Your First Folder"
+          onAction={handleNewFolder}
+        />
+
+        <CreateFolderDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onConfirm={handleConfirmCreate}
+        />
+      </>
     )
   }
 

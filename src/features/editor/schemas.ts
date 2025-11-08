@@ -28,6 +28,7 @@ export type SaveNewVersionInput = z.infer<typeof saveNewVersionSchema>
 
 export const autoSaveSchema = z.object({
   promptId: z.string().uuid('Invalid prompt ID'),
+  title: z.string().min(1, 'Title required').max(200, 'Title too long'),
   content: z.string(),
 })
 

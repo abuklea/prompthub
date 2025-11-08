@@ -106,13 +106,13 @@ export async function saveNewVersion(
 }
 
 /**
- * Auto-save prompt content without creating a version
+ * Auto-save prompt title and content without creating a version
  *
- * Updates the prompt content and updated_at timestamp only.
+ * Updates the prompt title, content, and updated_at timestamp only.
  * Does NOT create a PromptVersion record (silent background save).
  * Used for debounced auto-save while editing.
  *
- * @param data - Object containing promptId and content
+ * @param data - Object containing promptId, title, and content
  * @returns ActionResult with success status
  */
 export async function autoSavePrompt(
@@ -125,7 +125,7 @@ export async function autoSavePrompt(
       return { success: false, error: "Invalid input data" }
     }
 
-    const { promptId, content } = parsed.data
+    const { promptId, title, content } = parsed.data
 
     // Step 2: Get authenticated user
     const supabase = createClient()
@@ -134,7 +134,7 @@ export async function autoSavePrompt(
       return { success: false, error: "Unauthorized. Please sign in." }
     }
 
-    // Step 3: Update prompt content only (no version creation)
+    // Step 3: Update prompt title and content (no version creation)
     // Reason: MUST filter by both id AND user_id to enforce ownership
     const result = await db.prompt.updateMany({
       where: {
@@ -142,6 +142,7 @@ export async function autoSavePrompt(
         user_id: user.id, // Enforce user isolation (RLS)
       },
       data: {
+        title: title,
         content: content,
         updated_at: new Date(),
       },
