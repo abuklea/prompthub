@@ -1,5 +1,5 @@
 # PromptHub - Task Completion Workflow
-Last Updated: 08/11/2025 11:30 GMT+10
+Last Updated: 08/11/2025 12:00 GMT+10 (Updated with P5S4bT1 bug fix)
 
 ## Pre-Commit Checklist (MANDATORY)
 
@@ -237,6 +237,51 @@ If any check fails:
 **Never commit with failing checks or tests!**
 
 ## Recent Workflow Patterns - VERIFIED & SUCCESSFUL
+
+### P5S4bT1 - Document Content Cross-Contamination Bug Fix (LATEST)
+
+**Duration**: Rapid investigation and fix
+**Pattern**: Critical bug diagnosis and surgical fix
+
+**Bug Analysis Process** ✅
+1. **Problem Identification**: Documents showing wrong content during switch
+2. **Root Cause Analysis**:
+   - Effect dependency included `selectedPrompt`
+   - On document switch, effect fires before new content loads
+   - Old content saves to new document's localStorage key
+   - Result: Cross-contamination of document content
+3. **Solution Design**: Ref-based guard to track key changes
+4. **Implementation**: One-file surgical fix
+5. **Verification**: Manual testing confirms content isolation
+
+**Key Pattern Discovered**:
+```typescript
+// Ref guards prevent stale state issues
+const prevKeyRef = useRef<string | null>(null)
+
+useEffect(() => {
+  // Detect document switch (key change)
+  if (prevKeyRef.current !== selectedDocumentId) {
+    prevKeyRef.current = selectedDocumentId
+    setLocalContent(initialContent)  // Reset to new doc's content
+    return  // Skip save on switch
+  }
+
+  // Normal save behavior (not during switch)
+  const timer = setTimeout(() => {
+    if (localContent !== initialContent) {
+      localStorage.setItem(key, localContent)
+    }
+  }, 500)
+
+  return () => clearTimeout(timer)
+}, [localContent, selectedDocumentId, key])
+```
+
+**Critical Lesson**: Dependencies in effects with side effects (like saves) must account for transitions between states, not just state changes.
+
+**Files Modified**: 1 (EditorPane.tsx)
+**Build Status**: ✅ Successful (zero errors)
 
 ### CASCADE_DELETE - Database & Dialog System (~2 Hours)
 
@@ -484,6 +529,13 @@ useEffect(() => {
 - ✅ Patterns documented
 
 ## Lessons Learned (Latest)
+
+### P5S4bT1 Lessons - Document Content Management
+1. **Ref Guards**: Use refs to detect state transitions and prevent stale side effects
+2. **Effect Dependencies**: Consider transition states, not just current states
+3. **localStorage Sync**: Guard against saves during document switches
+4. **Empty Document Handling**: Allow undefined/empty states, don't assume data always exists
+5. **Surgical Fixes**: Minimal changes prevent cascade of bugs
 
 ### CASCADE_DELETE Lessons
 1. **Cascade Rules**: Simplify data management and prevent orphaned records

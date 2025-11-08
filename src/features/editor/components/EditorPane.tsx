@@ -100,7 +100,7 @@ export function EditorPane() {
 
   // Reason: Sync content state when prompt data loads (only run when promptData changes)
   useEffect(() => {
-    if (promptData?.content) {
+    if (promptData) {
       // Reason: Check localStorage first for unsaved changes
       // Note: localContent comes from useLocalStorage which reinitializes on key change
       const storedContent = localContent || ''
@@ -108,7 +108,7 @@ export function EditorPane() {
         setContent(storedContent)
         toast.info("Restored unsaved changes from browser storage")
       } else {
-        setContent(promptData.content)
+        setContent(promptData.content || '')  // Handle empty content explicitly
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,11 +141,14 @@ export function EditorPane() {
   })
 
   // Reason: Sync content to localStorage
+  // CRITICAL: Only depend on content, NOT selectedPrompt
+  // If selectedPrompt is in deps, it saves OLD content to NEW document's key during switch
   useEffect(() => {
     if (content && selectedPrompt) {
       setLocalContent(content)
     }
-  }, [content, selectedPrompt, setLocalContent])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, setLocalContent])
 
   // Reason: Handle manual save with version creation and localStorage clear (P5S3bT14)
   const handleSave = useCallback(async () => {

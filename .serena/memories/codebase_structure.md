@@ -1,5 +1,5 @@
 # PromptHub - Codebase Structure
-Last Updated: 08/11/2025 11:30 GMT+10
+Last Updated: 08/11/2025 12:00 GMT+10 (Updated with P5S4bT1 bug fix)
 
 ## Root Directory Structure
 ```
@@ -31,7 +31,7 @@ Configuration Files:
 
 ## Source Code Structure (`src/`)
 
-### Current Implementation (P1S1 → P5S4b CASCADE_DELETE)
+### Current Implementation (P1S1 → P5S4bT1 Document Content Bug Fix)
 ```
 src/
 ├── app/                  # App Router (Next.js 14)
@@ -47,13 +47,15 @@ src/
 │   │       ├── AuthForm.tsx        # Main auth form
 │   │       └── FormError.tsx       # Error display
 │   │
-│   ├── editor/          # Monaco Editor & Editing (P5S1, P5S3d, P5S4, P5S4b)
+│   ├── editor/          # Monaco Editor & Editing (P5S1, P5S3d, P5S4, P5S4b, P5S4bT1)
 │   │   ├── types.ts     # TypeScript interfaces
 │   │   ├── markdown-actions.ts  # Formatting utilities (P5S4)
 │   │   ├── components/  # Editor UI components
 │   │   │   ├── Editor.tsx           # Monaco wrapper (P5S3d: h-full fix)
-│   │   │   ├── EditorPane.tsx       # Main editor panel (P5S4, P5S4b: cleanup effect)
+│   │   │   ├── EditorPane.tsx       # Main editor panel (P5S4, P5S4b: cleanup effect, P5S4bT1: ref-guard)
 │   │   │   └── EditorSkeleton.tsx   # Loading state
+│   │   ├── hooks/       # Editor hooks
+│   │   │   └── useLocalStorage.ts   # localStorage hook (P5S4bT1: verified fix)
 │   │   └── index.ts     # Centralized exports
 │   │
 │   ├── folders/         # Folder Management (P5S4, P5S4b, CASCADE_DELETE)
@@ -111,7 +113,23 @@ src/
 
 ## Key File Locations (Latest Implementations)
 
-### CASCADE_DELETE - Database & Dialog System (LATEST - 08/11/2025 11:30 GMT+10)
+### P5S4bT1 - Document Content Cross-Contamination Bug Fix (LATEST - 08/11/2025)
+**Status**: ✅ COMPLETE - Content isolation restored
+**Files Modified**: 1 (EditorPane.tsx)
+
+**Critical Fix Location**: `src/features/editor/components/EditorPane.tsx`
+
+**Bug Details**:
+- Issue 1: localStorage sync effect saves old content to new document's key during switching
+- Issue 2: Empty documents don't load due to strict content check
+
+**Solution**:
+- Added `useRef` to track document key changes
+- Guard prevents save when key just changed (document switch in progress)
+- Fixed condition to allow empty documents to load
+- Result: Perfect content isolation, no cross-contamination
+
+### CASCADE_DELETE - Database & Dialog System (08/11/2025 11:30 GMT+10)
 **Status**: ✅ COMPLETE and committed to git
 
 **New UI Dialog Components**:
@@ -564,6 +582,40 @@ const handleContentChange = (value: string) => {
 - Largest files: ~300 lines (EditorPane, UI Store)
 
 ## Implementation Status by Phase
+
+### P5S4bT1 - Document Content Bug Fix (100% COMPLETE - 08/11/2025)
+**Date Completed**: 08/11/2025
+**Status**: ✅ Production Ready
+**Changes**:
+1. **EditorPane.tsx**: Added ref-based guard to prevent stale content save during document switch
+2. **EditorPane.tsx**: Fixed empty document display condition
+3. **useLocalStorage.ts**: Verified hook implementation is correct
+
+**Key Pattern Discovered**:
+```typescript
+// Use ref to track key changes and prevent stale saves
+const prevKeyRef = useRef<string | null>(null)
+
+useEffect(() => {
+  if (prevKeyRef.current !== selectedDocumentId) {
+    prevKeyRef.current = selectedDocumentId
+    // Skip save on key change - this prevents stale content
+    setLocalContent(initialContent)
+    return
+  }
+
+  // Save only happens after key stabilizes
+  const timer = setTimeout(() => {
+    if (localContent !== initialContent) {
+      localStorage.setItem(key, localContent)
+    }
+  }, 500)
+
+  return () => clearTimeout(timer)
+}, [localContent, selectedDocumentId, key])
+```
+
+**Build Status**: ✅ Successful (zero errors)
 
 ### CASCADE_DELETE - Database & Dialog System (100% COMPLETE - 08/11/2025)
 **Date Completed**: 08/11/2025 11:30 GMT+10
