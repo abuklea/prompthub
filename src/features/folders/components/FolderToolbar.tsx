@@ -1,58 +1,54 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUiStore, FolderSort } from "@/stores/use-ui-store"
 import { createFolder, renameFolder, deleteFolder } from "../actions"
+import { CreateFolderDialog, RenameFolderDialog, DeleteFolderDialog } from "./FolderDialogs"
 import { Plus, Edit, Trash2, ArrowUpDown } from "lucide-react"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
 
 export function FolderToolbar() {
-  const { selectedFolder, folderSort, folderFilter, setFolderSort, setFolderFilter } = useUiStore()
-  const router = useRouter()
+  const { selectedFolder, folderSort, folderFilter, setFolderSort, setFolderFilter, triggerFolderRefetch } = useUiStore()
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
-  const handleNewFolder = async () => {
-    const newName = prompt("Enter folder name")
-    if (newName) {
-      try {
-        await createFolder(newName, null)
-        router.refresh()
-        toast.success("Folder created successfully", { duration: 3000 })
-      } catch (error) {
-        console.error("Failed to create folder:", error)
-        toast.error("Failed to create folder", { duration: 6000 })
-      }
+  const handleCreateFolder = async (name: string) => {
+    try {
+      await createFolder(name, null)
+      triggerFolderRefetch()
+      toast.success("Folder created successfully", { duration: 3000 })
+    } catch (error) {
+      console.error("Failed to create folder:", error)
+      toast.error("Failed to create folder", { duration: 6000 })
     }
   }
 
-  const handleRenameFolder = async () => {
+  const handleRenameFolder = async (newName: string) => {
     if (!selectedFolder) return
-    const newName = prompt("Enter new folder name")
-    if (newName) {
-      try {
-        await renameFolder(selectedFolder, newName)
-        router.refresh()
-        toast.success("Folder renamed successfully", { duration: 3000 })
-      } catch (error) {
-        console.error("Failed to rename folder:", error)
-        toast.error("Failed to rename folder", { duration: 6000 })
-      }
+    try {
+      await renameFolder(selectedFolder, newName)
+      triggerFolderRefetch()
+      toast.success("Folder renamed successfully", { duration: 3000 })
+    } catch (error) {
+      console.error("Failed to rename folder:", error)
+      toast.error("Failed to rename folder", { duration: 6000 })
     }
   }
 
   const handleDeleteFolder = async () => {
     if (!selectedFolder) return
-    if (confirm("Are you sure you want to delete this folder?")) {
-      try {
-        await deleteFolder(selectedFolder)
-        router.refresh()
-        toast.success("Folder deleted successfully", { duration: 3000 })
-      } catch (error) {
-        console.error("Failed to delete folder:", error)
-        toast.error("Failed to delete folder", { duration: 6000 })
-      }
+    try {
+      await deleteFolder(selectedFolder)
+      triggerFolderRefetch()
+      toast.success("Folder deleted successfully", { duration: 3000 })
+    } catch (error) {
+      console.error("Failed to delete folder:", error)
+      toast.error("Failed to delete folder", { duration: 6000 })
     }
   }
 
@@ -71,47 +67,67 @@ export function FolderToolbar() {
 
   return (
     <div className="flex items-center gap-2 overflow-hidden">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleNewFolder}
-        title="New Folder"
-        className="min-w-[32px] shrink-0"
-      >
-        <Plus className="h-4 w-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCreateDialogOpen(true)}
+            className="min-w-[32px] shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Create new folder</p>
+        </TooltipContent>
+      </Tooltip>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleRenameFolder}
-        disabled={!selectedFolder}
-        title="Rename Folder"
-        className="min-w-[32px] shrink-0"
-      >
-        <Edit className="h-4 w-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setRenameDialogOpen(true)}
+            disabled={!selectedFolder}
+            className="min-w-[32px] shrink-0"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Rename selected folder</p>
+        </TooltipContent>
+      </Tooltip>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleDeleteFolder}
-        disabled={!selectedFolder}
-        title="Delete Folder"
-        className="min-w-[32px] shrink-0"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDeleteDialogOpen(true)}
+            disabled={!selectedFolder}
+            className="min-w-[32px] shrink-0"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Delete selected folder</p>
+        </TooltipContent>
+      </Tooltip>
 
       <div className="h-4 w-px bg-gray-600 mx-1 shrink-0" />
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" title="Sort" className="min-w-[80px] shrink-0">
-            <ArrowUpDown className="h-4 w-4 mr-1" />
-            <span className="text-xs truncate">{getSortLabel(folderSort)}</span>
-          </Button>
-        </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="min-w-[80px] shrink-0">
+                <ArrowUpDown className="h-4 w-4 mr-1" />
+                <span className="text-xs truncate">{getSortLabel(folderSort)}</span>
+              </Button>
+            </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuItem onClick={() => setFolderSort('name-asc')}>
             Name A-Z
@@ -126,14 +142,47 @@ export function FolderToolbar() {
             Date (Newest)
           </DropdownMenuItem>
         </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenu>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Sort folders by name or date</p>
+        </TooltipContent>
+      </Tooltip>
 
-      <Input
-        type="text"
-        placeholder="Filter..."
-        value={folderFilter}
-        onChange={(e) => setFolderFilter(e.target.value)}
-        className="h-8 text-sm flex-1 max-w-[200px] min-w-[80px]"
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Input
+            type="text"
+            placeholder="Filter..."
+            value={folderFilter}
+            onChange={(e) => setFolderFilter(e.target.value)}
+            className="h-8 text-sm flex-1 max-w-[200px] min-w-[80px]"
+          />
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Filter folders by name</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Dialogs */}
+      <CreateFolderDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onConfirm={handleCreateFolder}
+      />
+
+      <RenameFolderDialog
+        open={renameDialogOpen}
+        onOpenChange={setRenameDialogOpen}
+        onConfirm={handleRenameFolder}
+        currentName={selectedFolder || ""}
+      />
+
+      <DeleteFolderDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteFolder}
+        folderName={selectedFolder || ""}
       />
     </div>
   )

@@ -46,9 +46,9 @@ export interface UseLocalStorageOptions {
  * clearDraft()
  * ```
  */
-export function useLocalStorage({ 
-  key, 
-  initialValue 
+export function useLocalStorage({
+  key,
+  initialValue
 }: UseLocalStorageOptions) {
   // Reason: Initialize from localStorage on mount (SSR-safe)
   const [value, setValue] = useState<string>(() => {
@@ -58,7 +58,15 @@ export function useLocalStorage({
     }
     return initialValue
   })
-  
+
+  // Reason: Reinitialize value when key changes (document switching)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(key)
+      setValue(saved || initialValue)
+    }
+  }, [key, initialValue])
+
   // Reason: Save to localStorage whenever value changes
   useEffect(() => {
     if (typeof window !== 'undefined') {

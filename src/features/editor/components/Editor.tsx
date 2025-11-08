@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:27 GMT+10
-Last modified: 07/11/2025 16:16 GMT+10
+Last modified: 07/11/2025 20:32 GMT+10
 ---------------
 Monaco Editor wrapper component with Next.js SSR handling and Bold Simplicity theme.
 Uses dynamic import to prevent SSR issues with Monaco's browser dependencies.
 
 Changelog:
+07/11/2025 20:32 GMT+10 | Integrated markdown actions with keyboard shortcuts and context menu (P5S4T3)
 07/11/2025 16:16 GMT+10 | Enabled full Monaco features (context menu, find/replace) (P5S3bT15)
 07/11/2025 13:27 GMT+10 | Initial creation with dynamic import and custom theme
 */
@@ -23,6 +24,7 @@ import dynamic from 'next/dynamic'
 import type { EditorProps } from '../types'
 import { cn } from '@/lib/utils'
 import EditorSkeleton from './EditorSkeleton'
+import { markdownActions } from '../markdown-actions'
 
 // CRITICAL: Dynamic import with SSR disabled
 // Monaco Editor requires browser environment (window, document, etc.)
@@ -103,7 +105,7 @@ export default function Editor({
 
     // Configure editor options with sensible defaults
     editor.updateOptions({
-      fontSize: 14,
+      fontSize: 13,
       fontFamily: 'var(--font-geist-mono, monospace)',  // Match app font or fallback to monospace
       lineHeight: 1.6,
       padding: { top: 16, bottom: 16 },
@@ -114,6 +116,18 @@ export default function Editor({
       cursorBlinking: 'smooth',
       cursorSmoothCaretAnimation: 'on',
       ...options  // User options override defaults
+    })
+
+    // Reason: Register markdown editor actions (P5S4T3)
+    markdownActions.forEach(action => {
+      editor.addAction({
+        id: action.id,
+        label: action.label,
+        keybindings: action.keybindings,
+        contextMenuGroupId: action.contextMenuGroupId,
+        contextMenuOrder: action.contextMenuOrder,
+        run: () => action.run(editor)
+      })
     })
 
     // Call user's onMount if provided

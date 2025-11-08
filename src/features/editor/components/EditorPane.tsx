@@ -91,18 +91,28 @@ export function EditorPane() {
     loadPrompt()
   }, [selectedPrompt])
 
-  // Reason: Sync content state when prompt data loads
+  // Reason: Reset content when switching documents to prevent stale localStorage bug (P5S4bT1)
+  useEffect(() => {
+    if (selectedPrompt) {
+      setContent("")  // Clear immediately to prevent showing wrong document
+    }
+  }, [selectedPrompt])
+
+  // Reason: Sync content state when prompt data loads (only run when promptData changes)
   useEffect(() => {
     if (promptData?.content) {
       // Reason: Check localStorage first for unsaved changes
-      if (localContent && localContent !== promptData.content) {
-        setContent(localContent)
+      // Note: localContent comes from useLocalStorage which reinitializes on key change
+      const storedContent = localContent || ''
+      if (storedContent && storedContent !== promptData.content) {
+        setContent(storedContent)
         toast.info("Restored unsaved changes from browser storage")
       } else {
         setContent(promptData.content)
       }
     }
-  }, [promptData, localContent])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptData])
 
   // Reason: Auto-save callback (P5S3bT14)
   const handleAutoSave = useCallback(async (promptId: string, content: string) => {

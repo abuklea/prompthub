@@ -10,7 +10,7 @@ import { toast } from "sonner"
 export function FolderTree() {
   const [folders, setFolders] = useState<Folder[]>([])
   const [loading, setLoading] = useState(true)
-  const { folderSort, folderFilter } = useUiStore()
+  const { folderSort, folderFilter, folderRefetchTrigger } = useUiStore()
 
   useEffect(() => {
     async function loadFolders() {
@@ -24,7 +24,7 @@ export function FolderTree() {
       }
     }
     loadFolders()
-  }, [])
+  }, [folderRefetchTrigger])
 
   const handleNewFolder = async () => {
     const newName = prompt("Enter folder name")

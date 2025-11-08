@@ -16,6 +16,10 @@ interface UiState {
   docSort: DocSort
   docFilter: string
 
+  // Refetch triggers (P5S4bT2)
+  folderRefetchTrigger: number
+  promptRefetchTrigger: number
+
   // Selection actions
   toggleFolder: (folderId: string) => void
   selectFolder: (folderId: string | null) => void
@@ -26,6 +30,10 @@ interface UiState {
   setFolderFilter: (filter: string) => void
   setDocSort: (sort: DocSort) => void
   setDocFilter: (filter: string) => void
+
+  // Refetch trigger actions (P5S4bT2)
+  triggerFolderRefetch: () => void
+  triggerPromptRefetch: () => void
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -39,6 +47,10 @@ export const useUiStore = create<UiState>((set) => ({
   folderFilter: '',
   docSort: 'title-asc',
   docFilter: '',
+
+  // Refetch triggers (P5S4bT2)
+  folderRefetchTrigger: 0,
+  promptRefetchTrigger: 0,
 
   // Selection actions
   toggleFolder: (folderId) =>
@@ -59,4 +71,10 @@ export const useUiStore = create<UiState>((set) => ({
   setFolderFilter: (filter) => set({ folderFilter: filter }),
   setDocSort: (sort) => set({ docSort: sort }),
   setDocFilter: (filter) => set({ docFilter: filter }),
+
+  // Refetch trigger actions (P5S4bT2)
+  triggerFolderRefetch: () =>
+    set((state) => ({ folderRefetchTrigger: state.folderRefetchTrigger + 1 })),
+  triggerPromptRefetch: () =>
+    set((state) => ({ promptRefetchTrigger: state.promptRefetchTrigger + 1 })),
 }))

@@ -9,6 +9,7 @@ import { FolderToolbar } from "@/features/folders/components/FolderToolbar";
 import { PromptList } from "@/features/prompts/components/PromptList";
 import { DocumentToolbar } from "@/features/prompts/components/DocumentToolbar";
 import { EditorPane } from "@/features/editor/components/EditorPane";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default async function AppLayout() {
   const supabase = createServer();
@@ -22,8 +23,9 @@ export default async function AppLayout() {
     <div className="flex flex-col h-screen">
       <Header user={data.user} />
 
-      <ResizablePanelsLayout
-        foldersPanel={
+      <TooltipProvider delayDuration={700}>
+        <ResizablePanelsLayout
+          foldersPanel={
           <>
             <PanelSubheader title="Folders">
               <FolderToolbar />
@@ -53,7 +55,8 @@ export default async function AppLayout() {
             </div>
           </>
         }
-      />
+        />
+      </TooltipProvider>
     </div>
   );
 }

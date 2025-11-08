@@ -10,13 +10,14 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUiStore, type DocSort } from "@/stores/use-ui-store"
 import { createPrompt } from "../actions"
 import { toast } from "sonner"
-import { ChevronDown } from "lucide-react"
+import { FilePlus, Edit, Trash2, ArrowUpDown } from "lucide-react"
 
 export function DocumentToolbar() {
-  const { selectedFolder, selectedPrompt, docSort, docFilter, setDocSort, setDocFilter, selectPrompt } = useUiStore()
+  const { selectedFolder, selectedPrompt, docSort, docFilter, setDocSort, setDocFilter, selectPrompt, triggerPromptRefetch } = useUiStore()
   const [creatingDoc, setCreatingDoc] = useState(false)
 
   // Reason: Map sort values to display labels
@@ -50,6 +51,7 @@ export function DocumentToolbar() {
     // Reason: Auto-select newly created document and trigger list refresh via state change
     if (result.data?.promptId) {
       selectPrompt(result.data.promptId)
+      triggerPromptRefetch()
     }
     setCreatingDoc(false)
   }
@@ -57,46 +59,69 @@ export function DocumentToolbar() {
   return (
     <div className="flex items-center gap-2 overflow-hidden">
       {/* New Doc Button */}
-      <Button
-        size="sm"
-        disabled={!selectedFolder || creatingDoc}
-        onClick={handleNewDoc}
-        title={!selectedFolder ? "Select a folder first" : "Create new document"}
-        className="min-w-[80px] shrink-0"
-      >
-        {creatingDoc ? "Creating..." : "New Doc"}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!selectedFolder || creatingDoc}
+            onClick={handleNewDoc}
+            className="min-w-[32px] shrink-0"
+          >
+            <FilePlus className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{!selectedFolder ? "Select a folder first" : creatingDoc ? "Creating document..." : "Create new document"}</p>
+        </TooltipContent>
+      </Tooltip>
 
       {/* Rename Button */}
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={!selectedPrompt}
-        title={!selectedPrompt ? "Select a document first" : "Rename document"}
-        className="min-w-[70px] shrink-0"
-      >
-        Rename
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!selectedPrompt}
+            className="min-w-[32px] shrink-0"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{!selectedPrompt ? "Select a document first" : "Rename selected document"}</p>
+        </TooltipContent>
+      </Tooltip>
 
       {/* Delete Button */}
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={!selectedPrompt}
-        title={!selectedPrompt ? "Select a document first" : "Delete document"}
-        className="min-w-[60px] shrink-0"
-      >
-        Delete
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!selectedPrompt}
+            className="min-w-[32px] shrink-0"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{!selectedPrompt ? "Select a document first" : "Delete selected document"}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      <div className="h-4 w-px bg-gray-600 mx-1 shrink-0" />
 
       {/* Sort Dropdown */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline" className="gap-1 min-w-[120px] shrink-0">
-            <span className="truncate">{sortLabels[docSort]}</span>
-            <ChevronDown className="h-4 w-4 shrink-0" />
-          </Button>
-        </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="min-w-[80px] shrink-0">
+                <ArrowUpDown className="h-4 w-4 mr-1" />
+                <span className="text-xs truncate">{sortLabels[docSort]}</span>
+              </Button>
+            </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuRadioGroup value={docSort} onValueChange={(value) => setDocSort(value as DocSort)}>
             <DropdownMenuRadioItem value="title-asc">Title (A-Z)</DropdownMenuRadioItem>
@@ -107,16 +132,28 @@ export function DocumentToolbar() {
             <DropdownMenuRadioItem value="size-desc">Size (Largest)</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenu>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Sort documents by title, date, or size</p>
+        </TooltipContent>
+      </Tooltip>
 
       {/* Filter Input */}
-      <Input
-        type="text"
-        placeholder="Filter documents..."
-        value={docFilter}
-        onChange={(e) => setDocFilter(e.target.value)}
-        className="flex-1 max-w-[200px] min-w-[80px]"
-      />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Input
+            type="text"
+            placeholder="Filter..."
+            value={docFilter}
+            onChange={(e) => setDocFilter(e.target.value)}
+            className="h-8 text-sm flex-1 max-w-[200px] min-w-[80px]"
+          />
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Filter documents by title</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
   )
 }

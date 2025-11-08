@@ -264,12 +264,27 @@
   - **User Instructions**: (1) All UI text is ~25% smaller (12px base vs 16px), (2) Monaco editor fills vertical space from subheader to footer, (3) Editor font remains at 14px for code readability, (4) All breakpoints render without overflow (375px, 768px, 1920px), (5) Panel resizing works smoothly at all widths, (6) Build passes without errors. Full implementation details and design rationale in `docs/plans/compact-ui-editor-fix-design.md` and validation guide in `PRPs/P5S3d-compact-ui-and-monaco-editor-fix.md`.
 
 - Step 4: Editor UI with Manual Save
-  - **Task**: Connect the `EditorPane` to the backend. The "Save" button should invoke the `saveNewVersion` action. Implement loading and success states for the save button. The editor should be populated with the selected prompt's content.
+  - **Task**: Connect the `EditorPane` to the backend. The "Save" button should invoke the `saveNewVersion` action. Implement loading and success states for the save button. The editor should be populated with the selected prompt's content. Also reduce the default editor font size to 13px and provide useful monaco editor tools for editing and styling the content like a text editor customized and optimized for Markdown format (i.e. headers,tables, etc)
   - **Assignee**: `Frontend_Engineer`
   - **Files**:
     - `src/features/editor/components/EditorPane.tsx`: Add state management for title and content, and an onClick handler for the "Save" button to call the server action.
   - **Step Dependencies**: Phase 5, Step 3c
   - **User Instructions**: Select a prompt, type content into the editor, and click "Save". The content should persist after selecting another prompt and coming back. Check the `PromptVersions` and `Prompts` tables in Supabase to confirm that a new version was created and the content was updated.
+
+- Step 4b: [P] Fix Critical Bugs, Subheader Design, and Tooltip System
+  - **Task**: Fix critical EditorPane content sync bug causing wrong documents to display, implement Zustand refetch triggers for immediate UI updates after CRUD operations, standardize subheader designs with icon-only buttons, and integrate shadcn Tooltip component with 700ms hover delay across all interactive controls.
+  - **Assignee**: `senior-frontend-engineer`
+  - **Files**:
+    - **MODIFY**: `src/features/editor/components/EditorPane.tsx` - Add content reset effect
+    - **MODIFY**: `src/stores/use-ui-store.ts` - Add refetch triggers
+    - **MODIFY**: `src/features/folders/components/FolderTree.tsx` - Use refetch trigger
+    - **MODIFY**: `src/features/folders/components/FolderToolbar.tsx` - Trigger refetch, add tooltips
+    - **MODIFY**: `src/features/prompts/components/PromptList.tsx` - Use refetch trigger
+    - **MODIFY**: `src/features/prompts/components/DocumentToolbar.tsx` - Icon buttons, tooltips, trigger refetch
+    - **MODIFY**: `src/app/(app)/layout.tsx` - Add TooltipProvider wrapper
+    - **CREATE**: `src/components/ui/tooltip.tsx` - Shadcn tooltip component
+  - **Step Dependencies**: Phase 5, Step 4
+  - **User Instructions**: (1) Switching documents shows correct content immediately, (2) CRUD operations update UI without page reload, (3) All subheader buttons use consistent icon design, (4) All interactive controls show tooltips after 700ms hover, (5) Tooltip text is descriptive and context-aware. Full implementation details in `PRPs/P5S4b-fix-subheader-tooltips-design.md`.
 
 - Step 5: [P] Version History UI
   - **Task**: Create a `VersionHistory.tsx` component. This component will display a list of all saved versions for a prompt, fetched via a new `getPromptVersions` server action. This can be displayed in a modal or a side panel.

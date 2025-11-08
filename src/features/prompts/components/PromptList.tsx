@@ -7,7 +7,7 @@ import { Prompt } from "@prisma/client"
 import { cn } from "@/lib/utils"
 
 export function PromptList() {
-  const { selectedFolder, selectPrompt, selectedPrompt, docSort, docFilter } = useUiStore()
+  const { selectedFolder, selectPrompt, selectedPrompt, docSort, docFilter, promptRefetchTrigger } = useUiStore()
   const [prompts, setPrompts] = useState<Prompt[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -29,7 +29,7 @@ export function PromptList() {
       }
     }
     loadPrompts()
-  }, [selectedFolder, selectedPrompt])
+  }, [selectedFolder, selectedPrompt, promptRefetchTrigger])
 
   // Reason: Apply sort and filter to prompts
   const filteredAndSortedPrompts = useMemo(() => {

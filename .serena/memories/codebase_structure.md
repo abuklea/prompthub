@@ -1,5 +1,5 @@
 # PromptHub - Codebase Structure
-Last Updated: 07/11/2025 20:05 GMT+10
+Last Updated: 07/11/2025 21:10 GMT+10
 
 ## Root Directory Structure
 ```
@@ -31,282 +31,365 @@ Configuration Files:
 
 ## Source Code Structure (`src/`)
 
-### P1S1 Implemented Structure
+### Current Implementation (P1S1 → P5S4b)
 ```
 src/
-├── features/              # Feature modules (domain-driven)
-│   ├── auth/             # Authentication (P1S1)
-│   │   ├── actions.ts    # Server actions (signUp, signIn, signOut)
-│   │   ├── schemas.ts    # Zod validation schemas
-│   │   └── components/   # Auth UI components
-│   │       ├── AuthForm.tsx        # Main auth form (sign in/up)
-│   │       └── FormError.tsx       # Error display component
-│   │
-│   └── editor/           # Monaco Editor Integration (P5S1, P5S3d)
-│       ├── types.ts      # TypeScript interfaces (Editor, EditorSkeleton)
-│       ├── components/   # Editor UI components
-│       │   ├── Editor.tsx           # Monaco wrapper with SSR handling (P5S3d: h-full fix)
-│       │   ├── EditorPane.tsx       # Editor panel wrapper (P5S3d: h-full fix)
-│       │   └── EditorSkeleton.tsx   # Loading state component
-│       └── index.ts      # Centralized exports
+├── app/                  # App Router (Next.js 14)
+│   └── (app)/           # App layout group
+│       ├── layout.tsx   # Main app layout with TooltipProvider (P5S4b)
+│       └── page.tsx     # Dashboard page
 │
-├── components/           # Shared components
-│   ├── layout/          # Layout components (P1S1, P5S3d)
+├── features/             # Feature modules (domain-driven)
+│   ├── auth/            # Authentication (P1S1)
+│   │   ├── actions.ts   # Server actions (signUp, signIn, signOut)
+│   │   ├── schemas.ts   # Zod validation schemas
+│   │   └── components/  # Auth UI components
+│   │       ├── AuthForm.tsx        # Main auth form
+│   │       └── FormError.tsx       # Error display
+│   │
+│   ├── editor/          # Monaco Editor & Editing (P5S1, P5S3d, P5S4, P5S4b)
+│   │   ├── types.ts     # TypeScript interfaces
+│   │   ├── markdown-actions.ts  # Formatting utilities (P5S4)
+│   │   ├── components/  # Editor UI components
+│   │   │   ├── Editor.tsx           # Monaco wrapper (P5S3d: h-full fix)
+│   │   │   ├── EditorPane.tsx       # Main editor panel (P5S4, P5S4b: cleanup effect)
+│   │   │   └── EditorSkeleton.tsx   # Loading state
+│   │   └── index.ts     # Centralized exports
+│   │
+│   ├── folders/         # Folder Management (P5S4, P5S4b)
+│   │   └── components/  # Folder UI components
+│   │       ├── FolderTree.tsx       # Folder tree (P5S4b: refetch integration)
+│   │       └── FolderToolbar.tsx    # Folder actions (P5S4b: tooltips)
+│   │
+│   └── prompts/         # Prompt/Document Management (P5S4, P5S4b)
+│       └── components/  # Prompt UI components
+│           ├── PromptList.tsx       # Document list (P5S4b: refetch integration)
+│           └── DocumentToolbar.tsx  # Document actions (P5S4b: icons + tooltips)
+│
+├── components/          # Shared components
+│   ├── layout/         # Layout components (P1S1, P5S3d)
 │   │   ├── Header.tsx         # Context-aware header
-│   │   └── PanelSubheader.tsx # Panel subheader (P5S3d: compact sizing)
-│   └── ui/              # Shadcn UI components (P5S3d: compact sizing)
+│   │   └── PanelSubheader.tsx # Panel subheader (P5S3d: compact)
+│   └── ui/             # Shadcn UI components (P5S3d, P5S4b)
 │       ├── button.tsx         # P5S3d: h-8/h-7, text-xs
 │       ├── card.tsx
 │       ├── input.tsx          # P5S3d: h-8
 │       ├── label.tsx          # P5S3d: text-xs
-│       └── toaster.tsx        # Sonner toast wrapper
+│       ├── toaster.tsx        # Sonner toast wrapper
+│       └── tooltip.tsx        # P5S4b: NEW tooltip component
 │
-├── lib/                 # Shared utilities
+├── stores/             # Zustand state management (P5S4, P5S4b)
+│   └── use-ui-store.ts # Global UI state (refetch triggers, document state)
+│
+├── lib/                # Shared utilities
 │   └── supabase/
-│       ├── client.ts    # Client-side Supabase client
-│       └── server.ts    # Server-side Supabase client
+│       ├── client.ts   # Client-side Supabase client
+│       └── server.ts   # Server-side Supabase client
 │
-├── pages/               # Next.js Pages Router (P1S1)
-│   ├── _app.tsx        # App wrapper (fonts, toaster)
-│   ├── _document.tsx   # Document (dark mode)
-│   ├── index.tsx       # Landing page
-│   ├── login.tsx       # Auth page
-│   └── dashboard.tsx   # Protected dashboard
+├── pages/              # Next.js Pages Router (P1S1)
+│   ├── _app.tsx       # App wrapper (fonts, toaster)
+│   ├── _document.tsx  # Document (dark mode)
+│   ├── index.tsx      # Landing page
+│   ├── login.tsx      # Auth page
+│   └── dashboard.tsx  # Protected dashboard
 │
-├── styles/             # Global styles
-│   └── globals.css     # Bold Simplicity design system (P5S3d: 12px base font)
+├── styles/            # Global styles
+│   └── globals.css    # Bold Simplicity design (P5S3d: 12px base)
 │
-└── middleware.ts       # Auth protection middleware
+└── middleware.ts      # Auth protection middleware
 ```
 
-## Key File Locations (P1S1 & P5S1)
+## Key File Locations (Latest Implementations)
 
-### Editor Components (P5S1)
+### P5S4b - UI Fixes & Tooltips (LATEST)
+- **Tooltip Component**: `src/components/ui/tooltip.tsx` (NEW)
+- **TooltipProvider**: `src/app/(app)/layout.tsx` (added)
+- **EditorPane Cleanup**: `src/features/editor/components/EditorPane.tsx` (bug fix)
+- **Refetch Store**: `src/stores/use-ui-store.ts` (triggers added)
+- **FolderTree Integration**: `src/features/folders/components/FolderTree.tsx`
+- **FolderToolbar Integration**: `src/features/folders/components/FolderToolbar.tsx`
+- **PromptList Integration**: `src/features/prompts/components/PromptList.tsx`
+- **DocumentToolbar Icons**: `src/features/prompts/components/DocumentToolbar.tsx`
+
+### P5S4 - Manual Save & Markdown Actions
+- **Markdown Actions**: `src/features/editor/markdown-actions.ts`
+- **EditorPane**: `src/features/editor/components/EditorPane.tsx`
+- **UI Store**: `src/stores/use-ui-store.ts`
+- **Toolbar Components**: Folder and Document toolbars
+
+### P5S3d - Compact UI
+- **CSS Variables**: `src/styles/globals.css`
+- **Component Sizes**: Button, Input, Label, PanelSubheader
+- **Editor Height Fix**: Editor, EditorPane (h-full wrappers)
+
+### P5S1 - Monaco Editor
 - **Editor Types**: `src/features/editor/types.ts`
 - **Editor Component**: `src/features/editor/components/Editor.tsx`
 - **Editor Skeleton**: `src/features/editor/components/EditorSkeleton.tsx`
 - **Exports**: `src/features/editor/index.ts`
-- **Test Page**: `src/pages/test-editor.tsx` (verification)
 
-### Editor Integration Points
-- **Monaco Wrapper**: Dynamic import with `ssr: false` for SSR compatibility
-- **Custom Theme**: "boldSimplicity" theme matches design system
-- **Props Interface**: EditorProps with 11 customizable properties
-- **Loading State**: EditorSkeleton provides loading animation
-- **Event Callbacks**: onChange, onMount, beforeMount support
-
-### Design System (P5S3d: Compact UI)
-- **CSS Variables**: `src/styles/globals.css`
-- **Base Font Size**: 12px (P5S3d: reduced from 16px)
-- **Colors**: Indigo #4F46E5, Magenta #EC4899
-- **Typography**: Inter font (400, 500, 600)
-- **Spacing**: 4px grid system
-- **Component Sizes**: Reduced 25% (h-8/h-7 buttons, text-xs labels)
-
-### Authentication
+### P1S1 - Authentication & Design
 - **Server Actions**: `src/features/auth/actions.ts`
 - **Validation Schemas**: `src/features/auth/schemas.ts`
 - **Auth Form**: `src/features/auth/components/AuthForm.tsx`
-- **Error Component**: `src/features/auth/components/FormError.tsx`
-
-### Layout Components
 - **Header**: `src/components/layout/Header.tsx`
-- **Context-aware**: Shows different content based on auth state
 
-### Supabase Integration
-- **Client**: `src/lib/supabase/client.ts` (browser)
-- **Server**: `src/lib/supabase/server.ts` (API/SSR)
+## Architecture Patterns (Current)
 
-### Pages
-- **Landing**: `src/pages/index.tsx`
-- **Login**: `src/pages/login.tsx`
-- **Dashboard**: `src/pages/dashboard.tsx` (protected)
+### Zustand State Management (P5S4, P5S4b)
 
-## Database Schema (Prisma)
+**Store Location**: `src/stores/use-ui-store.ts`
 
-### Current Models (P1S1)
-- **User**: Managed by Supabase Auth (auth.users)
-  - No custom user table yet
-  - RLS policies enforce data isolation
-
-### Planned Models
-- **Profile**: User profiles (1:1 with auth.users)
-- **Folder**: Hierarchical folder structure
-- **Prompt**: User prompts with content
-- **PromptVersion**: Version control
-- **Tag**: User-scoped tags
-
-## Architecture Patterns (P1S1)
-
-### Authentication Flow
-1. **Client**: AuthForm captures credentials
-2. **Server Action**: Validates with Zod schema
-3. **Supabase Auth**: Creates/verifies user
-4. **Error Handling**: Returns error objects (never throws)
-5. **Feedback**: Dual system (toast + inline)
-6. **Redirect**: Client-side navigation on success
-
-### Error Handling Pattern
+**State Structure**:
 ```typescript
-// Server actions return error objects
-const result = await signIn(data)
-if (result.error) {
-  // Show inline error
-  // Show toast notification
+interface UIStore {
+  // Document state
+  selectedDocumentId: string | null
+  selectedDocument: Document | null
+  
+  // Folder state
+  selectedFolderId: string | null
+  expandedFolders: Set<string>
+  
+  // Refetch triggers (P5S4b)
+  folderRefetchTrigger: number
+  documentRefetchTrigger: number
+  
+  // Actions
+  setSelectedDocument: (doc: Document | null) => void
+  setSelectedFolder: (id: string | null) => void
+  triggerFolderRefetch: () => void  // P5S4b
+  triggerDocumentRefetch: () => void  // P5S4b
 }
 ```
 
-### Dual Feedback System
-- **Toast Notifications**: 
-  - Errors: 6000ms duration
-  - Success: 3000ms duration
-- **Inline Errors**: 
-  - Below form fields
-  - Red text with error icon
-  - FormError component
-
-### Loading States
-- **Form Submission**: Button shows "Signing in..."
-- **Redirecting**: "Redirecting to dashboard..."
-- **Disabled**: Form disabled during submission
-
-### Context-Aware Components
-- **Header**: Shows sign out when authenticated
-- **Pages**: Different content for auth/unauth users
-- **Middleware**: Protects routes automatically
-
-## Component Patterns (P1S1)
-
-### FormError Component
+**Refetch Pattern** (P5S4b):
 ```typescript
-// Reusable error display
-<FormError message={error} />
+// Trigger refetch from mutation
+const handleCreateFolder = async () => {
+  await createFolder(...)
+  useUIStore.getState().triggerFolderRefetch()
+}
+
+// Subscribe to refetch in component
+const folderRefetchTrigger = useUIStore(s => s.folderRefetchTrigger)
+useEffect(() => {
+  fetchFolders()
+}, [folderRefetchTrigger])
 ```
 
-### Context-Aware Header
+### Document Switching Pattern (P5S4b)
+
+**Problem**: Wrong content displayed when switching documents
+
+**Solution**: Cleanup effect in EditorPane
 ```typescript
-// Shows sign out when authenticated
-<Header />
+useEffect(() => {
+  // Reset to initial content when document changes
+  setLocalContent(initialContent)
+  setIsDirty(false)
+}, [selectedDocumentId])
 ```
 
-### AuthForm Pattern
-- Mode switching (sign in/up)
-- Form change detection (useEffect)
-- Dual error feedback
-- Loading states
-- Redirect feedback
+**Key Points**:
+- Effect runs on `selectedDocumentId` change
+- Resets local content to initial content
+- Clears dirty state
+- Ensures correct content always displayed
 
-## Styling Architecture (P1S1)
+### Tooltip System (P5S4b)
 
-### Bold Simplicity Design System
-- **Dark Mode First**: Default dark theme
-- **Primary Color**: Indigo #4F46E5
-- **Accent Color**: Magenta #EC4899
-- **Typography**: Inter font family
-- **Spacing**: 4px grid (0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24)
-- **Borders**: Rounded corners throughout
-- **Transitions**: Smooth 150ms ease
+**Provider Setup**: `src/app/(app)/layout.tsx`
+```typescript
+import { TooltipProvider } from "@/components/ui/tooltip"
 
-### CSS Variable System
-```css
-:root {
-  --primary: 263.4 70% 50.4%;     /* Indigo */
-  --accent: 330 81% 60%;          /* Magenta */
-  --background: 224 71% 4%;       /* Dark blue-black */
-  --foreground: 213 31% 91%;      /* Light text */
-  /* ... */
+export default function AppLayout({ children }) {
+  return (
+    <TooltipProvider delayDuration={700}>
+      {children}
+    </TooltipProvider>
+  )
+}
+```
+
+**Component Usage**:
+```typescript
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+
+<Tooltip>
+  <TooltipTrigger asChild>
+    <Button variant="ghost" size="icon">
+      <FilePlus className="h-4 w-4" />
+    </Button>
+  </TooltipTrigger>
+  <TooltipContent>Create new document</TooltipContent>
+</Tooltip>
+```
+
+**Features**:
+- 700ms hover delay
+- Context-aware messages (disabled states)
+- Keyboard navigation support
+- Consistent placement
+
+### Markdown Actions (P5S4)
+
+**Location**: `src/features/editor/markdown-actions.ts`
+
+**Actions Available**:
+- `toggleBold()` - Bold selection (Ctrl+B)
+- `toggleItalic()` - Italic selection (Ctrl+I)
+- `toggleStrikethrough()` - Strikethrough (Ctrl+Shift+X)
+- `insertHeading()` - Insert heading
+- `insertLink()` - Insert link
+- `insertCodeBlock()` - Insert code block
+- `insertUnorderedList()` - Bullet list
+- `insertOrderedList()` - Numbered list
+
+**Integration**:
+```typescript
+import { toggleBold } from "@/features/editor/markdown-actions"
+
+const handleBold = () => {
+  const editor = editorRef.current
+  if (!editor) return
+  toggleBold(editor)
+}
+```
+
+### Monaco Editor Height Pattern (P5S3d)
+
+**Critical Pattern for Flex Containers**:
+```typescript
+// EditorPane wrapper structure
+<div className="flex-1 overflow-hidden relative">
+  <div className="absolute inset-0 h-full">  {/* CRITICAL: h-full */}
+    <Editor height="100%" />
+  </div>
+</div>
+```
+
+**Why This Works**:
+- `flex-1`: Takes available vertical space
+- `overflow-hidden relative`: Creates positioning context
+- `absolute inset-0`: Stretches to parent bounds
+- `h-full`: Explicitly sets height to 100%
+- Monaco `height="100%"`: Now has height reference
+
+## Component Patterns
+
+### Toolbar Pattern (P5S4b)
+```typescript
+// Icon-based toolbar with tooltips
+<div className="flex items-center gap-1">
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button variant="ghost" size="icon" onClick={handleAction}>
+        <Icon className="h-4 w-4" />
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent>Action description</TooltipContent>
+  </Tooltip>
+</div>
+```
+
+### CRUD with Refetch Pattern (P5S4b)
+```typescript
+const handleCreate = async (data) => {
+  const result = await createItem(data)
+  if (result.success) {
+    useUIStore.getState().triggerRefetch()
+  }
+}
+```
+
+### Dirty State Tracking (P5S4)
+```typescript
+const [localContent, setLocalContent] = useState(initialContent)
+const [isDirty, setIsDirty] = useState(false)
+
+const handleContentChange = (value: string) => {
+  setLocalContent(value)
+  setIsDirty(value !== initialContent)
 }
 ```
 
 ## File Size Policy
 - **Maximum 500 lines per file** (mandatory)
-- Current P1S1 files well within limits:
-  - AuthForm.tsx: ~200 lines
-  - actions.ts: ~100 lines
-  - Header.tsx: ~50 lines
-  - globals.css: ~150 lines
+- Current status: All files well within limits
+- Largest files: ~300 lines (EditorPane, UI Store)
 
-## Current Implementation Status
+## Implementation Status by Phase
 
-### Phase 5 Step 3d (P5S3d) - 100% Complete (LATEST)
+### P5S4b - UI Fixes & Tooltips (100% COMPLETE)
+**Date Completed**: 07/11/2025 21:00 GMT+10
+**Files Modified**: 7
+**Files Created**: 1 (tooltip.tsx)
+**Critical Fixes**: 4 (document switching, UI updates, design consistency, tooltips)
+
+### P5S4 - Manual Save Workflow (100% COMPLETE)
+**Date Completed**: 07/11/2025 20:45 GMT+10
+**Files Modified**: ~10
+**Files Created**: 1 (markdown-actions.ts)
+**Features**: Manual save, markdown toolbar, keyboard shortcuts
+
+### P5S3d - Compact UI (100% COMPLETE)
 **Date Completed**: 07/11/2025 19:57 GMT+10
-**Status**: Production Ready
-**Build Status**: Success (zero errors)
-**Files Modified**: 7 (globals.css, button.tsx, input.tsx, label.tsx, PanelSubheader.tsx, EditorPane.tsx, Editor.tsx)
-**Critical Fix**: Monaco editor height rendering (657px achieved)
+**Files Modified**: 7
+**Critical Fix**: Monaco editor height (657px achieved)
 
-### Phase 5 Step 1 (P5S1) - 100% Complete
+### P5S1 - Monaco Editor (100% COMPLETE)
 **Date Completed**: 07/11/2025 13:30 GMT+10
-**Status**: Production Ready
+**Files Created**: 4 (types, Editor, EditorSkeleton, index)
 **Build Status**: Success (zero errors)
-**Lint Status**: Clean (zero warnings)
-**Components Created**: 2 (Editor, EditorSkeleton)
-**Types Created**: 2 (EditorProps, EditorSkeletonProps)
 
-### Phase 1 Step 1 (P1S1) - 100% Complete
+### P1S1 - Auth & Design (100% COMPLETE)
 **Date Completed**: 07/11/2025 13:10 GMT+10
-**Status**: Production Ready
 **E2E Test Pass Rate**: 8/8 (100%)
 **Console Errors**: 0 (Zero)
 
-### P5S3d Deliverables (4 Tasks) - LATEST
+## Design System (P5S3d: Compact UI Standards)
 
-#### Compact UI & Monaco Editor Fix (P5S3dT1-T4)
-✅ T1: Global font size reduction (16px → 12px in globals.css)
-✅ T2: Component sizing updates (button, input, label, PanelSubheader)
-✅ T3: Monaco editor height fix (h-full on wrapper ancestors)
-✅ T4: Build verification and visual testing
+### CSS Variables (globals.css)
+```css
+html {
+  font-size: 12px;  /* P5S3d: Compact UI (was 16px) */
+}
 
-**Key Achievement**: Monaco editor now renders at 657px height (was 5px)
-**Critical Pattern**: Monaco requires explicit `h-full` on ALL wrapper divs for `height="100%"` to work in flex containers
+:root {
+  --primary: 239 84% 67%;      /* Indigo #4F46E5 */
+  --accent: 328 85% 70%;       /* Magenta #EC4899 */
+  --background: 222 47% 11%;   /* Dark blue-black #0F172A */
+  --foreground: 213 31% 91%;   /* Light text #E2E8F0 */
+}
+```
 
-### P5S1 Deliverables (5 Tasks)
+### Component Sizing Standards
+- **Button Default**: `h-8 px-3 text-xs`
+- **Button Small**: `h-7 px-2.5 text-xs`
+- **Button Icon**: `h-8 w-8` (P5S4b)
+- **Input**: `h-8 px-2.5 py-1.5`
+- **Label**: `text-xs`
+- **PanelSubheader**: `h-10 px-3 text-xs`
+- **Icons**: `h-4 w-4` (standard size)
 
-#### Editor Integration Tasks (P5S1T1-T5)
-✅ T1: Create Editor TypeScript interfaces and types
-✅ T2: Implement Monaco Editor wrapper component with SSR handling
-✅ T3: Create EditorSkeleton loading state component
-✅ T4: Add Bold Simplicity theme to Monaco
-✅ T5: Create test page and validate implementation
+## Testing & Quality
 
-### P1S1 Deliverables (15 Tasks)
+### Build Verification
+```bash
+npm run lint    # Zero warnings/errors
+npm run build   # Successful production build
+```
 
-#### Core Tasks (P1S1T1-T10)
-✅ T1: CSS Variables updated for Bold Simplicity design system
-✅ T2: Inter font integrated into root layout
-✅ T3: Server action error handling fixed (CRITICAL)
-✅ T4: Toaster component added to root layout
-✅ T5: Toast notifications integrated into AuthForm
-✅ T6: Context-aware Header component created
-✅ T7: App layout verified to use new Header
-✅ T8: Auth pages styling updated with design system
-✅ T9: Form improvements with loading and redirect states
-✅ T10: Complete E2E testing (8 test scenarios)
+### Functionality Verification
+- Document switching works correctly (P5S4b)
+- CRUD operations update UI immediately (P5S4b)
+- Tooltips appear on all interactive elements (P5S4b)
+- Markdown actions work with shortcuts (P5S4)
+- Monaco editor renders at correct height (P5S3d)
 
-#### Enhancement Tasks (P1S1T11-T15)
-✅ T11: Inline error messaging component
-✅ T12: Enhanced loading states with redirecting feedback
-✅ T13: Manual testing guide (60+ pages)
-✅ T14: Toast duration configuration (Sonner defaults)
-✅ T15: Accessibility audit report (WCAG 2.1 evaluation)
-
-### Documentation Delivered
-✅ PRP INITIAL document (planning and breakdown)
-✅ PRP REPORT document (275+ pages of results)
-✅ E2E Testing Report (8 scenarios, 100% pass rate)
-✅ Accessibility Audit Report (3 critical, 4 high, 3 medium, 2 low priority items)
-✅ Manual Testing Guide (sign-up flow procedures)
-✅ Task Verification Summary (all tasks verified complete)
-
-### Code Quality Metrics
-✅ Build succeeds with zero errors
-✅ Lint passes without warnings
-✅ TypeScript strict mode compliant
-✅ Production build validated
-✅ All file sizes under 500 lines
-✅ All functions under 50 lines
-
-### Phase 2 (Pending Start)
-⏳ Core application features (Prompts, Folders, Tags)
-⏳ CRUD operations
-⏳ Database schema implementation
+## Next Phase: P5S5 - Version History UI
+⏳ Display version history for documents
+⏳ Version comparison interface
+⏳ Restore previous versions
+⏳ Version metadata display

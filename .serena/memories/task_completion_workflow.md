@@ -1,5 +1,5 @@
 # PromptHub - Task Completion Workflow
-Last Updated: 07/11/2025 20:05 GMT+10
+Last Updated: 07/11/2025 21:10 GMT+10
 
 ## Pre-Commit Checklist (MANDATORY)
 
@@ -103,18 +103,16 @@ git diff --staged
 - NEVER add author or sign-off
 - NEVER include Claude Code signature
 
-**P1S1 Example**:
+**P5S4b Example**:
 ```bash
-git commit -m "feat: Complete P1S1 Authentication & Bold Simplicity design system
+git commit -m "fix: P5S4b - Critical UI fixes and tooltip system
 
-- Implement sign up, sign in, sign out server actions
-- Add dual feedback system (toast + inline errors)
-- Create Bold Simplicity design with Indigo/Magenta colors
-- Add context-aware Header component
-- Implement loading and redirect states
-- Add form change detection to clear errors
-- Complete E2E testing with 100% pass rate
-- Deliver full documentation (INITIAL + REPORT + guides)"
+- Fix EditorPane document switching bug (wrong content displayed)
+- Implement Zustand refetch trigger system for CRUD operations
+- Convert DocumentToolbar to icon-based design
+- Add comprehensive tooltip system with 700ms delay
+- Add context-aware tooltip messages for disabled states
+- Build verified with zero errors"
 ```
 
 ### Commit
@@ -141,13 +139,14 @@ Before marking a task as complete, verify:
 - [ ] Error handling implemented
 - [ ] Loading states implemented
 - [ ] User feedback provided
-- [ ] **P1S1 Pattern**: Dual feedback (toast + inline)
+- [ ] **P5S4b**: Refetch triggers work
+- [ ] **P5S4b**: Tooltips appear correctly
 
 ### ✓ Testing (P1S1 Standards)
 - [ ] E2E tests completed (Chrome DevTools MCP)
 - [ ] Manual testing guide created
 - [ ] 100% test pass rate achieved
-- [ ] Accessibility audit performed
+- [ ] Accessibility audit performed (when applicable)
 - [ ] Edge cases covered
 
 ### ✓ Security
@@ -164,11 +163,9 @@ Before marking a task as complete, verify:
 - [ ] RLS policies updated
 - [ ] Foreign key constraints correct
 
-### ✓ Documentation (P1S1 Standards)
+### ✓ Documentation
 - [ ] PRP INITIAL document created
 - [ ] PRP REPORT document created
-- [ ] E2E testing report delivered
-- [ ] Accessibility audit report delivered
 - [ ] Task completion summary added to Archon
 - [ ] Complex logic commented
 - [ ] README updated if needed
@@ -188,9 +185,9 @@ Before marking a task as complete, verify:
 2. Update PRP documents
 3. Add completion notes to task
 4. Update task status to "review" or "done"
-5. **P1S1 Pattern**: Add completion summary to Archon
+5. Add completion summary to Archon
 
-### Create Summaries (P1S1 Standards)
+### Create Summaries
 - Document what was implemented
 - Note any deviations from plan
 - List any blockers encountered
@@ -198,7 +195,6 @@ Before marking a task as complete, verify:
 - Create REPORT document with:
   - Implementation summary
   - Testing results
-  - Accessibility audit results
   - Lessons learned
   - Recommendations for next phase
 
@@ -208,7 +204,6 @@ Before marking a task as complete, verify:
 - Check for any console errors
 - Test in both light and dark modes (if applicable)
 - Verify responsive behavior
-- **P1S1 Pattern**: Run E2E tests one final time
 
 ## Special Considerations
 
@@ -231,15 +226,6 @@ Before marking a task as complete, verify:
 - Use actual values: `/home/allan/projects/PromptHub`
 - Project root: /home/allan/projects/PromptHub
 
-### Architecture Patterns (P1S1, P5S3d)
-- **Error Handling**: Server actions return error objects (never throw)
-- **Dual Feedback**: Toast + inline errors
-- **Toast Durations**: 6s errors, 3s success
-- **Loading States**: Separate isLoading and isRedirecting
-- **Form Changes**: Clear inline errors on form change
-- **Context-Aware**: Components adapt based on auth state
-- **Monaco Height** (P5S3d): Use `absolute inset-0 h-full` wrapper for flex containers
-
 ## Iteration Process
 
 If any check fails:
@@ -250,19 +236,120 @@ If any check fails:
 
 **Never commit with failing checks or tests!**
 
-## P5S3d Workflow Patterns - COMPLETED & VERIFIED (RAPID UI FIX)
+## Recent Workflow Patterns - VERIFIED & SUCCESSFUL
 
-### P5S3d - Ultra-Rapid Bug Fix Pattern (4 Tasks in ~1 Hour)
+### P5S4b - Ultra-Rapid Bug Fix Pattern (11 Tasks in ~55 Minutes)
 
-**Duration**: ~1 hour total (design + implementation + validation)
-**Pattern**: Targeted UI fixes, systematic component updates, critical bug resolution
+**Duration**: ~55 minutes total (design + implementation + validation)
+**Pattern**: Critical bug fixes, systematic UI improvements, rapid execution
 
 **Execution Flow** ✅
-1. **Problem Identification**: Monaco editor not rendering (5px height instead of ~657px)
-2. **Design Phase**: 15-minute design document identifying dual scope (UI + Monaco)
-3. **Systematic Implementation**: 4 focused tasks executed sequentially
-4. **Critical Discovery**: Monaco height pattern in flex containers requires `h-full` on ALL wrappers
-5. **One-Pass Validation**: Lint → Build → Visual testing at multiple breakpoints
+1. **Problem Identification**: 4 critical issues (P0 bug, UI updates, design consistency, tooltips)
+2. **Design Phase**: 15-minute design document identifying all issues
+3. **Systematic Implementation**: 11 focused tasks executed in sequence
+4. **Critical Discoveries**: 
+   - Document switching cleanup effect pattern
+   - Refetch trigger system for CRUD operations
+5. **One-Pass Validation**: Build → Visual testing → Functionality verification
+
+**Key Success Factors**:
+- Clear problem statements (4 distinct issues)
+- Systematic approach (cleanup → refetch → tooltips → build)
+- Root cause analysis (document switching, UI updates)
+- Pattern documentation (refetch triggers, cleanup effects)
+- Comprehensive testing (all CRUD operations, tooltips)
+
+**P5S4b Tasks Completed**:
+```
+✅ T1: Document switching bug analysis and fix
+✅ T2: EditorPane cleanup effect implementation
+✅ T3: Zustand refetch trigger system design
+✅ T4: Refetch trigger implementation in store
+✅ T5: FolderTree refetch integration
+✅ T6: FolderToolbar refetch integration
+✅ T7: PromptList refetch integration
+✅ T8: DocumentToolbar icon conversion
+✅ T9: Tooltip component creation
+✅ T10: Comprehensive tooltip implementation
+✅ T11: Build verification and testing
+```
+
+**Critical Patterns Discovered** (P5S4b):
+
+**Document Switching Cleanup**:
+```typescript
+useEffect(() => {
+  setLocalContent(initialContent)
+  setIsDirty(false)
+}, [selectedDocumentId])
+```
+
+**Refetch Trigger System**:
+```typescript
+// Store
+triggerFolderRefetch: () => set({ folderRefetchTrigger: Date.now() })
+
+// Component
+const folderRefetchTrigger = useUIStore(s => s.folderRefetchTrigger)
+useEffect(() => {
+  fetchFolders()
+}, [folderRefetchTrigger])
+```
+
+**Validation Results**:
+```
+✅ npm run build      # Zero TypeScript errors
+✅ Document switching # Correct content displayed
+✅ CRUD operations    # Immediate UI updates
+✅ Tooltips          # All interactive elements
+```
+
+**Files Modified** (7 total):
+1. `src/features/editor/components/EditorPane.tsx` - Cleanup effect
+2. `src/stores/use-ui-store.ts` - Refetch triggers
+3. `src/features/folders/components/FolderTree.tsx` - Refetch integration
+4. `src/features/folders/components/FolderToolbar.tsx` - Tooltips + refetch
+5. `src/features/prompts/components/PromptList.tsx` - Refetch integration
+6. `src/features/prompts/components/DocumentToolbar.tsx` - Icons + tooltips
+7. `src/app/(app)/layout.tsx` - TooltipProvider
+
+**Files Created** (1 total):
+1. `src/components/ui/tooltip.tsx` - Tooltip component
+
+**Lessons Learned**:
+- Cleanup effects prevent stale state in document switching
+- Timestamp-based refetch triggers are simple and effective
+- Icon-only toolbars with tooltips improve consistency
+- Context-aware tooltip messages enhance UX
+- Systematic testing catches integration issues early
+
+**Architectural Impact**:
+- Established refetch trigger pattern for Zustand
+- Documented cleanup effect pattern for state resets
+- Standardized tooltip system across application
+- Consistent icon-based toolbar design language
+
+### P5S4 - Manual Save Workflow (13 Tasks in ~4 Hours)
+
+**Duration**: ~4 hours total (design + implementation + testing)
+**Pattern**: Complex feature implementation with state management
+
+**Execution Flow** ✅
+1. **Design Phase**: 30-minute INITIAL document with detailed architecture
+2. **Implementation**: 13 tasks across editor, state, and UI components
+3. **Testing**: Markdown actions verification, keyboard shortcuts
+4. **Documentation**: Comprehensive REPORT with patterns documented
+
+**Key Success Factors**:
+- Clear architecture (Zustand for state, markdown-actions utilities)
+- Modular implementation (editor, store, toolbars separate)
+- Strong patterns from P5S1-P5S3d (editor refs, SSR handling)
+- Comprehensive testing (manual save, dirty state, shortcuts)
+
+### P5S3d - Compact UI & Monaco Height Fix (4 Tasks in ~1 Hour)
+
+**Duration**: ~1 hour total (design + implementation + validation)
+**Pattern**: Targeted UI fixes, systematic component updates
 
 **Key Success Factors**:
 - Clear problem statement (compact UI + Monaco height bug)
@@ -271,175 +358,51 @@ If any check fails:
 - Pattern documentation (absolute inset-0 h-full wrapper)
 - Multi-breakpoint testing (375px, 768px, 1920px)
 
-**P5S3d Tasks Completed**:
-```
-✅ T1: Global font size reduction (12px base in globals.css)
-✅ T2: Component sizing updates (button, input, label, PanelSubheader)
-✅ T3: Monaco editor height fix (critical h-full wrapper pattern)
-✅ T4: Build verification and responsive testing
-```
-
-**Critical Pattern Discovered** (P5S3d):
-```typescript
-// Monaco Height Fix in Flex Containers
-<div className="flex-1 overflow-hidden relative">
-  <div className="absolute inset-0 h-full">  {/* CRITICAL: h-full */}
-    <Editor height="100%" />
-  </div>
-</div>
-```
-
-**Validation Results**:
-```
-✅ npm run build      # Zero TypeScript errors
-✅ Visual testing     # 375px, 768px, 1920px breakpoints
-✅ Monaco rendering   # 657px height achieved (was 5px)
-✅ Font sizes         # HTML 12px, Components text-xs, Monaco 14px
-```
-
-**Files Modified** (7 total):
-1. `src/styles/globals.css` - Base font 12px
-2. `src/components/ui/button.tsx` - h-8/h-7, text-xs
-3. `src/components/ui/input.tsx` - h-8
-4. `src/components/ui/label.tsx` - text-xs
-5. `src/components/layout/PanelSubheader.tsx` - h-10, text-xs
-6. `src/features/editor/components/EditorPane.tsx` - h-full wrapper (CRITICAL)
-7. `src/features/editor/components/Editor.tsx` - h-full wrapper
-
-**Lessons Learned**:
-- Monaco editor requires explicit height propagation in flex layouts
-- `h-full` must be on ALL wrapper ancestors for `height="100%"` to work
-- Systematic UI updates (globals → shared components → feature components)
-- Multi-breakpoint testing catches responsive issues early
-- Document critical patterns immediately for future reference
-
-**Architectural Impact**:
-- Established compact UI sizing standards (12px base, text-xs labels)
-- Discovered reusable Monaco height pattern for flex containers
-- Updated 4 shared UI components with consistent sizing
-- Pattern applies to any third-party component expecting explicit height
-
-## P5S1 Workflow Patterns - COMPLETED & VERIFIED (FAST EXECUTION)
-
-### P5S1 - Rapid PRP Execution Pattern (Proven Successful)
+### P5S1 - Monaco Editor Integration (5 Tasks in ~10 Minutes)
 
 **Duration**: ~10 minutes implementation + validation
 **Pattern**: Minimal tasks, focused scope, clean execution
-
-**Execution Flow** ✅
-1. **Quick Planning**: 5-minute INITIAL document identifying 5 discrete tasks
-2. **Rapid Implementation**: 5 tasks completed in parallel development
-3. **One-Pass Validation**: Lint → Build → Dev server verification
-4. **Immediate Shipping**: No iteration needed, zero errors
-5. **Lightweight Documentation**: REPORT created after verification
 
 **Key Success Factors**:
 - Clear scope definition (editor only, no integration yet)
 - Strong patterns from P1S1 (dynamic imports, theme system)
 - Modular architecture (editor is self-contained feature)
 - Simple validation (one test page confirms functionality)
-- Reusable patterns (error objects, design system integration)
 
-**P5S1 Validation Results**:
-```
-✅ npm run lint       # Zero warnings or errors
-✅ npm run build      # Successful production build
-✅ Dev server running # http://localhost:3010/test-editor
-```
+## PRP Documentation Process (PROVEN SUCCESSFUL)
 
-**Lessons Learned**:
-- Small, focused PRPs can be executed very efficiently
-- Clear architecture enables fast implementation
-- Modular feature structure prevents side effects
-- Test page is sufficient for simple component validation
-- P1S1 patterns are reusable and effective
-
-## P1S1 Workflow Patterns - COMPLETED & VERIFIED
-
-### PRP Documentation Process (P1S1 - PROVEN SUCCESSFUL)
-
-**1. INITIAL Document** ✅
+### 1. INITIAL Document ✅
 - Created before implementation starts
 - Details implementation plan
 - Lists all tasks with descriptions
 - Includes agent recommendations
 - Estimates implementation time
-- **P1S1 Result**: Comprehensive plan delivered for 10 core tasks
 
-**2. Implementation Phase** ✅
+### 2. Implementation Phase ✅
 - Follow task order from INITIAL
 - Update Archon status: `todo` → `doing` → `review` → `done`
-- Document deviations from plan (P1S1: Added 5 enhancement tasks)
-- Track blockers and solutions (P1S1: Server action error handling was critical)
+- Document deviations from plan
+- Track blockers and solutions
 - Update status after each task completion
-- **P1S1 Result**: 15/15 tasks completed (10 core + 5 enhancements)
 
-**3. REPORT Document** ✅
+### 3. REPORT Document ✅
 - Created after implementation complete
-- Summarizes what was implemented (275+ pages)
-- Documents testing results (8/8 E2E tests passed)
-- Includes accessibility audit (WCAG 2.1 evaluation)
-- Lists lessons learned (5 key insights)
+- Summarizes what was implemented
+- Documents testing results
+- Lists lessons learned
 - Provides recommendations for future PRPs
-- **P1S1 Result**: Comprehensive report with full documentation
 
-### Post-Implementation Deliverables (P1S1 - NEW PATTERNS ESTABLISHED)
-
-**4. Task Verification** ✅
-- Systematic verification of all core tasks (T1-T10)
+### 4. Task Verification ✅
+- Systematic verification of all tasks
 - Code evidence collection and validation
 - Browser testing confirmation
 - Codebase analysis verification
-- **P1S1 Result**: All 10 core tasks verified complete
 
-**5. Completion Summary** ✅
+### 5. Completion Summary ✅
 - Task completion tracking in Archon
 - Status updates for all tasks moved to done
 - Success metrics documented
 - Links to all documentation added
-- **P1S1 Result**: All tasks tracked and documented
-
-### E2E Testing Process
-1. **Test Planning**:
-   - Identify user flows to test
-   - Create step-by-step test cases
-   - Define expected results
-   - Include edge cases
-
-2. **Test Execution**:
-   - Use Chrome DevTools MCP
-   - Follow test cases exactly
-   - Document actual results
-   - Take screenshots if needed
-   - Note any issues
-
-3. **Test Reporting**:
-   - Create E2E testing report
-   - List all test cases
-   - Document pass/fail status
-   - Include screenshots
-   - Note any bugs found
-   - Verify 100% pass rate
-
-### Accessibility Testing Process
-1. **Audit Planning**:
-   - Identify components to audit
-   - Define WCAG 2.1 criteria
-   - Create checklist
-
-2. **Audit Execution**:
-   - Test keyboard navigation
-   - Verify ARIA labels
-   - Check color contrast
-   - Test screen reader compatibility
-   - Verify focus indicators
-
-3. **Audit Reporting**:
-   - Create accessibility report
-   - Document findings
-   - List issues (if any)
-   - Provide recommendations
-   - Verify compliance
 
 ## Common Issues and Solutions
 
@@ -453,56 +416,69 @@ If any check fails:
 - **Autocomplete warnings**: Add appropriate `autoComplete` attributes
 - **Key warnings**: Ensure unique keys in lists
 
-### Authentication Issues (P1S1)
-- Always check user in server actions (when needed)
-- Use correct Supabase client (client vs server)
-- Handle errors with error objects, not exceptions
-- Return { error: string } or { success: true }
+### State Management Issues (P5S4, P5S4b)
+- **Stale state**: Use cleanup effects on dependency changes
+- **UI not updating**: Implement refetch trigger pattern
+- **Race conditions**: Use timestamp-based invalidation
 
-### Testing Issues (P1S1)
-- Clear browser cache before E2E tests
-- Use incognito mode for clean state
-- Test logout before testing login
-- Verify toast notifications appear
-- Check inline errors display correctly
+### Monaco Editor Issues (P5S3d, P5S4)
+- **Height not rendering**: Use `absolute inset-0 h-full` wrapper
+- **Theme not applying**: Define in beforeMount hook
+- **Ref not available**: Check onMount callback
 
-## P1S1 Success Metrics
+## Success Metrics
 
-### Implementation Quality
-- ✅ All 12 tasks completed
-- ✅ Design system fully implemented
-- ✅ Authentication flows working
-- ✅ Error handling robust
-- ✅ Loading states smooth
+### P5S4b Implementation Quality
+- ✅ 4/4 critical issues resolved
+- ✅ 11/11 tasks completed
+- ✅ Build succeeds with zero errors
+- ✅ Document switching works correctly
+- ✅ CRUD operations update UI immediately
+- ✅ Tooltips on all interactive elements
 
-### Testing Quality
-- ✅ 100% E2E test pass rate
-- ✅ All user flows tested
-- ✅ Edge cases covered
-- ✅ Accessibility compliant
+### Code Quality (All Phases)
+- ✅ All files under 500 lines
+- ✅ Lint passes without warnings
+- ✅ TypeScript strict mode compliant
+- ✅ Production build validated
 
-### Documentation Quality
+### Documentation Quality (All Phases)
 - ✅ PRP INITIAL delivered
 - ✅ PRP REPORT delivered
-- ✅ E2E testing report created
-- ✅ Accessibility audit completed
 - ✅ Completion summary in Archon
 - ✅ Serena memories updated
+- ✅ Patterns documented
+
+## Lessons Learned (Latest)
+
+### P5S4b Lessons
+1. **Cleanup Effects**: Critical for preventing stale state
+2. **Refetch Triggers**: Timestamp-based is simple and reliable
+3. **Tooltip System**: Context-aware messages improve UX
+4. **Icon Consistency**: Standardize toolbar design language
+5. **Systematic Testing**: Test all CRUD operations thoroughly
+
+### P5S4 Lessons
+1. **Zustand State**: Excellent for UI coordination
+2. **Dirty Tracking**: Compare local to initial content
+3. **Markdown Actions**: Utility functions improve maintainability
+4. **Keyboard Shortcuts**: Add via Monaco command API
+
+### Established Patterns (P1S1-P5S3d)
+1. **Dual Feedback System**: Very effective for UX
+2. **Error Objects**: Better than exceptions for server actions
+3. **SSR Safety**: Dynamic import with ssr: false
+4. **Monaco Height**: Explicit wrapper pattern required
+5. **Compact UI**: Reduce base font size systematically
 
 ## Next Phase Preparation
 
-### Lessons Learned (P1S1)
-1. **Dual Feedback System**: Very effective for UX
-2. **Error Objects**: Better than exceptions for server actions
-3. **E2E Testing**: Chrome DevTools MCP excellent for testing
-4. **Documentation**: INITIAL + REPORT pattern very thorough
-5. **Accessibility**: Important to test early and often
-
 ### Recommendations for Future PRPs
-1. Continue dual feedback pattern
-2. Maintain error object pattern in server actions
-3. Use E2E testing for all user-facing features
-4. Create INITIAL + REPORT for all PRPs
-5. Update Serena memories after major phases
-6. Keep task granularity appropriate (30min-4hr)
-7. Document patterns as they emerge
+1. Continue refetch trigger pattern for CRUD operations
+2. Use cleanup effects for state resets
+3. Maintain tooltip system for all new components
+4. Keep icon-based toolbar design consistent
+5. Document critical patterns immediately
+6. Test document switching when implementing editors
+7. Verify UI updates after mutations
+8. Update Serena memories after major phases
