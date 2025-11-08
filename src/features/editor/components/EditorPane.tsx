@@ -130,10 +130,12 @@ export function EditorPane() {
   }, [updatePromptTitle])
 
   // Reason: Enable auto-save with 500ms debounce (P5S3bT14)
+  // IMPORTANT: Only enable when document is loaded (!loading) to prevent
+  // saving stale title from previous document during document switch
   useAutoSave({
     title,
     content,
-    promptId: selectedPrompt,
+    promptId: loading ? null : selectedPrompt,  // Disable during loading
     delay: 500,
     onSave: handleAutoSave
   })
