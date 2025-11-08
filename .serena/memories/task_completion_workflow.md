@@ -1,5 +1,5 @@
 # PromptHub - Task Completion Workflow
-Last Updated: 07/11/2025 21:10 GMT+10
+Last Updated: 08/11/2025 11:30 GMT+10
 
 ## Pre-Commit Checklist (MANDATORY)
 
@@ -238,6 +238,40 @@ If any check fails:
 
 ## Recent Workflow Patterns - VERIFIED & SUCCESSFUL
 
+### CASCADE_DELETE - Database & Dialog System (~2 Hours)
+
+**Duration**: ~2 hours total (design + implementation + validation)
+**Pattern**: Database constraints + professional UI dialog system
+
+**Execution Flow** ✅
+1. **Database Schema**: Enabled cascade delete on Folder→Folder and Folder→Prompt
+2. **Tag Constraint**: Fixed unique constraint drift (compound unique)
+3. **Schema Migration**: Pushed to Supabase via `prisma db push`
+4. **Radix UI Components**: Created Dialog and AlertDialog wrappers
+5. **Feature Components**: Built FolderDialogs and DocumentDialogs
+6. **Toolbar Integration**: Replaced browser prompts with dialogs
+7. **Validation**: Build passed, tested all CRUD flows
+
+**Key Success Factors**:
+- Clear problem statement (cascade delete + professional UI)
+- Modular approach (separate dialog components)
+- Radix UI integration for consistent behavior
+- Item count calculations in delete warnings
+- Loading states during async operations
+- Comprehensive testing of delete flows
+
+**Critical Patterns Established**:
+- Dialog for forms (create, rename)
+- AlertDialog for confirmations (delete)
+- Cascade delete rules in Prisma schema
+- Item count warnings in delete dialogs
+- Keyboard support (Enter/Esc)
+
+**Files Modified**: 2 (FolderToolbar, DocumentToolbar)
+**Files Created**: 4 (FolderDialogs, DocumentDialogs, alert-dialog, dialog)
+**Dependencies Added**: 2 (@radix-ui components)
+**Build Status**: ✅ Successful (zero errors)
+
 ### P5S4b - Ultra-Rapid Bug Fix Pattern (11 Tasks in ~55 Minutes)
 
 **Duration**: ~55 minutes total (design + implementation + validation)
@@ -451,6 +485,13 @@ useEffect(() => {
 
 ## Lessons Learned (Latest)
 
+### CASCADE_DELETE Lessons
+1. **Cascade Rules**: Simplify data management and prevent orphaned records
+2. **Dialog Pattern**: Professional UI replacements for browser prompts
+3. **Item Counts**: Critical for user understanding of delete impact
+4. **Schema Drift**: Compound unique constraints need verification after fixes
+5. **Database Push**: Use `prisma db push` for development schema changes
+
 ### P5S4b Lessons
 1. **Cleanup Effects**: Critical for preventing stale state
 2. **Refetch Triggers**: Timestamp-based is simple and reliable
@@ -482,3 +523,29 @@ useEffect(() => {
 6. Test document switching when implementing editors
 7. Verify UI updates after mutations
 8. Update Serena memories after major phases
+9. Use Dialog component for form-based operations
+10. Use AlertDialog component for destructive operations
+11. Show item counts in delete confirmations
+12. Implement cascade delete rules for all foreign key relationships
+13. Test cascade delete behavior before committing
+
+## CASCADE_DELETE Pattern Summary
+
+**Database**:
+- Enable cascade delete on all parent-child relationships
+- Fix constraint drift issues with compound unique constraints
+- Use `prisma db push` for schema changes
+
+**UI**:
+- Dialog for forms (Create, Rename)
+- AlertDialog for confirmations (Delete)
+- Show item counts in delete messages
+- Include loading states during async operations
+- Keyboard support: Enter to submit, Esc to cancel
+
+**Integration**:
+- Separate dialog components from toolbars (FolderDialogs, DocumentDialogs)
+- Manage dialog open state locally in toolbar
+- Call confirmation callbacks from dialogs
+- Trigger refetch after successful mutations
+- Show success toast after operations

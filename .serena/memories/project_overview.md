@@ -1,15 +1,66 @@
 # PromptHub - Project Overview
-Last Updated: 07/11/2025 21:10 GMT+10
+Last Updated: 08/11/2025 11:30 GMT+10
 
 ## Purpose
 PromptHub is a centralized repository application designed to help developers, researchers, and content creators efficiently store, organize, and manage their AI prompts. It provides a "GitHub for prompts" experience with version control, nested folders, and full-text search.
 
 ## Current Status
-**Phase**: Phase 5 Step 4b - UI Fixes and Tooltips (100% COMPLETE)
-**Completed**: P5S4b - Critical bug fixes and UX improvements (100% COMPLETE)
-**Previous**: P5S4 - Manual Save Workflow (100% COMPLETE)
+**Phase**: Phase 5 - UI Enhancements (CASCADE_DELETE + Dialog System - 100% COMPLETE)
+**Completed**: CASCADE_DELETE - Database cascade delete with professional dialog system (100% COMPLETE)
+**Previous**: P5S4b - Critical bug fixes and UX improvements (100% COMPLETE)
+**Earlier**: P5S4 - Manual Save Workflow (100% COMPLETE)
 **Next**: Phase 5 Step 5 - Version History UI (Ready to start)
 **Archon Project**: PromptHub (d449f266-1f36-47ad-bd2d-30f1a0f5e999)
+
+## CASCADE_DELETE Completion Summary (08/11/2025 11:30 GMT+10)
+
+**Status**: ✅ COMPLETE and committed to git
+**Duration**: ~2 hours (design + implementation + validation)
+**Build Status**: ✅ Successful (zero errors)
+
+✅ **Database Changes**:
+1. Enabled cascade delete on Folder → Folder (nested) relationships
+2. Enabled cascade delete on Folder → Prompt relationships
+3. Fixed Tag table unique constraint drift (compound unique on name, user_id)
+4. Schema successfully pushed to Supabase via `prisma db push`
+
+✅ **New UI Dialog Components**:
+1. **FolderDialogs** (`src/features/folders/components/FolderDialogs.tsx`)
+   - CreateFolderDialog (form-based with validation)
+   - RenameFolderDialog (form-based with validation)
+   - DeleteFolderDialog (confirmation with item counts)
+
+2. **DocumentDialogs** (`src/features/prompts/components/DocumentDialogs.tsx`)
+   - CreateDocumentDialog (form-based with validation)
+   - RenameDocumentDialog (form-based with validation)
+   - DeleteDocumentDialog (confirmation with version counts)
+
+✅ **Radix UI Components**:
+- `src/components/ui/alert-dialog.tsx` - AlertDialog wrapper for confirmations
+- `src/components/ui/dialog.tsx` - Dialog wrapper for forms
+
+✅ **Professional Replacements**:
+- Removed all `browser.prompt()` calls
+- Removed all `browser.confirm()` calls
+- Replaced with styled Dialog and AlertDialog components
+- Consistent design matching Bold Simplicity system
+
+✅ **Dependencies Added**:
+- @radix-ui/react-alert-dialog
+- @radix-ui/react-dialog
+
+**Key Patterns Implemented**:
+- Dialog for forms (create, rename)
+- AlertDialog for destructive actions (delete)
+- Item count calculations in delete warnings
+- Loading states during async operations
+- Keyboard support (Enter to submit, Esc to cancel)
+
+**Architectural Impact**:
+- No orphaned records possible (cascade rules enforced)
+- Clear user warnings before destructive actions
+- Professional UI replacing browser primitives
+- Consistent dialog behavior across folders and documents
 
 ## P5S4b Completion Summary (07/11/2025 21:00 GMT+10)
 
@@ -143,6 +194,10 @@ PromptHub is a centralized repository application designed to help developers, r
 ✅ Document switching with correct content display (P5S4b)
 ✅ Comprehensive tooltip system (P5S4b)
 ✅ Icon-based toolbars for consistency (P5S4b)
+✅ Cascade delete database constraints (CASCADE_DELETE)
+✅ Professional dialog system for CRUD operations (CASCADE_DELETE)
+✅ Delete confirmations with item count warnings (CASCADE_DELETE)
+✅ No browser prompts/confirm (CASCADE_DELETE)
 
 ## Pending Features
 ⏳ Version history UI (P5S5 - next)

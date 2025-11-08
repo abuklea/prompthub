@@ -1,5 +1,5 @@
 # PromptHub - Code Style & Conventions
-Last Updated: 07/11/2025 21:10 GMT+10
+Last Updated: 08/11/2025 11:30 GMT+10
 
 ## TypeScript Configuration
 - **Strict Mode**: Enabled
@@ -52,6 +52,181 @@ Last Updated: 07/11/2025 21:10 GMT+10
 - Client Components marked with `"use client"`
 - Hooks at top of component body
 - Event handlers prefixed with `handle` (e.g., `handleSave`)
+
+## Latest Patterns (CASCADE_DELETE, P5S4, P5S4b)
+
+### Dialog Pattern (CASCADE_DELETE - NEW)
+
+**Form Dialogs (Create/Rename)**:
+```typescript
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+
+interface CreateFolderDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: (name: string) => Promise<void>
+}
+
+export function CreateFolderDialog({
+  open,
+  onOpenChange,
+  onConfirm
+}: CreateFolderDialogProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [name, setName] = useState("")
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) return
+
+    setIsLoading(true)
+    try {
+      await onConfirm(name)
+      setName("")
+      onOpenChange(false)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create New Folder</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Folder name"
+            autoFocus
+            disabled={isLoading}
+          />
+          <DialogFooter>
+            <Button type="button" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading || !name.trim()}>
+              {isLoading ? "Creating..." : "Create"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+```
+
+**Delete Confirmation Dialogs (AlertDialog)**:
+```typescript
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter } from "@/components/ui/alert-dialog"
+
+interface DeleteFolderDialogProps {
+  folder: Folder | null
+  isLoading: boolean
+  onConfirm: () => Promise<void>
+  onCancel: () => void
+}
+
+export function DeleteFolderDialog({
+  folder,
+  isLoading,
+  onConfirm,
+  onCancel
+}: DeleteFolderDialogProps) {
+  if (!folder) return null
+
+  const subfolderCount = countSubfolders(folder)
+  const documentCount = countDocuments(folder)
+  const versionCount = countVersions(folder)
+
+  return (
+    <AlertDialog open={!!folder} onOpenChange={onCancel}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Folder?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete <strong>"{folder.name}"</strong> and all its contents:
+            {subfolderCount > 0 && `\n• ${subfolderCount} subfolder(s)`}
+            {documentCount > 0 && `\n• ${documentCount} document(s)`}
+            {versionCount > 0 && `\n• ${versionCount} version(s)`}
+
+            This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} disabled={isLoading}>
+            {isLoading ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+```
+
+**Best Practices**:
+- Use Dialog for forms (Create, Rename)
+- Use AlertDialog for destructive actions (Delete)
+- Show item counts in delete confirmations
+- Always include loading states during async operations
+- Reset form state when dialog closes
+- Disable submit when input is invalid
+- Keyboard support: Enter to submit, Esc to cancel
+- Auto-focus first input field
+
+### Cascade Delete Database Pattern (CASCADE_DELETE - NEW)
+
+**Schema Definition**:
+```prisma
+// Folder with cascade delete rules
+model Folder {
+  id String @id @default(cuid())
+  name String
+  user_id String
+  parent_id String?
+
+  // Cascade to nested folders
+  parent Folder? @relation("NestedFolders", fields: [parent_id], references: [id], onDelete: Cascade)
+  children Folder[] @relation("NestedFolders")
+
+  // Cascade to documents
+  prompts Prompt[] @relation(onDelete: Cascade)
+
+  user Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([name, user_id, parent_id])
+}
+
+// Document with cascade delete rules
+model Prompt {
+  id String @id @default(cuid())
+  title String
+  content String
+  folder_id String?
+
+  // Cascade to versions
+  versions PromptVersion[] @relation(onDelete: Cascade)
+
+  folder Folder? @relation(fields: [folder_id], references: [id], onDelete: Cascade)
+  user Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([title, user_id, folder_id])
+}
+```
+
+**Benefits**:
+- No orphaned records in database
+- All related data deleted automatically
+- Prevents referential integrity violations
+- Simplifies cleanup logic on frontend
+
+**Push to Database**:
+```bash
+npx prisma db push  # Pushes Prisma schema to Supabase
+```
 
 ## Latest Patterns (P5S4, P5S4b)
 

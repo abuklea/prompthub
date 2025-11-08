@@ -1,5 +1,5 @@
 # PromptHub - Codebase Structure
-Last Updated: 07/11/2025 21:10 GMT+10
+Last Updated: 08/11/2025 11:30 GMT+10
 
 ## Root Directory Structure
 ```
@@ -31,7 +31,7 @@ Configuration Files:
 
 ## Source Code Structure (`src/`)
 
-### Current Implementation (P1S1 → P5S4b)
+### Current Implementation (P1S1 → P5S4b CASCADE_DELETE)
 ```
 src/
 ├── app/                  # App Router (Next.js 14)
@@ -56,27 +56,37 @@ src/
 │   │   │   └── EditorSkeleton.tsx   # Loading state
 │   │   └── index.ts     # Centralized exports
 │   │
-│   ├── folders/         # Folder Management (P5S4, P5S4b)
-│   │   └── components/  # Folder UI components
-│   │       ├── FolderTree.tsx       # Folder tree (P5S4b: refetch integration)
-│   │       └── FolderToolbar.tsx    # Folder actions (P5S4b: tooltips)
+│   ├── folders/         # Folder Management (P5S4, P5S4b, CASCADE_DELETE)
+│   │   ├── components/  # Folder UI components
+│   │   │   ├── FolderTree.tsx       # Folder tree (P5S4b: refetch integration)
+│   │   │   ├── FolderToolbar.tsx    # Folder actions (P5S4b: tooltips, dialogs)
+│   │   │   └── FolderDialogs.tsx    # THREE dialog components (NEW: CASCADE_DELETE)
+│   │   │       ├── CreateFolderDialog
+│   │   │       ├── RenameFolderDialog
+│   │   │       └── DeleteFolderDialog
 │   │
-│   └── prompts/         # Prompt/Document Management (P5S4, P5S4b)
+│   └── prompts/         # Prompt/Document Management (P5S4, P5S4b, CASCADE_DELETE)
 │       └── components/  # Prompt UI components
 │           ├── PromptList.tsx       # Document list (P5S4b: refetch integration)
-│           └── DocumentToolbar.tsx  # Document actions (P5S4b: icons + tooltips)
+│           ├── DocumentToolbar.tsx  # Document actions (P5S4b: icons + tooltips, dialogs)
+│           └── DocumentDialogs.tsx  # THREE dialog components (NEW: CASCADE_DELETE)
+│               ├── CreateDocumentDialog
+│               ├── RenameDocumentDialog
+│               └── DeleteDocumentDialog
 │
 ├── components/          # Shared components
 │   ├── layout/         # Layout components (P1S1, P5S3d)
 │   │   ├── Header.tsx         # Context-aware header
 │   │   └── PanelSubheader.tsx # Panel subheader (P5S3d: compact)
-│   └── ui/             # Shadcn UI components (P5S3d, P5S4b)
+│   └── ui/             # Shadcn UI components (P5S3d, P5S4b, CASCADE_DELETE)
 │       ├── button.tsx         # P5S3d: h-8/h-7, text-xs
 │       ├── card.tsx
 │       ├── input.tsx          # P5S3d: h-8
 │       ├── label.tsx          # P5S3d: text-xs
 │       ├── toaster.tsx        # Sonner toast wrapper
-│       └── tooltip.tsx        # P5S4b: NEW tooltip component
+│       ├── tooltip.tsx        # P5S4b: tooltip component
+│       ├── alert-dialog.tsx   # NEW: CASCADE_DELETE - confirmation dialogs
+│       └── dialog.tsx         # NEW: CASCADE_DELETE - form dialogs
 │
 ├── stores/             # Zustand state management (P5S4, P5S4b)
 │   └── use-ui-store.ts # Global UI state (refetch triggers, document state)
@@ -101,11 +111,36 @@ src/
 
 ## Key File Locations (Latest Implementations)
 
-### P5S4b - UI Fixes & Tooltips (LATEST)
-- **Tooltip Component**: `src/components/ui/tooltip.tsx` (NEW)
-- **TooltipProvider**: `src/app/(app)/layout.tsx` (added)
-- **EditorPane Cleanup**: `src/features/editor/components/EditorPane.tsx` (bug fix)
-- **Refetch Store**: `src/stores/use-ui-store.ts` (triggers added)
+### CASCADE_DELETE - Database & Dialog System (LATEST - 08/11/2025 11:30 GMT+10)
+**Status**: ✅ COMPLETE and committed to git
+
+**New UI Dialog Components**:
+- **FolderDialogs**: `src/features/folders/components/FolderDialogs.tsx` (NEW)
+  - CreateFolderDialog (form-based)
+  - RenameFolderDialog (form-based)
+  - DeleteFolderDialog (confirmation with item counts)
+- **DocumentDialogs**: `src/features/prompts/components/DocumentDialogs.tsx` (NEW)
+  - CreateDocumentDialog (form-based)
+  - RenameDocumentDialog (form-based)
+  - DeleteDocumentDialog (confirmation with version counts)
+
+**Dialog Components**:
+- **AlertDialog**: `src/components/ui/alert-dialog.tsx` (NEW)
+- **Dialog**: `src/components/ui/dialog.tsx` (NEW)
+
+**Integrated Locations**:
+- **FolderToolbar**: `src/features/folders/components/FolderToolbar.tsx` (dialogs integrated)
+- **DocumentToolbar**: `src/features/prompts/components/DocumentToolbar.tsx` (dialogs integrated)
+
+**Database Schema**:
+- **Prisma Schema**: `prisma/schema.prisma` (cascade delete enabled)
+- **Migration**: `prisma/migrations/20251108111348_fix_tag_unique_constraint/`
+
+### P5S4b - UI Fixes & Tooltips
+- **Tooltip Component**: `src/components/ui/tooltip.tsx`
+- **TooltipProvider**: `src/app/(app)/layout.tsx`
+- **EditorPane Cleanup**: `src/features/editor/components/EditorPane.tsx`
+- **Refetch Store**: `src/stores/use-ui-store.ts`
 - **FolderTree Integration**: `src/features/folders/components/FolderTree.tsx`
 - **FolderToolbar Integration**: `src/features/folders/components/FolderToolbar.tsx`
 - **PromptList Integration**: `src/features/prompts/components/PromptList.tsx`
@@ -135,6 +170,215 @@ src/
 - **Header**: `src/components/layout/Header.tsx`
 
 ## Architecture Patterns (Current)
+
+### Dialog Pattern (CASCADE_DELETE - NEW)
+
+**Dialog Types**:
+- **Dialog** (for forms): Create, Rename operations
+- **AlertDialog** (for confirmations): Delete operations with warnings
+
+**Dialog Component Structure**:
+```typescript
+interface CreateFolderDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: (data: FormData) => Promise<void>
+}
+
+export function CreateFolderDialog({
+  open,
+  onOpenChange,
+  onConfirm
+}: CreateFolderDialogProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [name, setName] = useState("")
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    try {
+      await onConfirm({ name })
+      setName("")
+      onOpenChange(false)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create New Folder</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Folder name"
+            autoFocus
+            disabled={isLoading}
+          />
+          <DialogFooter>
+            <Button onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={isLoading || !name.trim()}>
+              {isLoading ? "Creating..." : "Create"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+```
+
+**Delete Confirmation with Item Counts**:
+```typescript
+export function DeleteFolderDialog({
+  folder,
+  isLoading,
+  onConfirm,
+  onCancel
+}: Props) {
+  const itemCount = calculateTotalItems(folder)
+
+  return (
+    <AlertDialog open={!!folder} onOpenChange={onCancel}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Folder?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete "{folder?.name}" and all contents:
+            - {folder?.subfolders} subfolders
+            - {folder?.documents} documents
+            - {folder?.versions} versions
+
+            This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} disabled={isLoading}>
+            {isLoading ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+```
+
+**Integration in Toolbar**:
+```typescript
+export function FolderToolbar() {
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [deleteFolder, setDeleteFolder] = useState<Folder | null>(null)
+
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCreateDialogOpen(true)}
+          >
+            <FolderPlus className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Create new folder</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDeleteFolder(selectedFolder)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Delete folder</TooltipContent>
+      </Tooltip>
+
+      <CreateFolderDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onConfirm={handleCreateFolder}
+      />
+
+      <DeleteFolderDialog
+        folder={deleteFolder}
+        isLoading={isDeleting}
+        onConfirm={handleDeleteFolder}
+        onCancel={() => setDeleteFolder(null)}
+      />
+    </>
+  )
+}
+```
+
+### Database Cascade Delete Pattern (CASCADE_DELETE - NEW)
+
+**Prisma Schema Changes**:
+```prisma
+model Folder {
+  id String @id @default(cuid())
+  name String
+  user_id String
+  parent_id String?
+
+  // Self-referencing for nested folders - CASCADE DELETE
+  parent Folder? @relation("NestedFolders", fields: [parent_id], references: [id], onDelete: Cascade)
+  children Folder[] @relation("NestedFolders")
+
+  // Cascade delete to prompts
+  prompts Prompt[] @relation(onDelete: Cascade)
+
+  user Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([name, user_id, parent_id])
+}
+
+model Prompt {
+  id String @id @default(cuid())
+  title String
+  content String
+  folder_id String?
+
+  // Cascade delete to versions
+  versions PromptVersion[] @relation(onDelete: Cascade)
+
+  folder Folder? @relation(fields: [folder_id], references: [id], onDelete: Cascade)
+  user Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([title, user_id, folder_id])
+}
+
+model Tag {
+  id String @id @default(cuid())
+  name String
+  user_id String
+
+  user Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // FIXED: Compound unique constraint
+  @@unique([name, user_id])
+}
+```
+
+**Benefits**:
+- Deleting a folder cascades to all nested folders and documents
+- Deleting a document cascades to all versions
+- Deleting a user cascades to all their data
+- No orphaned records in database
+- Users see clear warnings before deletion
+
+**Database Push Command**:
+```bash
+npx prisma db push  # Pushes schema changes to Supabase
+```
 
 ### Zustand State Management (P5S4, P5S4b)
 
@@ -320,6 +564,28 @@ const handleContentChange = (value: string) => {
 - Largest files: ~300 lines (EditorPane, UI Store)
 
 ## Implementation Status by Phase
+
+### CASCADE_DELETE - Database & Dialog System (100% COMPLETE - 08/11/2025)
+**Date Completed**: 08/11/2025 11:30 GMT+10
+**Status**: ✅ Production Ready
+**Changes**:
+1. **Database Schema**: Enabled cascade delete on Folder→Folder and Folder→Prompt
+2. **Tag Constraint**: Fixed unique constraint drift (compound unique on name, user_id)
+3. **Schema Migration**: Successfully pushed to Supabase via `prisma db push`
+4. **UI Components**: Created FolderDialogs and DocumentDialogs with 3 dialogs each
+5. **Toolbar Integration**: Replaced browser prompts with professional dialogs
+6. **Dependencies**: Added @radix-ui/react-alert-dialog and @radix-ui/react-dialog
+
+**Key Files**:
+- `src/features/folders/components/FolderDialogs.tsx` - NEW
+- `src/features/prompts/components/DocumentDialogs.tsx` - NEW
+- `src/components/ui/alert-dialog.tsx` - NEW
+- `src/components/ui/dialog.tsx` - NEW
+- `prisma/schema.prisma` - Updated with cascade rules
+- `src/features/folders/components/FolderToolbar.tsx` - Dialogs integrated
+- `src/features/prompts/components/DocumentToolbar.tsx` - Dialogs integrated
+
+**Build Status**: ✅ Successful (zero errors)
 
 ### P5S4b - UI Fixes & Tooltips (100% COMPLETE)
 **Date Completed**: 07/11/2025 21:00 GMT+10

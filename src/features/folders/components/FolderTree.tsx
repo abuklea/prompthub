@@ -6,6 +6,8 @@ import { Folder } from "@prisma/client"
 import { FolderItem } from "./FolderItem"
 import { useUiStore } from "@/stores/use-ui-store"
 import { toast } from "sonner"
+import { EmptyState } from "@/components/ui/empty-state"
+import { FolderPlus } from "lucide-react"
 
 export function FolderTree() {
   const [folders, setFolders] = useState<Folder[]>([])
@@ -85,6 +87,19 @@ export function FolderTree() {
 
   if (loading) {
     return <div>Loading...</div>
+  }
+
+  // Show empty state when no folders exist
+  if (folders.length === 0) {
+    return (
+      <EmptyState
+        icon={FolderPlus}
+        title="No folders yet"
+        description="Create your first folder to start organizing your prompts. Folders help you keep your work structured and easy to find."
+        actionLabel="Create Your First Folder"
+        onAction={handleNewFolder}
+      />
+    )
   }
 
   return (

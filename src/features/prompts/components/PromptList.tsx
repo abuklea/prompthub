@@ -5,11 +5,16 @@ import { useUiStore } from "@/stores/use-ui-store"
 import { getPromptsByFolder } from "../actions"
 import { Prompt } from "@prisma/client"
 import { cn } from "@/lib/utils"
+import { EmptyState } from "@/components/ui/empty-state"
+import { FilePlus } from "lucide-react"
+import { createPrompt } from "../actions"
+import { toast } from "sonner"
 
 export function PromptList() {
-  const { selectedFolder, selectPrompt, selectedPrompt, docSort, docFilter, promptRefetchTrigger } = useUiStore()
+  const { selectedFolder, selectPrompt, selectedPrompt, docSort, docFilter, promptRefetchTrigger, triggerPromptRefetch } = useUiStore()
   const [prompts, setPrompts] = useState<Prompt[]>([])
   const [loading, setLoading] = useState(false)
+  const [creatingDoc, setCreatingDoc] = useState(false)
 
   // Reason: Load prompts when folder changes or when a new prompt is selected (to refresh list)
   useEffect(() => {
@@ -30,6 +35,32 @@ export function PromptList() {
     }
     loadPrompts()
   }, [selectedFolder, selectedPrompt, promptRefetchTrigger])
+
+  // Reason: Handle new document creation from empty state
+  const handleCreateFirstDoc = async () => {
+    if (!selectedFolder) return
+
+    setCreatingDoc(true)
+    const result = await createPrompt({
+      folderId: selectedFolder,
+      title: "My First Prompt"
+    })
+
+    if (!result.success) {
+      toast.error(result.error, { duration: 6000 })
+      setCreatingDoc(false)
+      return
+    }
+
+    toast.success("Document created successfully", { duration: 3000 })
+
+    // Reason: Auto-select newly created document and trigger list refresh
+    if (result.data?.promptId) {
+      selectPrompt(result.data.promptId)
+      triggerPromptRefetch()
+    }
+    setCreatingDoc(false)
+  }
 
   // Reason: Apply sort and filter to prompts
   const filteredAndSortedPrompts = useMemo(() => {
@@ -75,6 +106,19 @@ export function PromptList() {
 
   if (loading) {
     return <div>Loading documents...</div>
+  }
+
+  // Show empty state when no documents exist in the folder (and not filtered)
+  if (selectedFolder && prompts.length === 0 && !docFilter) {
+    return (
+      <EmptyState
+        icon={FilePlus}
+        title="No documents yet"
+        description="This folder is empty. Create your first document to start capturing your prompts and ideas."
+        actionLabel="Create Your First Document"
+        onAction={handleCreateFirstDoc}
+      />
+    )
   }
 
   return (
