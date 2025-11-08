@@ -6,16 +6,17 @@ MIME: text/typescript
 Type: TypeScript React Hook
 
 Created: 07/11/2025 16:13 GMT+10
-Last modified: 07/11/2025 16:13 GMT+10
+Last modified: 08/11/2025 12:24 GMT+10
 ---------------
 Custom React hook for localStorage persistence.
 Provides automatic save/load with SSR-safe implementation.
 
 Changelog:
+08/11/2025 12:24 GMT+10 | CRITICAL FIX: Prevent saving on key changes (P5S4bT1 root cause)
 07/11/2025 16:13 GMT+10 | Initial creation (P5S3bT12)
 */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export interface UseLocalStorageOptions {
   key: string
@@ -50,6 +51,9 @@ export function useLocalStorage({
   key,
   initialValue
 }: UseLocalStorageOptions) {
+  // Reason: Track previous key to prevent saving on key changes (P5S4bT1 root cause fix)
+  const prevKeyRef = useRef<string>(key)
+
   // Reason: Initialize from localStorage on mount (SSR-safe)
   const [value, setValue] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -65,10 +69,18 @@ export function useLocalStorage({
       const saved = localStorage.getItem(key)
       setValue(saved || initialValue)
     }
+    // Reason: Update ref AFTER loading to prevent save trigger
+    prevKeyRef.current = key
   }, [key, initialValue])
 
-  // Reason: Save to localStorage whenever value changes
+  // Reason: Save to localStorage ONLY when value changes, NOT when key changes
+  // This prevents saving old document content to new document's localStorage key
   useEffect(() => {
+    // Skip save if key just changed (we're loading, not saving)
+    if (prevKeyRef.current !== key) {
+      return
+    }
+
     if (typeof window !== 'undefined') {
       localStorage.setItem(key, value)
     }

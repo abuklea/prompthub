@@ -12,7 +12,7 @@ import { Plus, Edit, Trash2, ArrowUpDown } from "lucide-react"
 import { toast } from "sonner"
 
 export function FolderToolbar() {
-  const { selectedFolder, folderSort, folderFilter, setFolderSort, setFolderFilter, triggerFolderRefetch } = useUiStore()
+  const { selectedFolder, folderSort, folderFilter, setFolderSort, setFolderFilter, triggerFolderRefetch, triggerPromptRefetch, selectFolder } = useUiStore()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -44,7 +44,11 @@ export function FolderToolbar() {
     if (!selectedFolder) return
     try {
       await deleteFolder(selectedFolder)
+      // Reason: Clear folder selection since it's been deleted (P5S4b - folder deletion fix)
+      selectFolder(null)
+      // Reason: Trigger both folder and prompt refetch to update both panels (P5S4b)
       triggerFolderRefetch()
+      triggerPromptRefetch()
       toast.success("Folder deleted successfully", { duration: 3000 })
     } catch (error) {
       console.error("Failed to delete folder:", error)
