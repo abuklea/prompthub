@@ -286,6 +286,27 @@
   - **Step Dependencies**: Phase 5, Step 4
   - **User Instructions**: (1) Switching documents shows correct content immediately, (2) CRUD operations update UI without page reload, (3) All subheader buttons use consistent icon design, (4) All interactive controls show tooltips after 700ms hover, (5) Tooltip text is descriptive and context-aware. Full implementation details in `PRPs/P5S4b-fix-subheader-tooltips-design.md`.
 
+- Step 4c: [P] Tabbed Editor Upgrade with Multi-Document Support
+  - **Task**: Transform the Editor pane (column 3) into a VSCode-like tabbed-document container supporting multiple open documents simultaneously. Implement tab drag-and-drop for reordering, horizontal/vertical splitting for side-by-side editing, and tab stacking. Integrate all application pages (settings, profile, dashboard, version history) as tabs within the editor pane alongside document tabs. Each tab displays the document title with a close button. Use flexlayout-react or dnd-kit for advanced tab management with TypeScript support.
+  - **Assignee**: `senior-frontend-engineer`, `ux-ui-designer`
+  - **Files**:
+    - **CREATE**: `src/features/tabs/components/TabbedEditorContainer.tsx` - Main tabbed container with split/stack support
+    - **CREATE**: `src/features/tabs/components/DocumentTab.tsx` - Individual tab component with title and close button
+    - **CREATE**: `src/features/tabs/components/TabContent.tsx` - Content renderer for different tab types
+    - **CREATE**: `src/features/tabs/hooks/useTabManager.ts` - Hook for managing tab state, opening/closing tabs
+    - **CREATE**: `src/features/tabs/types.ts` - TypeScript types for tab system (TabType, TabData, etc.)
+    - **CREATE**: `src/stores/use-tab-store.ts` - Zustand store for tab state management
+    - **MODIFY**: `src/app/(app)/layout.tsx` - Replace EditorPane with TabbedEditorContainer
+    - **MODIFY**: `src/features/prompts/components/PromptList.tsx` - Update to open documents as tabs
+    - **MODIFY**: `src/features/editor/components/EditorPane.tsx` - Refactor as tab content component
+    - **MODIFY**: `src/app/(app)/settings/page.tsx` - Export as tab-compatible component
+    - **MODIFY**: `src/app/(app)/dashboard/page.tsx` - Export as tab-compatible component
+    - **MODIFY**: `src/app/(app)/profile/page.tsx` - Export as tab-compatible component
+    - **MODIFY**: `src/components/layout/Header.tsx` - Add navigation to open settings/profile as tabs
+    - `package.json`: Add flexlayout-react or @dnd-kit/core + @dnd-kit/sortable
+  - **Step Dependencies**: Phase 5, Step 4b
+  - **User Instructions**: (1) Multiple documents can be open in tabs simultaneously, (2) Tabs can be dragged to reorder, (3) Tabs can be split horizontally/vertically for side-by-side viewing, (4) Settings, profile, dashboard open as tabs in editor pane, (5) Each tab shows document title and close button, (6) Tab state persists in localStorage, (7) Keyboard shortcuts: Ctrl+W closes tab, Ctrl+Tab switches tabs. Full implementation details in `PRPs/P5S4c-tabbed-editor-upgrade.md`.
+
 - Step 5: [P] Version History UI
   - **Task**: Create a `VersionHistory.tsx` component. This component will display a list of all saved versions for a prompt, fetched via a new `getPromptVersions` server action. This can be displayed in a modal or a side panel.
   - **Assignee**: `Frontend_Engineer`

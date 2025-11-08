@@ -8,10 +8,12 @@ import { useUiStore } from "@/stores/use-ui-store"
 import { toast } from "sonner"
 import { EmptyState } from "@/components/ui/empty-state"
 import { FolderPlus } from "lucide-react"
+import { CreateFolderDialog } from "./FolderDialogs"
 
 export function FolderTree() {
   const [folders, setFolders] = useState<Folder[]>([])
   const [loading, setLoading] = useState(true)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const { folderSort, folderFilter, folderRefetchTrigger } = useUiStore()
 
   useEffect(() => {
@@ -28,18 +30,19 @@ export function FolderTree() {
     loadFolders()
   }, [folderRefetchTrigger])
 
-  const handleNewFolder = async () => {
-    const newName = prompt("Enter folder name")
-    if (newName) {
-      try {
-        const newFolder = await createFolder(newName, null)
-        // Immediately update local state to show the new folder
-        setFolders((prev) => [...prev, newFolder].sort((a, b) => a.name.localeCompare(b.name)))
-        toast.success("Folder created successfully", { duration: 3000 })
-      } catch (error) {
-        console.error("Failed to create folder:", error)
-        toast.error("Failed to create folder", { duration: 6000 })
-      }
+  const handleNewFolder = () => {
+    setCreateDialogOpen(true)
+  }
+
+  const handleConfirmCreate = async (name: string) => {
+    try {
+      const newFolder = await createFolder(name, null)
+      // Immediately update local state to show the new folder
+      setFolders((prev) => [...prev, newFolder].sort((a, b) => a.name.localeCompare(b.name)))
+      toast.success("Folder created successfully", { duration: 3000 })
+    } catch (error) {
+      console.error("Failed to create folder:", error)
+      toast.error("Failed to create folder", { duration: 6000 })
     }
   }
 
@@ -103,15 +106,23 @@ export function FolderTree() {
   }
 
   return (
-    <div>
-      {displayedFolders.map((folder) => (
-        <FolderItem
-          key={folder.id}
-          folder={folder}
-          onUpdate={handleFolderUpdate}
-          onDelete={handleFolderDelete}
-        />
-      ))}
-    </div>
+    <>
+      <div>
+        {displayedFolders.map((folder) => (
+          <FolderItem
+            key={folder.id}
+            folder={folder}
+            onUpdate={handleFolderUpdate}
+            onDelete={handleFolderDelete}
+          />
+        ))}
+      </div>
+
+      <CreateFolderDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onConfirm={handleConfirmCreate}
+      />
+    </>
   )
 }

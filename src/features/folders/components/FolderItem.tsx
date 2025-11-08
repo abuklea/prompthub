@@ -8,6 +8,7 @@ import { ChevronRight, Folder as FolderIcon, Plus } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { CreateFolderDialog, RenameFolderDialog, DeleteFolderDialog } from "./FolderDialogs"
 
 interface FolderItemProps {
   folder: Folder
@@ -20,6 +21,9 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
   const { expandedFolders, toggleFolder, selectFolder, selectedFolder } = useUiStore()
   const [children, setChildren] = useState<Folder[]>([])
   const [loading, setLoading] = useState(false)
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [createSubfolderDialogOpen, setCreateSubfolderDialogOpen] = useState(false)
   const isExpanded = expandedFolders.has(folder.id)
   const MAX_DEPTH = 5
 
@@ -38,59 +42,63 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
     }
   }
 
-  const handleRename = async () => {
-    const newName = prompt("Enter new folder name", folder.name)
-    if (newName && newName !== folder.name) {
-      try {
-        const updatedFolder = await renameFolder(folder.id, newName)
-        // Update parent's state immediately
-        if (onUpdate) {
-          onUpdate(folder.id, updatedFolder)
-        }
-        // Update local state for display
-        setChildren((prev) =>
-          prev.map((child) => (child.id === folder.id ? updatedFolder : child))
-        )
-        toast.success("Folder renamed successfully", { duration: 3000 })
-      } catch (error) {
-        console.error("Failed to rename folder:", error)
-        toast.error("Failed to rename folder", { duration: 6000 })
+  const handleRename = () => {
+    setRenameDialogOpen(true)
+  }
+
+  const handleConfirmRename = async (newName: string) => {
+    try {
+      const updatedFolder = await renameFolder(folder.id, newName)
+      // Update parent's state immediately
+      if (onUpdate) {
+        onUpdate(folder.id, updatedFolder)
       }
+      // Update local state for display
+      setChildren((prev) =>
+        prev.map((child) => (child.id === folder.id ? updatedFolder : child))
+      )
+      toast.success("Folder renamed successfully", { duration: 3000 })
+    } catch (error) {
+      console.error("Failed to rename folder:", error)
+      toast.error("Failed to rename folder", { duration: 6000 })
     }
   }
 
-  const handleDelete = async () => {
-    if (confirm("Are you sure you want to delete this folder?")) {
-      try {
-        await deleteFolder(folder.id)
-        // Update parent's state immediately
-        if (onDelete) {
-          onDelete(folder.id)
-        }
-        toast.success("Folder deleted successfully", { duration: 3000 })
-      } catch (error) {
-        console.error("Failed to delete folder:", error)
-        toast.error("Failed to delete folder", { duration: 6000 })
+  const handleDelete = () => {
+    setDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    try {
+      await deleteFolder(folder.id)
+      // Update parent's state immediately
+      if (onDelete) {
+        onDelete(folder.id)
       }
+      toast.success("Folder deleted successfully", { duration: 3000 })
+    } catch (error) {
+      console.error("Failed to delete folder:", error)
+      toast.error("Failed to delete folder", { duration: 6000 })
     }
   }
 
-  const handleAddSubfolder = async () => {
-    const newName = prompt("Enter subfolder name")
-    if (newName) {
-      try {
-        const newFolder = await createFolder(newName, folder.id)
-        // Add to children state immediately
-        setChildren((prev) => [...prev, newFolder].sort((a, b) => a.name.localeCompare(b.name)))
-        // Expand folder if not already expanded
-        if (!isExpanded) {
-          toggleFolder(folder.id)
-        }
-        toast.success("Subfolder created successfully", { duration: 3000 })
-      } catch (error) {
-        console.error("Failed to create subfolder:", error)
-        toast.error("Failed to create subfolder", { duration: 6000 })
+  const handleAddSubfolder = () => {
+    setCreateSubfolderDialogOpen(true)
+  }
+
+  const handleConfirmCreateSubfolder = async (name: string) => {
+    try {
+      const newFolder = await createFolder(name, folder.id)
+      // Add to children state immediately
+      setChildren((prev) => [...prev, newFolder].sort((a, b) => a.name.localeCompare(b.name)))
+      // Expand folder if not already expanded
+      if (!isExpanded) {
+        toggleFolder(folder.id)
       }
+      toast.success("Subfolder created successfully", { duration: 3000 })
+    } catch (error) {
+      console.error("Failed to create subfolder:", error)
+      toast.error("Failed to create subfolder", { duration: 6000 })
     }
   }
 
@@ -161,6 +169,29 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
           ))}
         </div>
       )}
+
+      {/* Dialog components */}
+      <RenameFolderDialog
+        open={renameDialogOpen}
+        onOpenChange={setRenameDialogOpen}
+        onConfirm={handleConfirmRename}
+        currentName={folder.name}
+      />
+
+      <DeleteFolderDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        folderName={folder.name}
+        hasSubfolders={children.length > 0}
+        subfolderCount={children.length}
+      />
+
+      <CreateFolderDialog
+        open={createSubfolderDialogOpen}
+        onOpenChange={setCreateSubfolderDialogOpen}
+        onConfirm={handleConfirmCreateSubfolder}
+      />
     </div>
   )
 }
