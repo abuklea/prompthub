@@ -1,366 +1,110 @@
 # PromptHub - Project Overview
-Last Updated: 08/11/2025 11:30 GMT+10
 
-## Purpose
-PromptHub is a centralized repository application designed to help developers, researchers, and content creators efficiently store, organize, and manage their AI prompts. It provides a "GitHub for prompts" experience with version control, nested folders, and full-text search.
+## Project Description
+PromptHub is a centralized repository where users can efficiently store, organize, and manage their AI prompts, built with a modern, themeable, and responsive frontend.
 
-## Current Status
-**Phase**: Phase 5 - UI Enhancements & Document Content Management (P5S4bT1 Bug Fix - 100% COMPLETE)
-**Completed**: P5S4bT1 - Critical bug fix for document content cross-contamination (100% COMPLETE)
-**Previous**: CASCADE_DELETE - Database cascade delete with professional dialog system (100% COMPLETE)
-**Earlier**: P5S4b - Critical bug fixes and UX improvements (100% COMPLETE)
-**Archon Project**: PromptHub (d449f266-1f36-47ad-bd2d-30f1a0f5e999)
+## Current Development State
 
-## P5S4bT1 Completion Summary - Critical Bug Fix (08/11/2025 - Latest)
-
-**Status**: ✅ COMPLETE - Document content cross-contamination resolved
-**Duration**: Investigation and fix completed
-**Build Status**: ✅ Successful (zero errors)
-
-### Critical Bug Fixed: Document Content Cross-Contamination
-
-**Problem**: When switching between documents, old content would be saved to new document keys in localStorage, causing content to be mixed up or lost.
-
-**Root Causes Identified**:
-
-1. **EditorPane.tsx (lines 143-151)** - Main culprit:
-   - localStorage sync effect had `selectedPrompt` in dependencies
-   - When user switched documents, effect would trigger
-   - Old content from previous document saved to new document's localStorage key
-   - Result: New document would display old content initially
-
-2. **EditorPane.tsx (lines 102-115)** - Secondary issue:
-   - Condition `if (promptData?.content)` prevented empty documents from loading
-   - Empty documents wouldn't display, breaking the UI
-
-**Files Modified**:
-- `src/features/editor/components/EditorPane.tsx` (2 critical bugs fixed)
-- `src/features/editor/hooks/useLocalStorage.ts` (previous fix verified correct)
-
-**Solution Applied**:
-
-1. **Add ref-based guard** to skip save when document key just changed
-   - Use `useRef` to track if we're in a document switch
-   - Skip save operation during transition
-   - Prevents stale content from being written
-
-2. **Fix condition** for empty document handling
-   - Change condition to allow empty documents to load
-   - Use `promptData !== undefined` instead of `promptData?.content`
-   - Empty documents now display correctly
-
-**Current Status**:
-- Documents maintain separate content correctly
-- No localStorage cross-contamination
-- Empty documents load properly
-- All CRUD operations working as expected
-- Build verified with zero TypeScript errors
-
-### Testing Results:
-- Manual testing: Document switching displays correct content
-- Content isolation verified across multiple document pairs
-- Empty documents display without issues
-- Auto-save functionality working correctly
-- No console errors or warnings
-
-## CASCADE_DELETE Completion Summary (08/11/2025 11:30 GMT+10)
-
-**Status**: ✅ COMPLETE and committed to git
-**Duration**: ~2 hours (design + implementation + validation)
-**Build Status**: ✅ Successful (zero errors)
-
-✅ **Database Changes**:
-1. Enabled cascade delete on Folder → Folder (nested) relationships
-2. Enabled cascade delete on Folder → Prompt relationships
-3. Fixed Tag table unique constraint drift (compound unique on name, user_id)
-4. Schema successfully pushed to Supabase via `prisma db push`
-
-✅ **New UI Dialog Components**:
-1. **FolderDialogs** (`src/features/folders/components/FolderDialogs.tsx`)
-   - CreateFolderDialog (form-based with validation)
-   - RenameFolderDialog (form-based with validation)
-   - DeleteFolderDialog (confirmation with item counts)
-
-2. **DocumentDialogs** (`src/features/prompts/components/DocumentDialogs.tsx`)
-   - CreateDocumentDialog (form-based with validation)
-   - RenameDocumentDialog (form-based with validation)
-   - DeleteDocumentDialog (confirmation with version counts)
-
-✅ **Radix UI Components**:
-- `src/components/ui/alert-dialog.tsx` - AlertDialog wrapper for confirmations
-- `src/components/ui/dialog.tsx` - Dialog wrapper for forms
-
-✅ **Professional Replacements**:
-- Removed all `browser.prompt()` calls
-- Removed all `browser.confirm()` calls
-- Replaced with styled Dialog and AlertDialog components
-- Consistent design matching Bold Simplicity system
-
-✅ **Dependencies Added**:
-- @radix-ui/react-alert-dialog
-- @radix-ui/react-dialog
-
-**Key Patterns Implemented**:
-- Dialog for forms (create, rename)
-- AlertDialog for destructive actions (delete)
-- Item count calculations in delete warnings
-- Loading states during async operations
-- Keyboard support (Enter to submit, Esc to cancel)
-
-**Architectural Impact**:
-- No orphaned records possible (cascade rules enforced)
-- Clear user warnings before destructive actions
-- Professional UI replacing browser primitives
-- Consistent dialog behavior across folders and documents
-
-## P5S4b Completion Summary (07/11/2025 21:00 GMT+10)
-
-**Total Tasks**: 11 (P5S4bT1 - P5S4bT11)
-**Success Rate**: 100% (11/11 completed)
-**Duration**: ~55 minutes implementation + validation
-**Status**: Production Ready
-
-✅ **Critical Issues Resolved**:
-1. **P0 CRITICAL BUG FIXED**: EditorPane document switching bug
-   - Issue: Wrong content displayed when switching documents
-   - Fix: Added cleanup effect to reset content on document change
-   - Impact: Users now see correct content immediately
-   
-2. **UI UPDATE BUG FIXED**: CRUD operations update immediately
-   - Issue: UI required page reload to show changes
-   - Fix: Implemented Zustand refetch trigger system
-   - Impact: Folders and documents appear/update/delete instantly
-   
-3. **DESIGN CONSISTENCY ACHIEVED**: Toolbar icon standardization
-   - Issue: DocumentToolbar used text buttons, FolderToolbar used icons
-   - Fix: Converted DocumentToolbar to icon-only buttons
-   - Impact: Consistent design language across both panels
-   
-4. **TOOLTIP SYSTEM IMPLEMENTED**: Complete tooltip coverage
-   - Added tooltips to all interactive controls
-   - 700ms hover delay for better UX
-   - Context-aware messages for disabled states
-   - Keyboard navigation support
-
-✅ **Implementation Stats**:
-- Files Modified: 7 files
-- Files Created: 1 file (tooltip.tsx component)
-- Build Status: ✅ Passing (no errors)
-- Implementation Time: ~55 minutes
-
-✅ **Key Files Changed**:
-1. `src/features/editor/components/EditorPane.tsx` - Document switching fix
-2. `src/stores/use-ui-store.ts` - Refetch trigger system
-3. `src/features/folders/components/FolderTree.tsx` - Refetch integration
-4. `src/features/folders/components/FolderToolbar.tsx` - Tooltips + refetch
-5. `src/features/prompts/components/PromptList.tsx` - Refetch integration
-6. `src/features/prompts/components/DocumentToolbar.tsx` - Icons + tooltips
-7. `src/app/(app)/layout.tsx` - TooltipProvider
-8. `src/components/ui/tooltip.tsx` - Tooltip component (NEW)
-
-## P5S4 Completion Summary (07/11/2025 20:45 GMT+10)
-
-**Total Tasks**: 13 (P5S4T1 - P5S4T13)
-**Success Rate**: 100% (13/13 completed)
-**Duration**: ~4 hours design + implementation + testing
-**Status**: Production Ready
-
-✅ **Manual Save Workflow with Editor Integration**:
-- Editor-first redesign with save/cancel/delete actions
-- Zustand state management for UI coordination
-- Markdown actions system for formatting toolbar
-- Dirty state tracking and unsaved changes warnings
-- Complete keyboard shortcuts (Ctrl+S, Ctrl+B, etc.)
-- Professional markdown editing experience
-
-✅ **Components Implemented**:
-- `src/features/editor/components/Editor.tsx` - Monaco wrapper (refactored)
-- `src/features/editor/components/EditorPane.tsx` - Main editor panel
-- `src/features/editor/markdown-actions.ts` - Formatting utilities
-- `src/stores/use-ui-store.ts` - Global state management
-- Toolbar components with tooltips and actions
-
-## P5S3d Completion Summary (07/11/2025 19:57 GMT+10)
-
-**Total Tasks**: 4 (P5S3dT1 - P5S3dT4)
-**Success Rate**: 100% (4/4 completed)
-**Duration**: ~1 hour implementation + validation
-**Status**: Production Ready
-**Critical Fix**: Monaco editor height rendering (657px achieved)
-
-✅ **Compact UI Implementation**:
-- Base font size reduced from 16px to 12px
-- Component sizing reduced 25% (h-8/h-7 buttons, text-xs labels)
-- Monaco editor height fix (h-full wrapper pattern discovered)
-- Multi-breakpoint testing (375px, 768px, 1920px)
-
-## P5S1 Completion Summary (07/11/2025 13:30 GMT+10)
-
-**Total Tasks**: 5 (P5S1T1 - P5S1T5)
-**Success Rate**: 100% (5/5 completed)
-**Duration**: ~10 minutes implementation + validation
-**Status**: Production Ready
-
-✅ **Monaco Editor Integration (Fully Implemented)**:
-- SSR-safe dynamic import with `ssr: false`
-- Custom "boldSimplicity" theme matching design system
-- EditorSkeleton component for loading states
-- Full TypeScript support with strict mode
-- 11 configurable properties (value, onChange, language, height, theme, etc.)
-
-## P1S1 Completion Summary (07/11/2025 13:10 GMT+10)
-
-**Total Tasks**: 15 (P1S1T1 - P1S1T15)
-**Success Rate**: 100% (15/15 completed)
-**E2E Tests**: 100% pass rate (8/8 tests)
-**Documentation**: 275+ pages delivered
-
-✅ **Authentication System (Server Actions Pattern)**:
-- Sign up with email/password validation
-- Sign in with existing credentials
-- Sign out functionality with proper cleanup
-- Server-side session management via Supabase Auth
-
-✅ **Bold Simplicity Design System (Fully Implemented)**:
-- Dark mode first approach with light mode support
-- Primary: Indigo #4F46E5 (HSL: 239 84% 67%)
-- Accent: Magenta #EC4899 (HSL: 328 85% 70%)
-- Typography: Inter font family (400, 500, 600 weights)
-- 4px grid-based spacing system
-
-## Implemented Features
-✅ User authentication (sign up, sign in, sign out)
-✅ Protected routes with middleware
-✅ Bold Simplicity design system
-✅ Context-aware Header component
-✅ Toast notifications system
-✅ Form error handling (dual feedback)
-✅ Monaco Editor with SSR safety (P5S1)
-✅ Custom editor theme matching design system (P5S1)
-✅ Compact UI with optimized sizing (P5S3d)
-✅ Manual save workflow with dirty tracking (P5S4)
-✅ Markdown formatting toolbar (P5S4)
-✅ Keyboard shortcuts for editing (P5S4)
-✅ Real-time UI updates for CRUD operations (P5S4b)
-✅ Document switching with correct content display (P5S4b)
-✅ Comprehensive tooltip system (P5S4b)
-✅ Icon-based toolbars for consistency (P5S4b)
-✅ Cascade delete database constraints (CASCADE_DELETE)
-✅ Professional dialog system for CRUD operations (CASCADE_DELETE)
-✅ Delete confirmations with item count warnings (CASCADE_DELETE)
-✅ No browser prompts/confirm (CASCADE_DELETE)
-
-## Pending Features
-⏳ Version history UI (P5S5 - next)
-⏳ Full-text search capability
-⏳ Advanced tagging system
-⏳ Batch operations
+**Branch**: master (18 commits ahead of origin/master)  
+**Last Major Commit**: db81a3b - "fix: P5S4 - Critical cache contamination and race condition bugs resolved"  
+**Working Tree**: Clean  
+**Primary Test User**: allan@formationmedia.net / *.Password123  
+**Archon Project ID**: d449f266-1f36-47ad-bd2d-30f1a0f5e999
 
 ## Technology Stack
 
-### Frontend
-- **Framework**: Next.js 14.2.3 (Pages Router)
-- **React**: 18.3.1
-- **TypeScript**: 5.4.5 (strict mode enabled)
-- **Styling**: Tailwind CSS 3.4.3
-- **UI Components**: Shadcn/UI (Button, Input, Card, Label, Toast, Tooltip)
-- **Animation**: Framer Motion 11.2.4
-- **Icons**: lucide-react
-- **Typography**: Inter font (Google Fonts)
-- **Editor**: Monaco Editor (@monaco-editor/react)
+**Frontend**:
+- Next.js 14.2.3 (Pages Router)
+- React 18.3.1
+- TypeScript 5.4.5
+- Tailwind CSS 3.4.3
+- Shadcn/UI components
+- Framer Motion 11.2.4
 
-### Backend
-- **Backend Logic**: Next.js API routes + Server Actions
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth with JWT
-- **ORM**: Prisma 6.19.0
-- **Security**: Row Level Security (RLS) policies
-- **Notifications**: Sonner (toast notifications)
+**Backend**:
+- Supabase (PostgreSQL + Auth + Storage + RLS)
+- Prisma 6.19.0 (ORM)
+- Next.js API routes
 
-### State Management
-- **Global State**: Zustand 4.5.2 (UI coordination, refetch triggers)
-- **Forms**: React Hook Form 7.66.0
-- **Validation**: Zod 3.25.76
-- **Themes**: next-themes 0.4.6
+**State Management**:
+- Zustand 4.5.2 (global state)
+- React Hook Form 7.66.0 (forms)
+- Zod 3.25.76 (validation)
 
-## Development Environment
-- **Node.js** + npm
-- **Dev Server Port**: 3010
-- **Hot Module Replacement (HMR)**: Active
-- **Platform**: Linux (WSL2)
-- **Database**: Supabase Cloud (xmuysganwxygcsxwteil)
-- **Project Root**: /home/allan/projects/PromptHub
+**Development**:
+- Node.js + npm
+- ESLint + TypeScript strict mode
+- Dev server port: 3010 (HMR active)
 
-## Architecture Patterns (Current)
+## Recent Major Developments (P5S4)
 
-### Zustand State Management (P5S4, P5S4b)
-- **UI Store**: `src/stores/use-ui-store.ts`
-- **Refetch Triggers**: Timestamp-based invalidation system
-- **Document State**: Selected document, dirty tracking
-- **Folder State**: Selected folder, expansion tracking
+### Critical Cache Contamination & Race Condition Fixes
 
-### Document Switching Pattern (P5S4b)
-```typescript
-// Cleanup effect in EditorPane to reset content
-useEffect(() => {
-  setLocalContent(initialContent)
-  setIsDirty(false)
-}, [selectedDocumentId]) // Reset on document change
-```
+**P0 Priority Fixes**:
+1. **P0T1**: Added promptIdRef guard to prevent stale localStorage saves during rapid tab switching
+2. **P0T2**: Fixed ownership ref timing in cache hit path to prevent race conditions
+3. **P0T3**: Implemented isTransitioning lock to guard cache updates during document transitions
 
-### Refetch Trigger Pattern (P5S4b)
-```typescript
-// Store triggers
-const triggerFolderRefetch = () => {
-  setFolderRefetchTrigger(Date.now())
-}
+**P1 Priority Fixes**:
+4. **P1T4**: Disabled auto-save during document transitions
+5. **P1T5**: Changed title type to string|null throughout system with getDisplayTitle utility
 
-// Component subscribes
-const folderRefetchTrigger = useUIStore(s => s.folderRefetchTrigger)
-useEffect(() => {
-  fetchFolders()
-}, [folderRefetchTrigger])
-```
+**Security Fixes**:
+6. **P5S4T2**: User-scoped document cache with userId validation and logout clearing
 
-### Tooltip System (P5S4b)
-- **Provider**: TooltipProvider in root layout
-- **Delay**: 700ms hover delay
-- **Context**: Disabled state messages
-- **Keyboard**: Full keyboard navigation support
+**Performance Improvements**:
+7. **P5S4T4**: Prevented duplicate database loads in React Strict Mode
+8. **P5S4T5**: Added NODE_ENV guards to console.log statements
 
-## Recent Completions
+## Active PRPs (Product Requirements & Planning)
 
-### P5S4b (Phase 5 Step 4b) - LATEST
-**Completion Date**: 07/11/2025 21:00 GMT+10
-**Tasks Completed**: 11/11 (100% success rate)
-- Critical bug fixes (document switching, UI updates)
-- Tooltip system implementation
-- Design consistency improvements
-- Build verified with zero errors
+- **P5S4**: Fix cache, render loop, and security issues
+- **P5S4e**: Improved document naming and save workflow
 
-### P5S4 (Phase 5 Step 4)
-**Completion Date**: 07/11/2025 20:45 GMT+10
-**Tasks Completed**: 13/13 (100% success rate)
-- Manual save workflow implementation
-- Markdown actions system
-- Keyboard shortcuts
-- Zustand state management
+## Core Features
 
-### P5S3d (Phase 5 Step 3d)
-**Completion Date**: 07/11/2025 19:57 GMT+10
-**Tasks Completed**: 4/4 (100% success rate)
-- Compact UI implementation
-- Monaco editor height fix
-- Component sizing standardization
+1. **Document Management**: Create, edit, save versions of AI prompts
+2. **Folder Organization**: Hierarchical folder structure for organizing prompts
+3. **Tabbed Editor**: Multi-document tabs with preview/permanent states
+4. **Auto-Save**: 500ms debounce with localStorage persistence
+5. **Version History**: Git-style diffs for version tracking
+6. **User Authentication**: Supabase Auth with JWT and RLS policies
+7. **Full-Text Search**: PostgreSQL tsvector for prompt search
 
-## Documentation Standards
-- **PRP Documents**: INITIAL + REPORT required
-- **Testing Docs**: E2E testing reports
-- **Quality Docs**: Accessibility audit reports
-- **Completion Docs**: Task summaries in Archon
+## Critical Development Rules
 
-## Next Steps (P5S5 - Version History UI)
-- Display version history for documents
-- Version comparison interface
-- Restore previous versions
-- Version metadata display
+**DO NOT**:
+- Use TodoWrite (use Archon MCP server instead)
+- Use placeholders or mock data in production code
+- Implement backwards compatibility
+- Use backslashes in paths
+- Call `supabase start` (cloud Supabase only)
+- Create triggers on auth.users table (Supabase Cloud restriction)
+
+**ALWAYS**:
+- Check Archon tasks before starting work
+- Use forward slashes in paths
+- Run lint/typecheck before commits
+- Update task status in Archon
+- Write tests (TDD approach, 80%+ coverage)
+- Document complex logic
+- Use real, production-ready data
+- End files with newline character
+
+## File Organization
+
+**PRPs**: `./PRPs/` - Product requirements and planning documents  
+**PRP Reports**: `./PRPs/reports/` - Initial and completion reports  
+**Work in Progress**: `./wip/` - Testing, debugging, working files  
+**Documentation**: `./docs/` - Project documentation and rules
+
+## Development Workflow
+
+1. Check Archon for current tasks
+2. Update task status to `doing`
+3. Research using RAG knowledge base
+4. Implement with TDD approach
+5. Run tests (80%+ coverage required)
+6. Update task to `review`
+7. Commit with proper prefix (feat/fix/refactor/etc.)
+8. Mark task `done` in Archon

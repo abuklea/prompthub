@@ -1,725 +1,399 @@
-# PromptHub - Code Style & Conventions
-Last Updated: 08/11/2025 11:30 GMT+10
+# PromptHub - Code Style Conventions
 
-## TypeScript Configuration
-- **Strict Mode**: Enabled
-- **Module Resolution**: bundler
-- **Path Aliases**: `@/*` maps to `src/*`
-- **JSX**: preserve (Next.js handles compilation)
-- **Target**: ES2017
-- **Lib**: ES2020, DOM, DOM.Iterable
+## Critical Architectural Patterns (P5S4)
+
+### 1. Document Cache Pattern (EditorPane.tsx)
+
+**User-Scoped Cache Structure**:
+```typescript
+const documentCache = new Map<string, {
+  userId: string  // CRITICAL: User-scoped for security
+  promptData: PromptWithFolder
+  title: string | null  // Nullable titles allowed
+  content: string
+  lastSaved: Date | null
+}>()
+
+// ALWAYS clear cache on module load
+documentCache.clear()
+
+// Export clearing function for logout
+export function clearDocumentCache() {
+  documentCache.clear()
+}
+```
+
+**Security Rules**:
+- ALWAYS validate cache entry userId matches currentUserId
+- ALWAYS clear cache on logout (called in auth/actions.ts)
+- NEVER trust cached data without userId validation
+
+### 2. Race Prevention with Refs Pattern
+
+**Four Critical Refs**:
+```typescript
+// Prevent duplicate loads in React Strict Mode
+const loadedRef = useRef<string | null>(null)
+
+// Track content ownership to prevent cross-contamination
+const contentPromptIdRef = useRef<string | null>(null)
+
+// Track current promptId synchronously to prevent stale saves
+const promptIdRef = useRef<string | null>(null)
+
+// Track document transition state to prevent stale cache updates
+const isTransitioning = useRef(false)
+```
+
+**Rules for Refs**:
+1. **loadedRef**: Mark as loaded BEFORE database fetch to prevent duplicates
+2. **contentPromptIdRef**: Update ONLY after setting content state
+3. **promptIdRef**: Update synchronously in useEffect whenever promptId changes
+4. **isTransitioning**: Set BEFORE any state changes, clear AFTER completion
+
+**Critical Ordering** (P0T2):
+```typescript
+// CORRECT: Update ownership refs FIRST, before state changes
+contentPromptIdRef.current = promptId
+loadedRef.current = promptId
+setPromptData(cached.promptData)  // Now state updates are safe
+
+// WRONG: Don't update state before ownership refs
+setPromptData(cached.promptData)  // Race condition!
+contentPromptIdRef.current = promptId
+```
+
+### 3. Transition Lock Guard Pattern (P0T3)
+
+```typescript
+// Set lock BEFORE state changes
+isTransitioning.current = true
+
+// Do state updates...
+setPromptData(data)
+setTitle(data.title)
+setContent(data.content)
+
+// Release lock AFTER state updates complete (next tick)
+setTimeout(() => {
+  isTransitioning.current = false
+}, 0)
+
+// Guard cache updates with lock check
+useEffect(() => {
+  if (isTransitioning.current) {
+    return  // Skip during transition
+  }
+  // Safe to update cache
+}, [title, content, promptData])
+```
+
+### 4. Auto-Save with Transition Guards (P1T4)
+
+```typescript
+useAutoSave({
+  title,
+  content,
+  // Disable during loading OR transition
+  promptId: (loading || isTransitioning.current) ? null : promptId,
+  delay: 500,
+  onSave: handleAutoSave
+})
+```
+
+**Auto-Save Rules**:
+- ALWAYS disable during document transitions
+- ALWAYS use promptIdRef to verify current document
+- ALWAYS validate title before saving
+- Use 500ms debounce (configurable via delay param)
+
+### 5. Null Title Handling Pattern (P1T5)
+
+```typescript
+// Database allows null titles
+title: string | null
+
+// Use getDisplayTitle for UI display
+import { getDisplayTitle } from '@/features/prompts/utils'
+
+<Input
+  value={title || ""}  // Convert null to empty string for input
+  onChange={(e) => setTitle(e.target.value)}
+/>
+
+// Display in lists/tabs
+<span>{getDisplayTitle(title)}</span>  // Shows "[Untitled Doc]" for null
+
+// Validation before save
+const titleResult = titleValidationSchema.safeParse(title)
+if (!titleResult.success) {
+  // Prompt user to set title
+  setShowSetTitleDialog(true)
+  return
+}
+```
+
+## TypeScript Conventions
+
+### Strict Type Safety
+```typescript
+// ALWAYS use strict mode
+"strict": true
+
+// NEVER use 'any' type
+// BAD
+function process(data: any) { }
+
+// GOOD
+function process(data: PromptWithFolder) { }
+```
+
+### Null vs Undefined
+```typescript
+// Use null for explicitly absent values (database nullable fields)
+title: string | null
+
+// Use undefined for optional parameters/properties
+interface Options {
+  delay?: number  // undefined if not provided
+}
+
+// NEVER use both in same context
+// BAD: title: string | null | undefined
+// GOOD: title: string | null
+```
+
+### Type Imports
+```typescript
+// Use type-only imports when appropriate
+import type { PromptWithFolder } from '@/types/prompts'
+import { getPromptDetails } from '@/features/prompts/actions'
+```
+
+## React Patterns
+
+### useEffect Dependency Rules
+
+**Stale Closure Prevention**:
+```typescript
+// Update ref synchronously when prop changes
+useEffect(() => {
+  promptIdRef.current = promptId
+}, [promptId])
+
+// Use ref in callbacks to get latest value
+const handleAutoSave = useCallback(async () => {
+  const currentPromptId = promptIdRef.current
+  // Use currentPromptId, not promptId from closure
+}, []) // Empty deps - uses ref for latest value
+```
+
+**Cache Update Dependencies**:
+```typescript
+useEffect(() => {
+  // Skip during transition
+  if (isTransitioning.current) return
+  
+  // Update cache
+  documentCache.set(promptId, { ... })
+}, [title, content, promptData, promptId, currentUserId])
+// Include ALL values used in effect
+```
+
+### Client vs Server Components
+
+```typescript
+// Client components MUST have "use client" directive
+"use client"
+
+import { useState, useEffect } from 'react'
+
+// Server components DON'T need directive (default)
+// Can use async/await for data fetching
+async function ServerComponent() {
+  const data = await fetchData()
+  return <div>{data}</div>
+}
+```
+
+### Refs vs State
+
+**Use Refs For**:
+- Values that change but don't need re-render (promptIdRef)
+- Preventing stale closures in callbacks (contentPromptIdRef)
+- Synchronous tracking across effects (isTransitioning)
+- Preventing duplicate operations (loadedRef)
+
+**Use State For**:
+- Values that trigger re-renders (title, content)
+- UI display values (loading, error)
+- User input (form fields)
 
 ## Naming Conventions
 
-### Files
-| Type | Convention | Example |
-|------|------------|---------|
-| Components | PascalCase.tsx | `AuthForm.tsx`, `EditorPane.tsx` |
-| Pages | kebab-case or lowercase | `login.tsx`, `dashboard.tsx` |
-| Actions | actions.ts | `features/auth/actions.ts` |
-| Schemas | schemas.ts | `features/auth/schemas.ts` |
-| Utils | camelCase.ts | `markdown-actions.ts` |
-| Types | *.types.ts | `user.types.ts` (if needed) |
-| Stores | use-*-store.ts | `use-ui-store.ts` |
-
-### Code Naming
-- **Components**: PascalCase (`AuthForm`, `EditorPane`)
-- **Functions**: camelCase (`signIn`, `toggleBold`)
-- **Variables**: camelCase (`selectedDocument`, `isDirty`)
-- **Constants**: UPPER_SNAKE_CASE or camelCase (project uses camelCase)
-- **Interfaces/Types**: PascalCase (`EditorProps`, `UIStore`)
-- **Server Actions**: camelCase with descriptive verbs (`signIn`, `createDocument`)
-
-## Code Structure Rules
-
-### File Size Limits
-- **Max 500 lines per file** (mandatory)
-- **Max 50 lines per function** (single responsibility)
-- **Max 100 characters per line**
-- Current status: All files well under limits (largest ~300 lines)
-
-### Function Guidelines
-- Single, clear responsibility
-- Prefer async/await over promise chains
-- Early returns for error handling
-- Clear, meaningful names
-- Try-catch blocks for error handling
-- Toast notifications for user feedback
-
-### Component Guidelines
-- Functional components with TypeScript interfaces
-- Props interface defined at top of file or inline
-- Client Components marked with `"use client"`
-- Hooks at top of component body
-- Event handlers prefixed with `handle` (e.g., `handleSave`)
-
-## Latest Patterns (CASCADE_DELETE, P5S4, P5S4b)
-
-### Dialog Pattern (CASCADE_DELETE - NEW)
-
-**Form Dialogs (Create/Rename)**:
+### Variables & Functions
 ```typescript
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+// camelCase for variables and functions
+const documentCache = new Map()
+function handleAutoSave() { }
 
-interface CreateFolderDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onConfirm: (name: string) => Promise<void>
+// PascalCase for components and types
+function EditorPane() { }
+interface PromptWithFolder { }
+
+// UPPER_SNAKE_CASE for constants
+const MAX_TITLE_LENGTH = 200
+const AUTO_SAVE_DELAY = 500
+```
+
+### Files & Directories
+```typescript
+// Components: PascalCase.tsx
+EditorPane.tsx
+SetTitleDialog.tsx
+
+// Utilities: camelCase.ts
+diff-utils.ts
+getDisplayTitle.ts
+
+// Actions/Schemas: descriptive.ts
+actions.ts
+schemas.ts
+
+// Directories: kebab-case
+features/prompts/
+components/ui/
+```
+
+### Boolean Naming
+```typescript
+// Prefix with is/has/should
+const isTransitioning = useRef(false)
+const hasUnsavedChanges = content !== promptData.content
+const shouldAutoSave = !loading && !isTransitioning.current
+
+// NEVER use negative booleans
+// BAD: const notReady = false
+// GOOD: const isReady = true
+```
+
+## Comment Conventions
+
+### Reason Comments
+```typescript
+// Reason: Explain WHY, not WHAT
+// Reason: Check cache first for instant display
+const cached = documentCache.get(promptId)
+
+// Reason: Update ownership refs FIRST, before state changes (P0T2)
+contentPromptIdRef.current = promptId
+loadedRef.current = promptId
+```
+
+### Critical Sections
+```typescript
+// CRITICAL: Mark security or race-sensitive code
+// CRITICAL: Set transition lock BEFORE any state changes (P0T3)
+isTransitioning.current = true
+
+// SECURITY: Validate cache entry belongs to current user (P5S4T2)
+if (cached.userId !== currentUserId) {
+  console.warn('[EditorPane] Cache entry for different user, clearing:', promptId)
+  documentCache.delete(promptId)
 }
+```
 
-export function CreateFolderDialog({
-  open,
-  onOpenChange,
-  onConfirm
-}: CreateFolderDialogProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [name, setName] = useState("")
+### TODO Comments
+```typescript
+// TODO: Add keyboard shortcuts for tab navigation (P5S4cT8)
+// FIXME: Handle edge case when folder deleted while document open
+// OPTIMIZE: Consider using SWR for server state management
+```
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!name.trim()) return
+## Error Handling
 
-    setIsLoading(true)
-    try {
-      await onConfirm(name)
-      setName("")
-      onOpenChange(false)
-    } finally {
-      setIsLoading(false)
+### Server Actions
+```typescript
+export async function saveNewVersion(data: SaveNewVersionInput): Promise<ActionResult> {
+  try {
+    // Validation
+    const parsed = saveNewVersionSchema.safeParse(data)
+    if (!parsed.success) {
+      return { success: false, error: "Validation failed" }
     }
-  }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create New Folder</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Folder name"
-            autoFocus
-            disabled={isLoading}
-          />
-          <DialogFooter>
-            <Button type="button" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading || !name.trim()}>
-              {isLoading ? "Creating..." : "Create"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-```
-
-**Delete Confirmation Dialogs (AlertDialog)**:
-```typescript
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter } from "@/components/ui/alert-dialog"
-
-interface DeleteFolderDialogProps {
-  folder: Folder | null
-  isLoading: boolean
-  onConfirm: () => Promise<void>
-  onCancel: () => void
-}
-
-export function DeleteFolderDialog({
-  folder,
-  isLoading,
-  onConfirm,
-  onCancel
-}: DeleteFolderDialogProps) {
-  if (!folder) return null
-
-  const subfolderCount = countSubfolders(folder)
-  const documentCount = countDocuments(folder)
-  const versionCount = countVersions(folder)
-
-  return (
-    <AlertDialog open={!!folder} onOpenChange={onCancel}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete Folder?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This will permanently delete <strong>"{folder.name}"</strong> and all its contents:
-            {subfolderCount > 0 && `\n• ${subfolderCount} subfolder(s)`}
-            {documentCount > 0 && `\n• ${documentCount} document(s)`}
-            {versionCount > 0 && `\n• ${versionCount} version(s)`}
-
-            This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} disabled={isLoading}>
-            {isLoading ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
-```
-
-**Best Practices**:
-- Use Dialog for forms (Create, Rename)
-- Use AlertDialog for destructive actions (Delete)
-- Show item counts in delete confirmations
-- Always include loading states during async operations
-- Reset form state when dialog closes
-- Disable submit when input is invalid
-- Keyboard support: Enter to submit, Esc to cancel
-- Auto-focus first input field
-
-### Cascade Delete Database Pattern (CASCADE_DELETE - NEW)
-
-**Schema Definition**:
-```prisma
-// Folder with cascade delete rules
-model Folder {
-  id String @id @default(cuid())
-  name String
-  user_id String
-  parent_id String?
-
-  // Cascade to nested folders
-  parent Folder? @relation("NestedFolders", fields: [parent_id], references: [id], onDelete: Cascade)
-  children Folder[] @relation("NestedFolders")
-
-  // Cascade to documents
-  prompts Prompt[] @relation(onDelete: Cascade)
-
-  user Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@unique([name, user_id, parent_id])
-}
-
-// Document with cascade delete rules
-model Prompt {
-  id String @id @default(cuid())
-  title String
-  content String
-  folder_id String?
-
-  // Cascade to versions
-  versions PromptVersion[] @relation(onDelete: Cascade)
-
-  folder Folder? @relation(fields: [folder_id], references: [id], onDelete: Cascade)
-  user Profile @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@unique([title, user_id, folder_id])
-}
-```
-
-**Benefits**:
-- No orphaned records in database
-- All related data deleted automatically
-- Prevents referential integrity violations
-- Simplifies cleanup logic on frontend
-
-**Push to Database**:
-```bash
-npx prisma db push  # Pushes Prisma schema to Supabase
-```
-
-## Latest Patterns (P5S4, P5S4b)
-
-### Zustand Store Pattern (P5S4, P5S4b)
-
-**Store Location**: `src/stores/use-ui-store.ts`
-
-```typescript
-import { create } from 'zustand'
-
-interface UIStore {
-  // State
-  selectedDocumentId: string | null
-  folderRefetchTrigger: number
-  documentRefetchTrigger: number
-  
-  // Actions
-  setSelectedDocument: (doc: Document | null) => void
-  triggerFolderRefetch: () => void
-  triggerDocumentRefetch: () => void
-}
-
-export const useUIStore = create<UIStore>((set) => ({
-  selectedDocumentId: null,
-  folderRefetchTrigger: 0,
-  documentRefetchTrigger: 0,
-  
-  setSelectedDocument: (doc) => set({ 
-    selectedDocumentId: doc?.id ?? null,
-    selectedDocument: doc 
-  }),
-  
-  triggerFolderRefetch: () => set({ 
-    folderRefetchTrigger: Date.now() 
-  }),
-  
-  triggerDocumentRefetch: () => set({ 
-    documentRefetchTrigger: Date.now() 
-  })
-}))
-```
-
-### Refetch Trigger Pattern (P5S4b)
-
-**Trigger from Mutation**:
-```typescript
-const handleCreateFolder = async (name: string) => {
-  const result = await createFolder({ name, parentId })
-  
-  if (result.success) {
-    toast.success("Folder created")
-    useUIStore.getState().triggerFolderRefetch()
-  }
-}
-```
-
-**Subscribe in Component**:
-```typescript
-const folderRefetchTrigger = useUIStore(s => s.folderRefetchTrigger)
-
-useEffect(() => {
-  const fetchFolders = async () => {
-    const data = await getFolders()
-    setFolders(data)
-  }
-  fetchFolders()
-}, [folderRefetchTrigger])
-```
-
-### Document Switching Cleanup Pattern (P5S4b)
-
-**Problem**: Stale content when switching documents
-
-**Solution**: Cleanup effect
-```typescript
-const EditorPane = ({ document }: Props) => {
-  const [localContent, setLocalContent] = useState(document?.content ?? '')
-  const [isDirty, setIsDirty] = useState(false)
-  
-  // Reset content when document changes
-  useEffect(() => {
-    setLocalContent(document?.content ?? '')
-    setIsDirty(false)
-  }, [document?.id])  // Trigger on ID change
-  
-  const handleContentChange = (value: string) => {
-    setLocalContent(value)
-    setIsDirty(value !== document?.content)
-  }
-  
-  return <Editor value={localContent} onChange={handleContentChange} />
-}
-```
-
-### Tooltip Pattern (P5S4b)
-
-**Setup in Layout**:
-```typescript
-import { TooltipProvider } from "@/components/ui/tooltip"
-
-export default function AppLayout({ children }) {
-  return (
-    <TooltipProvider delayDuration={700}>
-      {children}
-    </TooltipProvider>
-  )
-}
-```
-
-**Usage in Components**:
-```typescript
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-
-<Tooltip>
-  <TooltipTrigger asChild>
-    <Button 
-      variant="ghost" 
-      size="icon"
-      onClick={handleCreate}
-      disabled={!canCreate}
-    >
-      <FilePlus className="h-4 w-4" />
-    </Button>
-  </TooltipTrigger>
-  <TooltipContent>
-    {canCreate ? "Create new document" : "Select a folder first"}
-  </TooltipContent>
-</Tooltip>
-```
-
-**Best Practices**:
-- Use `asChild` on TooltipTrigger to avoid wrapper div
-- Provide context-aware messages for disabled states
-- Keep tooltips concise (1-5 words)
-- Use 700ms delay for hover (set in provider)
-
-### Toolbar Pattern (P5S4, P5S4b)
-
-**Icon-based Toolbar**:
-```typescript
-<div className="flex items-center gap-1">
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <Button variant="ghost" size="icon" onClick={handleCreate}>
-        <FilePlus className="h-4 w-4" />
-      </Button>
-    </TooltipTrigger>
-    <TooltipContent>Create new</TooltipContent>
-  </Tooltip>
-  
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <Button variant="ghost" size="icon" onClick={handleEdit}>
-        <Edit className="h-4 w-4" />
-      </Button>
-    </TooltipTrigger>
-    <TooltipContent>Edit</TooltipContent>
-  </Tooltip>
-</div>
-```
-
-### Markdown Actions Pattern (P5S4)
-
-**Action Utilities**: `src/features/editor/markdown-actions.ts`
-
-```typescript
-import type monaco from 'monaco-editor'
-
-export function toggleBold(editor: monaco.editor.IStandaloneCodeEditor) {
-  const selection = editor.getSelection()
-  if (!selection) return
-  
-  const model = editor.getModel()
-  if (!model) return
-  
-  const selectedText = model.getValueInRange(selection)
-  const newText = `**${selectedText}**`
-  
-  editor.executeEdits('', [{
-    range: selection,
-    text: newText,
-    forceMoveMarkers: true
-  }])
-}
-
-// Similar functions for: toggleItalic, insertHeading, insertLink, etc.
-```
-
-**Integration**:
-```typescript
-import { toggleBold, toggleItalic } from '@/features/editor/markdown-actions'
-
-const EditorPane = () => {
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor>()
-  
-  const handleBold = () => {
-    if (editorRef.current) {
-      toggleBold(editorRef.current)
-    }
-  }
-  
-  return (
-    <>
-      <Toolbar onBold={handleBold} />
-      <Editor onMount={(editor) => editorRef.current = editor} />
-    </>
-  )
-}
-```
-
-## SSR Handling Pattern (P5S1)
-
-### Dynamic Import for SSR-Incompatible Libraries
-```typescript
-// Problem: Monaco uses window/document APIs, breaks during SSR
-// Solution: Dynamic import with ssr: false
-
-import dynamic from "next/dynamic"
-
-const Editor = dynamic(
-  () => import("./components/Editor").then(mod => mod.Editor),
-  {
-    loading: () => <EditorSkeleton />,
-    ssr: false  // CRITICAL: Prevents SSR execution
-  }
-)
-```
-
-**Key Principles**:
-- Use `dynamic()` from Next.js for SSR-incompatible components
-- Set `ssr: false` to skip server-side rendering
-- Provide `loading` component for better UX
-- Theme definition in `beforeMount` hook (timing critical)
-- Never access window/document outside of event callbacks
-
-## Monaco Editor Patterns (P5S1, P5S3d, P5S4)
-
-### Theme Definition
-```typescript
-const onBeforeMount: BeforeMount = (monaco) => {
-  monaco.editor.defineTheme("boldSimplicity", {
-    base: "vs-dark",
-    inherit: true,
-    rules: [
-      { token: "comment", foreground: "94A3B8" },
-      { token: "keyword", foreground: "EC4899" },
-      // ... more rules
-    ],
-    colors: {
-      "editor.background": "#0F172A",
-      "editor.foreground": "#E2E8F0",
-      "editorCursor.foreground": "#EC4899",
-    }
-  })
-}
-```
-
-### Height in Flex Containers (P5S3d - CRITICAL)
-```typescript
-// Wrapper structure for Monaco in flex layouts
-<div className="flex-1 overflow-hidden relative">
-  <div className="absolute inset-0 h-full">  {/* CRITICAL: h-full */}
-    <Editor height="100%" />
-  </div>
-</div>
-```
-
-**Why This Works**:
-- `flex-1`: Takes available vertical space
-- `overflow-hidden relative`: Creates positioning context
-- `absolute inset-0`: Stretches to parent bounds
-- `h-full`: Explicitly sets height to 100%
-- Monaco `height="100%"`: Now has height reference
-
-### Editor Ref Pattern (P5S4)
-```typescript
-const EditorPane = () => {
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor>()
-  
-  const handleMount = (editor: monaco.editor.IStandaloneCodeEditor) => {
-    editorRef.current = editor
+    // Operation
+    const result = await db.prompt.update({ ... })
     
-    // Add keyboard shortcuts
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      handleSave()
-    })
-  }
-  
-  return <Editor onMount={handleMount} />
-}
-```
-
-## Server Action Pattern (P1S1)
-
-### Error Objects (Never Throws)
-```typescript
-"use server"
-
-import { createClient } from "@/lib/supabase/server"
-import { signInSchema } from "./schemas"
-
-export async function signIn(data: unknown) {
-  // Validate input
-  const parsed = signInSchema.safeParse(data)
-  if (!parsed.success) {
-    return { error: "Invalid input" }
-  }
-
-  // Supabase operation
-  const supabase = createClient()
-  const { error } = await supabase.auth.signInWithPassword({
-    email: parsed.data.email,
-    password: parsed.data.password
-  })
-
-  // Return error object (NEVER throw)
-  if (error) {
-    return { error: error.message }
-  }
-
-  return { success: true }
-}
-```
-
-## Client Component Patterns
-
-### Dual Feedback Pattern (P1S1)
-```typescript
-"use client"
-
-import { useState } from "react"
-import { toast } from "sonner"
-
-export function Form() {
-  const [formError, setFormError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-
-  const handleSubmit = async (data: FormData) => {
-    setIsLoading(true)
-    setFormError("") // Clear previous inline error
-
-    const result = await action(data)
-
-    if (result.error) {
-      // Dual feedback
-      setFormError(result.error)           // Inline error
-      toast.error(result.error, {          // Toast notification
-        duration: 6000
-      })
-      setIsLoading(false)
-      return
+    return { success: true, data: result }
+  } catch (error) {
+    // Re-throw NEXT_REDIRECT for Next.js navigation
+    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
+      throw error
     }
-
-    toast.success("Success", { duration: 3000 })
+    
+    console.error('[saveNewVersion] Error:', error)
+    return { success: false, error: "Failed to save version" }
   }
-
-  return (
-    <form onSubmit={handleSubmit}>
-      {/* Form fields */}
-      <FormError message={formError} />
-    </form>
-  )
 }
 ```
 
-### Dirty State Tracking (P5S4)
+### Client Components
 ```typescript
-const [localContent, setLocalContent] = useState(initialContent)
-const [isDirty, setIsDirty] = useState(false)
-
-const handleContentChange = (value: string) => {
-  setLocalContent(value)
-  setIsDirty(value !== initialContent)
-}
-
-const handleSave = async () => {
-  if (!isDirty) return
+async function handleSave() {
+  setSaving(true)
+  const result = await saveNewVersion({ ... })
   
-  const result = await saveDocument({ content: localContent })
-  if (result.success) {
-    setIsDirty(false)
-    toast.success("Saved")
+  if (!result.success) {
+    toast.error(result.error, { duration: 6000 })
+    setSaving(false)
+    return
   }
+  
+  toast.success("Saved successfully")
+  setSaving(false)
 }
 ```
+
+## Development Environment Guards
+
+```typescript
+// Wrap debug logging with NODE_ENV check (P5S4T5)
+if (process.env.NODE_ENV === 'development') {
+  console.log('[EditorPane] Loading from cache:', promptId)
+}
+
+// Production warning logs (always visible)
+console.warn('[EditorPane] Cache entry for different user')
+console.error('[EditorPane] Auto-save FAILED:', error)
+```
+
+## File Size Limits
+
+- **Max 500 lines per file** - Refactor when approaching limit
+- **Max 50 lines per function** - Single, clear responsibility
+- **Max 100 characters per line**
+- **All text files end with newline** (mandatory)
 
 ## Import Organization
-1. React and Next.js
-2. Third-party libraries (Monaco, Zustand, etc.)
-3. Internal absolute imports (`@/...`)
-4. Relative imports
-5. Types (if needed separately)
 
 ```typescript
-import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/router"
-import dynamic from "next/dynamic"
+// 1. React and external libraries
+import { useEffect, useState, useCallback, useRef } from "react"
 import { toast } from "sonner"
-import type monaco from "monaco-editor"
 
+// 2. Internal stores and hooks
+import { useUiStore } from "@/stores/use-ui-store"
+import { useTabStore } from "@/stores/use-tab-store"
+
+// 3. Actions and utilities
+import { getPromptDetails } from "@/features/prompts/actions"
+import { getDisplayTitle } from "@/features/prompts/utils"
+
+// 4. Types
+import type { PromptWithFolder } from "@/types/prompts"
+
+// 5. UI components (last)
+import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useUIStore } from "@/stores/use-ui-store"
-import { toggleBold } from "@/features/editor/markdown-actions"
-
-import { FormError } from "./FormError"
 ```
-
-## Color System (P5S3d - Compact UI)
-
-### CSS Variables (globals.css)
-```css
-html {
-  font-size: 12px;  /* P5S3d: Compact UI (was 16px) */
-}
-
-:root {
-  --primary: 239 84% 67%;      /* Indigo #4F46E5 */
-  --accent: 328 85% 70%;       /* Magenta #EC4899 */
-  --background: 222 47% 11%;   /* Dark blue-black #0F172A */
-  --card: 220 26% 14%;         /* Gray 900 #111827 */
-  --foreground: 213 31% 91%;   /* Light text #E2E8F0 */
-}
-```
-
-### Component Sizing Standards (P5S3d, P5S4b)
-- **Button Default**: `h-8 px-3 text-xs`
-- **Button Small**: `h-7 px-2.5 text-xs`
-- **Button Icon**: `h-8 w-8` (P5S4b)
-- **Input**: `h-8 px-2.5 py-1.5`
-- **Label**: `text-xs`
-- **PanelSubheader**: `h-10 px-3 text-xs`
-- **Icons**: `h-4 w-4` (standard toolbar icons)
-- **Monaco Code**: 14px (preserved for readability)
-
-### Tailwind Classes
-```typescript
-// Primary button
-className="bg-primary text-primary-foreground hover:bg-primary/90"
-
-// Ghost button (toolbar icons)
-className="hover:bg-accent/10 hover:text-accent"
-
-// Icon size (P5S4b standard)
-className="h-4 w-4"
-```
-
-## Best Practices
-
-### Error Handling
-- **Server Actions**: Return error objects, never throw
-- **Client Components**: Handle errors with try-catch
-- **Dual Feedback**: Toast + inline errors (when applicable)
-- **Error Clearing**: Clear on form change or action retry
-- **User-Friendly Messages**: Clear, actionable errors
-
-### State Management
-- **Zustand**: Global UI state, refetch triggers
-- **Local State**: Component-specific state (dirty, loading)
-- **Cleanup Effects**: Reset state on dependency changes
-- **Refetch Pattern**: Timestamp-based invalidation
-
-### User Feedback
-- **Toast Durations**:
-  - Errors: 6000ms (6 seconds)
-  - Success: 3000ms (3 seconds)
-- **Toast Positioning**: Top center (default)
-- **Inline Errors**: Below form fields with icon
-- **Tooltips**: 700ms hover delay, context-aware messages
-
-### Performance
-- Prefer async/await
-- Client-side navigation (next/router)
-- Cleanup effects for subscriptions
-- Debounce expensive operations
-
-## Common Patterns Summary
-
-### Latest Patterns (P5S4b)
-1. **Refetch Triggers**: Timestamp-based invalidation
-2. **Cleanup Effects**: Reset state on dependency changes
-3. **Tooltip System**: Context-aware, 700ms delay
-4. **Icon Toolbars**: Consistent icon-only buttons
-
-### Established Patterns (P5S1-P5S4)
-1. **SSR Safety**: Dynamic import with `ssr: false`
-2. **Monaco Height**: `absolute inset-0 h-full` wrapper
-3. **Dirty Tracking**: Compare local to initial content
-4. **Markdown Actions**: Utility functions for formatting
-5. **Error Objects**: Server actions return errors
-
-### Core Patterns (P1S1)
-1. **Dual Feedback**: Toast + inline errors
-2. **Context-Aware**: Components adapt to auth state
-3. **Loading States**: Separate loading/redirecting states
-4. **Form Changes**: Clear errors on input change
