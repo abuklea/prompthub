@@ -6,13 +6,18 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 09/11/2025 16:09 GMT+10
+Last modified: 09/11/2025 17:20 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
 Features: Auto-save (500ms debounce), localStorage persistence, manual save (Ctrl+S).
 
 Changelog:
+09/11/2025 17:20 GMT+10 | CRITICAL RACE CONDITION FIX: Implemented P5S5T1-T5 fixes for document contamination
+09/11/2025 17:20 GMT+10 | P5S5T2: Added synchronous state clearing BEFORE any checks to prevent mixed state
+09/11/2025 17:20 GMT+10 | P5S5T3: Replaced setTimeout with cleanup effect for proper lock release timing
+09/11/2025 17:20 GMT+10 | P5S5T4: Added isTransitioning guard to localStorage save effect
+09/11/2025 17:20 GMT+10 | P5S5T5: Added contentPromptIdRef ownership guard to cache update effect
 09/11/2025 16:09 GMT+10 | CRITICAL BUG FIX: Implemented P0/P1 fixes for content cross-contamination (P0T1-P0T3, P1T4-P1T5)
 09/11/2025 16:09 GMT+10 | P0T1: Added promptIdRef guard to prevent stale localStorage saves during rapid tab switching
 09/11/2025 16:09 GMT+10 | P0T2: Moved ownership refs BEFORE state changes in cache hit path to prevent race conditions
@@ -128,6 +133,9 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
 
   // Reason: Fetch prompt details when selection changes, with caching for instant switching
   useEffect(() => {
+    // P5S5T6: Use AbortController to cancel duplicate fetches in React Strict Mode
+    const abortController = new AbortController()
+
     async function loadPrompt() {
       if (!promptId) {
         setPromptData(null)
@@ -140,6 +148,13 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         return
       }
 
+      // CRITICAL: Clear state BEFORE any checks! (P5S5T2)
+      // This ensures no window exists with old content + new promptId
+      setPromptData(null)
+      setTitle(null)
+      setContent("")
+      setError("")
+
       // Reason: Prevent duplicate loads in React Strict Mode (P5S4T4)
       if (loadedRef.current === promptId) {
         return  // Already loaded this prompt
@@ -149,12 +164,14 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
       isTransitioning.current = true
 
       // Reason: Check cache first for instant display
-      const cached = documentCache.get(promptId)
+      // P5S5T5: Use userId in cache key for multi-user isolation
+      const cacheKey = `${currentUserId}-${promptId}`
+      const cached = documentCache.get(cacheKey)
       if (cached) {
         // SECURITY: Validate cache entry belongs to current user (P5S4T2)
         if (cached.userId !== currentUserId) {
-          console.warn('[EditorPane] Cache entry for different user, clearing:', promptId)
-          documentCache.delete(promptId)
+          console.warn('[EditorPane] Cache entry for different user, clearing:', cacheKey)
+          documentCache.delete(cacheKey)
           // Continue to database load below
         } else {
           // CRITICAL: Update ownership refs FIRST, before any state changes (P0T2)
@@ -172,10 +189,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
           setLoading(false)
           setError("")
 
-          // CRITICAL: Release lock on next tick after state updates complete (P0T3)
-          setTimeout(() => {
-            isTransitioning.current = false
-          }, 0)
+          // CRITICAL: Don't release lock here - let cleanup effect handle it (P5S5T3)
           return
         }
       }
@@ -190,7 +204,21 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
       setLoading(true)
       setError("")
 
+      // P5S5T6: Check if aborted before async operation
+      if (abortController.signal.aborted) {
+        setLoading(false)
+        isTransitioning.current = false
+        return
+      }
+
       const result = await getPromptDetails({ promptId })
+
+      // P5S5T6: Check if aborted after async operation
+      if (abortController.signal.aborted) {
+        setLoading(false)
+        isTransitioning.current = false
+        return
+      }
 
       // Reason: Check success field for discriminated union type
       if (!result.success) {
@@ -222,7 +250,24 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
     }
 
     loadPrompt()
-  }, [promptId, localContent, currentUserId])
+
+    // P5S5T6: Cleanup function to abort pending requests on unmount/re-run
+    return () => {
+      abortController.abort()
+    }
+  }, [promptId, currentUserId])  // CRITICAL: localContent removed from deps to prevent circular dependency (P5S5)
+
+  // CRITICAL: Release transition lock only after loading completes (P5S5T3)
+  // This ensures all state updates have settled before allowing cache/localStorage updates
+  useEffect(() => {
+    if (promptId && !loading) {
+      // States have settled, safe to allow updates
+      isTransitioning.current = false
+    } else {
+      // Loading or no document - keep locked
+      isTransitioning.current = true
+    }
+  }, [promptId, loading])
 
   // Reason: Update promptId ref synchronously to prevent stale saves (P0T1)
   useEffect(() => {
@@ -275,7 +320,10 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
     }
 
     if (content && promptId && contentPromptIdRef.current === promptId) {
-      setLocalContent(content)
+      // CRITICAL: Check not transitioning before saving (P5S5T4)
+      if (!isTransitioning.current) {
+        setLocalContent(content)
+      }
     }
   }, [content, promptId, setLocalContent])
 
@@ -286,14 +334,21 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
       return
     }
 
+    // CRITICAL: Check content ownership before updating cache (P5S5T5)
+    if (contentPromptIdRef.current !== promptId) {
+      return
+    }
+
     if (title && promptData && promptId) {
       const isDirty = content !== promptData.content
 
       // Reason: Update document cache for instant tab switching
+      // P5S5T5: Use userId in cache key for multi-user isolation
+      const cacheKey = `${currentUserId}-${promptId}`
       if (process.env.NODE_ENV === 'development') {
-        console.log('[EditorPane] Updating cache for:', promptId, 'title:', title, 'content length:', content.length)
+        console.log('[EditorPane] Updating cache for:', cacheKey, 'title:', title, 'content length:', content.length)
       }
-      documentCache.set(promptId, {
+      documentCache.set(cacheKey, {
         userId: currentUserId,
         promptData,
         title,
@@ -355,7 +410,9 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         setPromptData(updatedData)
 
         // Reason: Update cache with saved state
-        documentCache.set(promptId, {
+        // P5S5T5: Use userId in cache key for multi-user isolation
+        const cacheKey = `${currentUserId}-${promptId}`
+        documentCache.set(cacheKey, {
           userId: currentUserId,
           promptData: updatedData,
           title,

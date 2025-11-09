@@ -20,6 +20,7 @@ Changelog:
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { signOut } from "@/features/auth/actions"
+import { clearDocumentCache } from "@/features/editor/components/EditorPane"
 import { useTabStore } from "@/stores/use-tab-store"
 import { Settings, User as UserIcon } from "lucide-react"
 import Link from "next/link"
@@ -31,6 +32,13 @@ interface HeaderProps {
 
 export function Header({ user }: HeaderProps) {
   const openTab = useTabStore(state => state.openTab)
+
+  // P5S5T5: Clear document cache before logout to prevent cross-user contamination
+  const handleSignOut = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    clearDocumentCache()
+    await signOut()
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
@@ -101,8 +109,8 @@ export function Header({ user }: HeaderProps) {
                 </Tooltip>
               </TooltipProvider>
 
-              <form action={signOut}>
-                <Button variant="outline" size="sm">Sign Out</Button>
+              <form onSubmit={handleSignOut}>
+                <Button variant="outline" size="sm" type="submit">Sign Out</Button>
               </form>
             </>
           ) : (

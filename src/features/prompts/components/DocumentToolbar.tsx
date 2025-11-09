@@ -13,18 +13,17 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUiStore, type DocSort } from "@/stores/use-ui-store"
 import { useTabStore } from "@/stores/use-tab-store"
-import { createPrompt, renamePrompt, deletePrompt, getPromptDetails } from "../actions"
+import { createPrompt, renamePrompt, deletePrompt } from "../actions"
 import { toast } from "sonner"
 import { Plus, Edit, Trash2, ArrowUpDown } from "lucide-react"
 import { CreateDocumentDialog, RenameDocumentDialog, DeleteDocumentDialog } from "./DocumentDialogs"
 
 export function DocumentToolbar() {
-  const { selectedFolder, selectedPrompt, docSort, docFilter, setDocSort, setDocFilter, selectPrompt, triggerPromptRefetch } = useUiStore()
+  const { selectedFolder, selectedPrompt, docSort, docFilter, setDocSort, setDocFilter, selectPrompt, triggerPromptRefetch, prompts, addPrompt, removePrompt, updatePromptTitle } = useUiStore()
   const { closeTabsByPromptId, tabs, activeTabId, openTab } = useTabStore()
   const [creatingDoc, setCreatingDoc] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [selectedPromptTitle, setSelectedPromptTitle] = useState("")
   const [selectedPromptHasVersions, setSelectedPromptHasVersions] = useState(false)
 
   // Reason: Sync selectedPrompt with active tab to enable toolbar buttons
@@ -35,25 +34,11 @@ export function DocumentToolbar() {
     }
   }, [activeTabId, tabs, selectPrompt])
 
-  // Reason: Fetch selected prompt details to get title for dialogs
-  useEffect(() => {
-    async function loadPromptTitle() {
-      if (!selectedPrompt) {
-        setSelectedPromptTitle("")
-        setSelectedPromptHasVersions(false)
-        return
-      }
-
-      const result = await getPromptDetails({ promptId: selectedPrompt })
-      if (result.success && result.data) {
-        setSelectedPromptTitle(result.data.title)
-        // TODO: Check if prompt has versions when version count is available
-        setSelectedPromptHasVersions(false)
-      }
-    }
-
-    loadPromptTitle()
-  }, [selectedPrompt])
+  // Reason: Get title from Zustand store instead of database fetch (P5S5T2 - Performance optimization)
+  // This eliminates 1 database request per document selection (10-50+ requests saved per session)
+  const selectedPromptTitle = selectedPrompt
+    ? (prompts.find(p => p.id === selectedPrompt)?.title || "")
+    : ""
 
   // Reason: Map sort values to display labels
   const sortLabels: Record<DocSort, string> = {
@@ -84,15 +69,18 @@ export function DocumentToolbar() {
     toast.success("Document created successfully", { duration: 3000 })
 
     // Reason: Auto-open newly created document with isNewDocument flag (P5S4eT14)
-    if (result.data?.promptId) {
+    // P5S5T4: Use full Prompt object from result to avoid additional database requests
+    if (result.data?.id) {
+      // P5S5T3: Optimistic update - add document to store immediately (no refetch needed)
+      addPrompt(result.data)
+
       openTab({
         type: 'document',
         title: "",  // Empty title - will display as "[Untitled Doc]" placeholder
-        promptId: result.data.promptId,
+        promptId: result.data.id,
         isNewDocument: true,  // CRITICAL: Mark as new to trigger save confirmation
       })
-      selectPrompt(result.data.promptId)
-      triggerPromptRefetch()
+      selectPrompt(result.data.id)
     }
     setCreatingDoc(false)
   }
@@ -104,14 +92,16 @@ export function DocumentToolbar() {
   const handleConfirmRename = async (newTitle: string) => {
     if (!selectedPrompt) return
 
+    // P5S5T3: Optimistic update - update title in store immediately (no refetch needed)
+    updatePromptTitle(selectedPrompt, newTitle)
+
     const result = await renamePrompt(selectedPrompt, newTitle)
     if (result.success) {
       toast.success("Document renamed successfully", { duration: 3000 })
-      setSelectedPromptTitle(newTitle)
-      // Reason: Trigger refetch to update PromptList
-      triggerPromptRefetch()
     } else {
       toast.error(result.error, { duration: 6000 })
+      // Reason: Revert optimistic update on error by triggering refetch
+      triggerPromptRefetch()
     }
   }
 
@@ -122,16 +112,20 @@ export function DocumentToolbar() {
   const handleConfirmDelete = async () => {
     if (!selectedPrompt) return
 
-    const result = await deletePrompt(selectedPrompt)
+    const promptIdToDelete = selectedPrompt
+
+    // P5S5T3: Optimistic update - remove from store immediately (no refetch needed)
+    removePrompt(promptIdToDelete)
+    selectPrompt(null)
+    closeTabsByPromptId(promptIdToDelete)
+
+    const result = await deletePrompt(promptIdToDelete)
     if (result.success) {
       toast.success("Document deleted successfully", { duration: 3000 })
-      // Reason: Close all tabs displaying this document
-      closeTabsByPromptId(selectedPrompt)
-      // Reason: Clear selection and trigger refetch
-      selectPrompt(null)
-      triggerPromptRefetch()
     } else {
       toast.error(result.error, { duration: 6000 })
+      // Reason: Revert optimistic update on error by triggering refetch
+      triggerPromptRefetch()
     }
   }
 

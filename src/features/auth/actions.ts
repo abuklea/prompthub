@@ -7,7 +7,6 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import db from "@/lib/db"
 import { ActionResult } from "@/types/actions"
-import { clearDocumentCache } from "@/features/editor/components/EditorPane"
 
 async function ensureProfileExists(userId: string) {
   // Check if profile exists
@@ -75,11 +74,7 @@ export async function signIn(values: z.infer<typeof SignInSchema>): Promise<Acti
 }
 
 export async function signOut() {
-  // CRITICAL: Clear client-side caches before logout (P5S4T2)
-  if (typeof window !== 'undefined') {
-    clearDocumentCache()
-  }
-
+  // Note: Client-side cache clearing handled by Header component before form submission
   const supabase = createClient()
 
   // Check if a user's session exists

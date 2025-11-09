@@ -42,6 +42,8 @@ interface UiState {
   // Prompts management actions
   setPrompts: (prompts: Prompt[]) => void
   updatePromptTitle: (promptId: string, newTitle: string) => void
+  addPrompt: (prompt: Prompt) => void
+  removePrompt: (promptId: string) => void
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -96,5 +98,15 @@ export const useUiStore = create<UiState>((set) => ({
       prompts: state.prompts.map((prompt) =>
         prompt.id === promptId ? { ...prompt, title: newTitle } : prompt
       ),
+    })),
+  // P5S5T3: Optimistic update for document creation (avoids full folder refetch)
+  addPrompt: (prompt) =>
+    set((state) => ({
+      prompts: [...state.prompts, prompt],
+    })),
+  // P5S5T3: Optimistic update for document deletion (avoids full folder refetch)
+  removePrompt: (promptId) =>
+    set((state) => ({
+      prompts: state.prompts.filter((prompt) => prompt.id !== promptId),
     })),
 }))
