@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 08/11/2025 13:01 GMT+10
-Last modified: 08/11/2025 13:01 GMT+10
+Last modified: 08/11/2025 15:19 GMT+10
 ---------------
 Content renderer that switches between different tab types.
 Lazy loads components for performance (EditorPane, SettingsPage, etc).
 
 Changelog:
+08/11/2025 15:19 GMT+10 | Wrapped console.log with development-only guard (P5S4T5)
 08/11/2025 13:01 GMT+10 | Initial creation - Tab content renderer
 */
 
@@ -26,8 +27,15 @@ const SettingsPage = lazy(() => import('@/app/(app)/settings/page'))
 const DashboardPage = lazy(() => import('@/app/(app)/dashboard/page'))
 const ProfilePage = lazy(() => import('@/app/(app)/profile/page'))
 
+var lastTabId: string | null = null;
+
 export function TabContent() {
   const activeTab = useActiveTab()
+
+  if (lastTabId !== activeTab?.id && process.env.NODE_ENV === 'development') {
+    lastTabId = activeTab?.id || null;
+    console.log('[TabContent] Active tab:', activeTab?.id, 'type:', activeTab?.type, 'promptId:', activeTab?.promptId)
+  }
 
   if (!activeTab) {
     return (

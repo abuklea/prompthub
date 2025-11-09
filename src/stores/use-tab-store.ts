@@ -136,6 +136,39 @@ export const useTabStore = create<TabState>()(
         }))
       },
 
+      shouldConfirmClose: (tabId) => {
+        const tab = get().tabs.find(t => t.id === tabId)
+        return tab?.isNewDocument === true
+      },
+
+      closeTabDirectly: (tabId) => {
+        const tabs = get().tabs
+        const index = tabs.findIndex(t => t.id === tabId)
+
+        if (index === -1) return
+
+        // Don't close pinned tabs
+        if (tabs[index].isPinned) return
+
+        const newTabs = tabs.filter(t => t.id !== tabId)
+        let newActiveId = get().activeTabId
+
+        // If closing active tab, select adjacent tab
+        if (newActiveId === tabId) {
+          if (newTabs.length > 0) {
+            newActiveId = newTabs[Math.min(index, newTabs.length - 1)].id
+          } else {
+            newActiveId = null
+          }
+        }
+
+        set({
+          tabs: newTabs,
+          activeTabId: newActiveId,
+          layout: removeTabFromLayout(get().layout, tabId)
+        })
+      },
+
       closeTabsByPromptId: (promptId) => {
         const tabs = get().tabs
         const tabsToClose = tabs.filter(t => t.type === 'document' && t.promptId === promptId)

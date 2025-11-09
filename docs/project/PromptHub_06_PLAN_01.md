@@ -307,6 +307,22 @@
   - **Step Dependencies**: Phase 5, Step 4b
   - **User Instructions**: (1) Multiple documents can be open in tabs simultaneously, (2) Tabs can be dragged to reorder, (3) Tabs can be split horizontally/vertically for side-by-side viewing, (4) Settings, profile, dashboard open as tabs in editor pane, (5) Each tab shows document title and close button, (6) Tab state persists in localStorage, (7) Keyboard shortcuts: Ctrl+W closes tab, Ctrl+Tab switches tabs. Full implementation details in `PRPs/P5S4c-tabbed-editor-upgrade.md`.
 
+- Step 4e: [P] Improved Document Naming and Save Workflow
+  - **Task**: Enhance the document creation and naming workflow to enforce proper title validation before persisting documents to the database. New documents are created with empty `title` field (database allows null temporarily) but display "[Untitled Doc]" or "[Untitled Doc N]" as placeholder labels in UI. Implement mandatory title validation on manual save (Save Version button) that prevents saving with empty or temporary placeholder titles. Add modal dialog to prompt user for title if they attempt to save without a valid title. Implement close-tab confirmation dialog that triggers when user closes an unsaved new document (not yet persisted), offering save/discard options with title entry flow if needed. Only persist documents to database after explicit Save Version action with valid title.
+  - **Assignee**: `senior-frontend-engineer`, `ux-ui-designer`
+  - **Files**:
+    - **MODIFY**: `src/features/prompts/actions.ts` - Update createPrompt to create document with empty title in database, add title validation to renamePrompt and saveNewVersion
+    - **MODIFY**: `src/features/prompts/schemas.ts` - Add validation schema for title requirements (non-empty, not placeholder pattern)
+    - **MODIFY**: `src/features/editor/components/EditorPane.tsx` - Add title validation before saveNewVersion, trigger SetTitleDialog if invalid
+    - **CREATE**: `src/features/prompts/components/SetTitleDialog.tsx` - Modal dialog for setting document title with validation
+    - **CREATE**: `src/features/tabs/components/UnsavedChangesDialog.tsx` - Confirmation dialog for closing unsaved new documents
+    - **MODIFY**: `src/stores/use-tab-store.ts` - Add closeTab interceptor to check for unsaved new documents, track "isNewDocument" flag
+    - **MODIFY**: `src/features/tabs/types.ts` - Add isNewDocument boolean flag to TabData interface
+    - **MODIFY**: `src/features/prompts/components/PromptList.tsx` - Display "[Untitled Doc N]" label for documents with empty title
+    - **MODIFY**: `src/features/tabs/components/DocumentTab.tsx` - Display "[Untitled Doc N]" label for documents with empty title
+  - **Step Dependencies**: Phase 5, Step 4c
+  - **User Instructions**: (1) Creating new document shows "[Untitled Doc]" label in list and tab, (2) Cannot save with Save Version button until valid title is set, (3) Attempting to save without title opens SetTitleDialog modal, (4) Closing unsaved new document tab triggers UnsavedChangesDialog, (5) Can save from close dialog which then prompts for title if needed, (6) Canceling title dialog keeps document unsaved in tab, (7) Database only persists documents after explicit Save Version with valid title, (8) Title validation rejects empty strings and placeholder patterns like "[Untitled Doc]". Full implementation details in `PRPs/P5S4d-improved-document-naming.md`.
+
 - Step 5: [P] Version History UI
   - **Task**: Create a `VersionHistory.tsx` component. This component will display a list of all saved versions for a prompt, fetched via a new `getPromptVersions` server action. This can be displayed in a modal or a side panel.
   - **Assignee**: `Frontend_Engineer`

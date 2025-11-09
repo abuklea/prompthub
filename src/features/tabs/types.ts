@@ -39,6 +39,7 @@ export interface TabData {
   isDirty?: boolean             // Unsaved changes indicator
   isPinned?: boolean            // Pinned tabs don't close
   isPreview?: boolean           // Preview tab (italic title, replaces on next click)
+  isNewDocument?: boolean       // True for documents not yet saved with valid title
   metadata?: Record<string, any> // Additional type-specific data
 }
 
@@ -77,6 +78,8 @@ export interface TabState {
   updateTab: (tabId: string, updates: Partial<TabData>) => void
   reorderTabs: (tabIds: string[]) => void
   promotePreviewTab: (tabId: string) => void // Convert preview to permanent tab
+  shouldConfirmClose: (tabId: string) => boolean // Check if close confirmation needed
+  closeTabDirectly: (tabId: string) => void // Close tab without confirmation
   splitPane: (direction: 'horizontal' | 'vertical', tabId: string) => void
   closePane: (tabId: string) => void
 }

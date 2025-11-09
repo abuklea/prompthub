@@ -47,12 +47,20 @@ export function Header({ user }: HeaderProps) {
               <Link href="/dashboard">
                 <Button variant="ghost" size="sm">Dashboard</Button>
               </Link>
-              <Link href="/profile">
-                <Button variant="ghost" size="sm">Profile</Button>
-              </Link>
-              <Link href="/settings">
-                <Button variant="ghost" size="sm">Settings</Button>
-              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openTab({ type: 'profile', title: 'Profile' })}
+              >
+                Profile
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openTab({ type: 'settings', title: 'Settings' })}
+              >
+                Settings
+              </Button>
             </nav>
           )}
         </div>

@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/server"
 import { saveNewVersionSchema, autoSaveSchema } from "./schemas"
 import { ActionResult } from "@/types/actions"
 import { createPatch } from "@/lib/diff-utils"
+import { titleValidationSchema } from "@/features/prompts/schemas"
 
 /**
  * Save a new version of a prompt with Git-style diff
@@ -46,14 +47,24 @@ export async function saveNewVersion(
 
     const { promptId, newTitle, newContent } = parsed.data
 
-    // Step 2: Get authenticated user
+    // Step 2: Validate title before saving
+    // Reason: Prevent saving with empty or placeholder titles
+    const titleResult = titleValidationSchema.safeParse(newTitle)
+    if (!titleResult.success) {
+      return {
+        success: false,
+        error: "Please provide a valid title for your document"
+      }
+    }
+
+    // Step 3: Get authenticated user
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return { success: false, error: "Unauthorized. Please sign in." }
     }
 
-    // Step 3: Fetch current prompt with user isolation
+    // Step 4: Fetch current prompt with user isolation
     // Reason: MUST filter by both id AND user_id to enforce ownership
     const currentPrompt = await db.prompt.findFirst({
       where: {
@@ -66,10 +77,10 @@ export async function saveNewVersion(
       return { success: false, error: "Prompt not found or access denied" }
     }
 
-    // Step 4: Calculate patch using diff-utils
+    // Step 5: Calculate patch using diff-utils
     const diff = createPatch(currentPrompt.content, newContent)
 
-    // Step 5: Execute transaction (atomic operation)
+    // Step 6: Execute transaction (atomic operation)
     // Reason: Both version creation and prompt update must succeed or both fail
     const result = await db.$transaction(async (tx) => {
       // Create new version with diff
@@ -93,7 +104,7 @@ export async function saveNewVersion(
       return promptVersion
     })
 
-    // Step 6: Return success with versionId
+    // Step 7: Return success with versionId
     return { success: true, data: { versionId: result.id } }
   } catch (error) {
     // Reason: NEXT_REDIRECT must be re-thrown for Next.js navigation

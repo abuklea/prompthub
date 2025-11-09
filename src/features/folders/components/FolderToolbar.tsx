@@ -132,15 +132,14 @@ export function FolderToolbar() {
 
       <div className="h-4 w-px bg-gray-600 mx-1 shrink-0" />
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="min-w-[80px] shrink-0">
-                <ArrowUpDown className="h-4 w-4 mr-1" />
-                <span className="text-xs truncate">{getSortLabel(folderSort)}</span>
-              </Button>
-            </DropdownMenuTrigger>
+      {/* Reason: Removed Tooltip wrapper - DropdownMenu already has descriptive text */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="min-w-[80px] shrink-0">
+            <ArrowUpDown className="h-4 w-4 mr-1" />
+            <span className="text-xs truncate">{getSortLabel(folderSort)}</span>
+          </Button>
+        </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuItem onClick={() => setFolderSort('name-asc')}>
             Name A-Z
@@ -155,27 +154,16 @@ export function FolderToolbar() {
             Date (Newest)
           </DropdownMenuItem>
         </DropdownMenuContent>
-          </DropdownMenu>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Sort folders by name or date</p>
-        </TooltipContent>
-      </Tooltip>
+      </DropdownMenu>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Input
-            type="text"
-            placeholder="Filter..."
-            value={folderFilter}
-            onChange={(e) => setFolderFilter(e.target.value)}
-            className="h-8 text-sm flex-1 max-w-[200px] min-w-[80px]"
-          />
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Filter folders by name</p>
-        </TooltipContent>
-      </Tooltip>
+      {/* Reason: Removed Tooltip wrapper - Input has clear placeholder text */}
+      <Input
+        type="text"
+        placeholder="Filter..."
+        value={folderFilter}
+        onChange={(e) => setFolderFilter(e.target.value)}
+        className="h-8 text-sm flex-1 max-w-[200px] min-w-[80px]"
+      />
 
       {/* Dialogs */}
       <CreateFolderDialog

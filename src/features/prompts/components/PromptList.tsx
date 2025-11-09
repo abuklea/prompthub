@@ -6,12 +6,14 @@ MIME: text/typescript
 Type: React Component (TypeScript)
 
 Created: 08/11/2025 13:08 GMT+10
-Last modified: 08/11/2025 13:39 GMT+10
+Last modified: 08/11/2025 15:16 GMT+10
 ---------------
 Component for displaying and managing the list of prompts in a folder.
 Now uses tab system for opening documents instead of selectedPrompt.
 
 Changelog:
+08/11/2025 15:16 GMT+10 | Added ErrorBoundary to prevent application crashes from render errors (P5S4T3)
+08/11/2025 15:11 GMT+10 | CRITICAL FIX: Moved activeTab calculation outside map using useMemo to prevent infinite render loop (P5S4T1)
 08/11/2025 13:39 GMT+10 | Added single-click (preview) vs double-click (permanent) tab behavior
 08/11/2025 13:08 GMT+10 | Updated to use tab system instead of selectedPrompt
 */
@@ -25,13 +27,16 @@ import { getPromptsByFolder } from "../actions"
 import { Prompt } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { Plus } from "lucide-react"
 import { createPrompt } from "../actions"
 import { toast } from "sonner"
+import { getDisplayTitle } from "../utils"
 
 export function PromptList() {
-  const { selectedFolder, docSort, docFilter, promptRefetchTrigger, triggerPromptRefetch, prompts, setPrompts } = useUiStore()
+  const { selectedFolder, docSort, docFilter, promptRefetchTrigger, triggerPromptRefetch, prompts, setPrompts, selectPrompt } = useUiStore()
   const openTab = useTabStore(state => state.openTab)
+  const setActiveTab = useTabStore(state => state.setActiveTab)
   const promotePreviewTab = useTabStore(state => state.promotePreviewTab)
   const activeTabId = useTabStore(state => state.activeTabId)
   const tabs = useTabStore(state => state.tabs)
@@ -58,14 +63,14 @@ export function PromptList() {
     loadPrompts()
   }, [selectedFolder, promptRefetchTrigger, setPrompts])
 
-  // Reason: Handle new document creation from empty state
+  // Reason: Handle new document creation from empty state with auto-generated unique name
   const handleCreateFirstDoc = async () => {
     if (!selectedFolder) return
 
     setCreatingDoc(true)
     const result = await createPrompt({
       folderId: selectedFolder,
-      title: "My First Prompt"
+      // Reason: No title provided - server will generate "[Untitled Doc]" or "[Untitled Doc N]"
     })
 
     if (!result.success) {
@@ -80,7 +85,7 @@ export function PromptList() {
     if (result.data?.promptId) {
       openTab({
         type: 'document',
-        title: "My First Prompt",
+        title: "[Untitled Doc]",
         promptId: result.data.promptId,
       })
       triggerPromptRefetch()
@@ -95,7 +100,7 @@ export function PromptList() {
     // Apply filter (case-insensitive title search)
     if (docFilter) {
       result = result.filter(prompt =>
-        prompt.title.toLowerCase().includes(docFilter.toLowerCase())
+        (prompt.title || "").toLowerCase().includes(docFilter.toLowerCase())
       )
     }
 
@@ -103,9 +108,9 @@ export function PromptList() {
     result.sort((a, b) => {
       switch (docSort) {
         case 'title-asc':
-          return a.title.localeCompare(b.title)
+          return (a.title || "").localeCompare(b.title || "")
         case 'title-desc':
-          return b.title.localeCompare(a.title)
+          return (b.title || "").localeCompare(a.title || "")
         case 'date-asc':
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         case 'date-desc':
@@ -121,6 +126,13 @@ export function PromptList() {
 
     return result
   }, [prompts, docSort, docFilter])
+
+  // Reason: Calculate activeTab once per render, not for every prompt
+  // This prevents infinite re-render loops when tabs state changes
+  const activeTab = useMemo(
+    () => tabs.find(t => t.id === activeTabId),
+    [tabs, activeTabId]
+  )
 
   if (!selectedFolder) {
     return (
@@ -157,31 +169,36 @@ export function PromptList() {
             {docFilter ? 'No documents match your filter.' : 'No documents in this folder.'}
           </div>
         ) : (
-          <div className="space-y-1">
-            {filteredAndSortedPrompts.map((prompt) => {
-              // Reason: Check if this prompt is open in the currently active tab
-              const activeTab = tabs.find(t => t.id === activeTabId)
+          <ErrorBoundary
+            fallback={
+              <div className="text-sm text-destructive p-2">
+                Error loading document list. Please refresh the page.
+              </div>
+            }
+          >
+            <div className="space-y-1">
+              {filteredAndSortedPrompts.map((prompt) => {
+              // Reason: Use the memoized activeTab from above
               const isActive = activeTab?.type === 'document' && activeTab?.promptId === prompt.id
 
               // Reason: Handle single-click for preview, double-click for permanent tab
               const handleSingleClick = () => {
+                // Reason: Set selectedPrompt for toolbar button state
+                selectPrompt(prompt.id)
+
                 // Check if this document already has a permanent (non-preview) tab open
                 const existingTab = tabs.find(
                   t => t.type === 'document' && t.promptId === prompt.id && !t.isPreview
                 )
 
                 if (existingTab) {
-                  // If permanent tab exists, just switch to it
-                  openTab({
-                    type: 'document',
-                    title: prompt.title,
-                    promptId: prompt.id,
-                  })
+                  // If permanent tab exists, just switch to it (don't call openTab to avoid title flicker)
+                  setActiveTab(existingTab.id)
                 } else {
                   // Open as preview tab (replaces existing preview)
                   openTab({
                     type: 'document',
-                    title: prompt.title,
+                    title: getDisplayTitle(prompt.title),
                     promptId: prompt.id,
                     isPreview: true,
                   })
@@ -189,6 +206,9 @@ export function PromptList() {
               }
 
               const handleDoubleClick = () => {
+                // Reason: Set selectedPrompt for toolbar button state
+                selectPrompt(prompt.id)
+
                 // Find any tab (preview or permanent) with this promptId
                 const existingTab = tabs.find(
                   t => t.type === 'document' && t.promptId === prompt.id
@@ -201,7 +221,7 @@ export function PromptList() {
                   // Open as permanent tab
                   openTab({
                     type: 'document',
-                    title: prompt.title,
+                    title: getDisplayTitle(prompt.title),
                     promptId: prompt.id,
                     isPreview: false,
                   })
@@ -220,11 +240,12 @@ export function PromptList() {
                   onClick={handleSingleClick}
                   onDoubleClick={handleDoubleClick}
                 >
-                  {prompt.title}
+                  {getDisplayTitle(prompt.title)}
                 </div>
               )
             })}
-          </div>
+            </div>
+          </ErrorBoundary>
         )}
       </div>
     </div>

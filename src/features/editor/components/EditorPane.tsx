@@ -6,13 +6,22 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 08/11/2025 13:45 GMT+10
+Last modified: 09/11/2025 16:09 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
 Features: Auto-save (500ms debounce), localStorage persistence, manual save (Ctrl+S).
 
 Changelog:
+09/11/2025 16:09 GMT+10 | CRITICAL BUG FIX: Implemented P0/P1 fixes for content cross-contamination (P0T1-P0T3, P1T4-P1T5)
+09/11/2025 16:09 GMT+10 | P0T1: Added promptIdRef guard to prevent stale localStorage saves during rapid tab switching
+09/11/2025 16:09 GMT+10 | P0T2: Moved ownership refs BEFORE state changes in cache hit path to prevent race conditions
+09/11/2025 16:09 GMT+10 | P0T3: Added isTransitioning lock to guard cache updates during document transitions
+09/11/2025 16:09 GMT+10 | P1T4: Disabled auto-save during transitions to prevent wrong promptId saves
+09/11/2025 16:09 GMT+10 | P1T5: Changed title type to string|null, preserve null from DB, use getDisplayTitle for tabs
+08/11/2025 15:19 GMT+10 | Wrapped console.log statements with development-only guards (P5S4T5)
+08/11/2025 15:17 GMT+10 | PERFORMANCE: Added ref guard to prevent duplicate database loads in React Strict Mode (P5S4T4)
+08/11/2025 15:15 GMT+10 | SECURITY FIX: Added user-scoped cache with userId validation and logout clearing (P5S4T2)
 08/11/2025 13:45 GMT+10 | CRITICAL FIX: Resolved infinite loop in tab update useEffect by removing 'tabs' dependency
 08/11/2025 13:40 GMT+10 | Added auto-promotion of preview tabs to permanent when edited (P5S4dT3)
 08/11/2025 13:06 GMT+10 | Refactored to accept promptId and tabId props for tab system integration (P5S4cT7)
@@ -24,13 +33,17 @@ Changelog:
 
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useUiStore } from "@/stores/use-ui-store"
 import { useTabStore } from "@/stores/use-tab-store"
 import { getPromptDetails } from "@/features/prompts/actions"
 import { saveNewVersion, autoSavePrompt } from "@/features/editor/actions"
+import { titleValidationSchema } from "@/features/prompts/schemas"
+import { SetTitleDialog } from "@/features/prompts/components/SetTitleDialog"
+import { getDisplayTitle } from "@/features/prompts/utils"
 import { useAutoSave } from "@/features/editor/hooks/useAutoSave"
 import { useLocalStorage } from "@/features/editor/hooks/useLocalStorage"
+import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -50,17 +63,52 @@ interface EditorPaneProps {
   tabId: string
 }
 
+// Reason: Document cache to enable instant tab switching without reload
+// SECURITY: User-scoped cache with userId validation
+const documentCache = new Map<string, {
+  userId: string
+  promptData: PromptWithFolder
+  title: string | null  // P1T5: Allow null titles
+  content: string
+  lastSaved: Date | null
+}>()
+
+// CRITICAL: Clear cache on module load to prevent cross-session contamination
+documentCache.clear()
+
+// Reason: Export cache clearing function for logout
+export function clearDocumentCache() {
+  documentCache.clear()
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[EditorPane] Document cache cleared')
+  }
+}
+
 export function EditorPane({ promptId, tabId }: EditorPaneProps) {
   const { triggerPromptRefetch, updatePromptTitle } = useUiStore()
   const { updateTab, promotePreviewTab, tabs } = useTabStore()
   const [promptData, setPromptData] = useState<PromptWithFolder | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [title, setTitle] = useState("")
+  const [title, setTitle] = useState<string | null>(null)  // P1T5: Allow null titles
   const [content, setContent] = useState("")
   const [saving, setSaving] = useState(false)
   const [autoSaving, setAutoSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string>('')
+  const [showSetTitleDialog, setShowSetTitleDialog] = useState(false)
+
+  // Reason: Prevent duplicate loads in React Strict Mode (P5S4T4)
+  const loadedRef = useRef<string | null>(null)
+
+  // Reason: Track the promptId that content belongs to, prevent cross-contamination
+  const contentPromptIdRef = useRef<string | null>(null)
+
+  // Reason: Track current promptId synchronously to prevent stale saves (P0T1)
+  const promptIdRef = useRef<string | null>(null)
+
+  // Reason: Track document transition state to prevent stale cache updates (P0T3)
+  const isTransitioning = useRef(false)
 
   // Reason: localStorage for unsaved changes (P5S3bT14)
   const [localContent, setLocalContent, clearLocalContent] = useLocalStorage({
@@ -68,16 +116,77 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
     initialValue: ''
   })
 
-  // Reason: Fetch prompt details when selection changes
+  // Reason: Load and cache user ID on mount for cache validation (P5S4T2)
+  useEffect(() => {
+    async function loadUserId() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUserId(user?.id || 'anonymous')
+    }
+    loadUserId()
+  }, [])
+
+  // Reason: Fetch prompt details when selection changes, with caching for instant switching
   useEffect(() => {
     async function loadPrompt() {
       if (!promptId) {
         setPromptData(null)
-        setTitle("")
+        setTitle(null)  // P1T5: Reset to null
+        setContent("")
         setError("")
+        loadedRef.current = null  // Reset ref when no document selected
+        contentPromptIdRef.current = null  // Reset content ownership
+        isTransitioning.current = false  // Clear transition lock
         return
       }
 
+      // Reason: Prevent duplicate loads in React Strict Mode (P5S4T4)
+      if (loadedRef.current === promptId) {
+        return  // Already loaded this prompt
+      }
+
+      // CRITICAL: Set transition lock BEFORE any state changes (P0T3)
+      isTransitioning.current = true
+
+      // Reason: Check cache first for instant display
+      const cached = documentCache.get(promptId)
+      if (cached) {
+        // SECURITY: Validate cache entry belongs to current user (P5S4T2)
+        if (cached.userId !== currentUserId) {
+          console.warn('[EditorPane] Cache entry for different user, clearing:', promptId)
+          documentCache.delete(promptId)
+          // Continue to database load below
+        } else {
+          // CRITICAL: Update ownership refs FIRST, before any state changes (P0T2)
+          contentPromptIdRef.current = promptId
+          loadedRef.current = promptId
+
+          // Valid cache hit - now safe to update state
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[EditorPane] Loading from cache:', promptId, 'content length:', cached.content.length)
+          }
+          setPromptData(cached.promptData)
+          setTitle(cached.title)
+          setContent(cached.content)
+          setLastSaved(cached.lastSaved)
+          setLoading(false)
+          setError("")
+
+          // CRITICAL: Release lock on next tick after state updates complete (P0T3)
+          setTimeout(() => {
+            isTransitioning.current = false
+          }, 0)
+          return
+        }
+      }
+
+      // Reason: Mark as loading before database fetch to prevent duplicate loads (P5S4T4)
+      loadedRef.current = promptId
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[EditorPane] Loading from database:', promptId)
+      }
+      // Reason: Not in cache, fetch from database
       setLoading(true)
       setError("")
 
@@ -88,82 +197,109 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         setError(result.error)
         toast.error(result.error, { duration: 6000 })
         setLoading(false)
+        isTransitioning.current = false  // Release lock on error
         return
       }
 
       if (result.data) {
-        setPromptData(result.data as PromptWithFolder)
-        setTitle(result.data.title)
+        const data = result.data as PromptWithFolder
+        setPromptData(data)
+        setTitle(data.title)  // P1T5: Preserve null from database
+
+        // Reason: Check localStorage for unsaved changes
+        const storedContent = localContent || ''
+        if (storedContent && storedContent !== data.content) {
+          setContent(storedContent)
+          toast.info("Restored unsaved changes from browser storage")
+        } else {
+          setContent(data.content || '')
+        }
+        // Reason: Mark content ownership after setting content
+        contentPromptIdRef.current = promptId
       }
       setLoading(false)
+      isTransitioning.current = false  // Release lock after database load
     }
 
     loadPrompt()
-  }, [promptId])
+  }, [promptId, localContent, currentUserId])
 
-  // Reason: Reset content when switching documents to prevent stale localStorage bug (P5S4bT1)
+  // Reason: Update promptId ref synchronously to prevent stale saves (P0T1)
   useEffect(() => {
-    if (promptId) {
-      setContent("")  // Clear immediately to prevent showing wrong document
-    }
+    promptIdRef.current = promptId
   }, [promptId])
-
-  // Reason: Sync content state when prompt data loads (only run when promptData changes)
-  useEffect(() => {
-    if (promptData) {
-      // Reason: Check localStorage first for unsaved changes
-      // Note: localContent comes from useLocalStorage which reinitializes on key change
-      const storedContent = localContent || ''
-      if (storedContent && storedContent !== promptData.content) {
-        setContent(storedContent)
-        toast.info("Restored unsaved changes from browser storage")
-      } else {
-        setContent(promptData.content || '')  // Handle empty content explicitly
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [promptData])
 
   // Reason: Auto-save callback (P5S3bT14)
-  const handleAutoSave = useCallback(async (promptId: string, title: string, content: string) => {
+  const handleAutoSave = useCallback(async (promptId: string, title: string | null, content: string) => {
+    // CRITICAL: Verify we're still on the same document before saving
+    const currentPromptId = promptId
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[EditorPane] Auto-save triggered for:', currentPromptId, 'title:', title, 'content length:', content.length)
+    }
+
     setAutoSaving(true)
-    const result = await autoSavePrompt({ promptId, title, content })
+    const result = await autoSavePrompt({ promptId: currentPromptId, title: title || '', content })
 
     if (result.success) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[EditorPane] Auto-save successful for:', currentPromptId)
+      }
       setLastSaved(new Date())
       // Reason: Update PromptList title in Zustand store for immediate UI update
-      updatePromptTitle(promptId, title)
+      updatePromptTitle(currentPromptId, title || '')
       // Reason: DO NOT update local promptData here to avoid infinite loop
       // The promptData will be refreshed on next document load or manual save
+    } else {
+      console.error('[EditorPane] Auto-save FAILED for:', currentPromptId, result.error)
     }
     setAutoSaving(false)
   }, [updatePromptTitle])
 
   // Reason: Enable auto-save with 500ms debounce (P5S3bT14)
-  // IMPORTANT: Only enable when document is loaded (!loading) to prevent
-  // saving stale title from previous document during document switch
+  // IMPORTANT: Only enable when document is loaded and not transitioning
+  // to prevent saving stale title from previous document during document switch
   useAutoSave({
     title,
     content,
-    promptId: loading ? null : promptId,  // Disable during loading
+    promptId: (loading || isTransitioning.current) ? null : promptId,  // Disable during loading or transition (P1T4)
     delay: 500,
     onSave: handleAutoSave
   })
 
   // Reason: Sync content to localStorage
-  // CRITICAL: Only depend on content, NOT promptId
-  // If promptId is in deps, it saves OLD content to NEW document's key during switch
+  // CRITICAL: Only save if content belongs to current promptId (prevent cross-contamination)
   useEffect(() => {
-    if (content && promptId) {
+    // CRITICAL: Skip save if promptId just changed (P0T1)
+    if (promptId !== promptIdRef.current) {
+      return
+    }
+
+    if (content && promptId && contentPromptIdRef.current === promptId) {
       setLocalContent(content)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, setLocalContent])
+  }, [content, promptId, setLocalContent])
 
-  // Reason: Update tab metadata when title or content changes
+  // Reason: Update cache and tab metadata when title or content changes
   useEffect(() => {
-    if (title && promptData) {
+    // CRITICAL: Don't update cache during document transition (P0T3)
+    if (isTransitioning.current) {
+      return
+    }
+
+    if (title && promptData && promptId) {
       const isDirty = content !== promptData.content
+
+      // Reason: Update document cache for instant tab switching
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[EditorPane] Updating cache for:', promptId, 'title:', title, 'content length:', content.length)
+      }
+      documentCache.set(promptId, {
+        userId: currentUserId,
+        promptData,
+        title,
+        content,
+        lastSaved
+      })
 
       // Reason: Get current tab state from store to check if preview
       const currentTab = useTabStore.getState().tabs.find(t => t.id === tabId)
@@ -174,17 +310,25 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         promotePreviewTab(tabId)
       }
 
-      // Update tab after promotion check
+      // Update tab after promotion check - use display title for null handling (P1T5)
       updateTab(tabId, {
-        title,
+        title: getDisplayTitle(title),
         isDirty
       })
     }
-  }, [title, content, promptData, tabId, updateTab, promotePreviewTab])
+  }, [title, content, promptData, promptId, tabId, updateTab, promotePreviewTab, lastSaved, currentUserId])
 
   // Reason: Handle manual save with version creation and localStorage clear (P5S3bT14)
   const handleSave = useCallback(async () => {
     if (!promptId) return
+
+    // Reason: Validate title first (P5S4eT10)
+    const titleResult = titleValidationSchema.safeParse(title)
+    if (!titleResult.success) {
+      // Title invalid - prompt user to set title
+      setShowSetTitleDialog(true)
+      return
+    }
 
     setSaving(true)
     const result = await saveNewVersion({
@@ -200,17 +344,28 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
       setLastSaved(new Date())
 
       // Reason: Update local promptData immediately to reflect title change
-      if (promptData) {
-        setPromptData({
-          ...promptData,
-          title: title,
-          content: content,
-          updated_at: new Date()
+      const updatedData = promptData ? {
+        ...promptData,
+        title: title,
+        content: content,
+        updated_at: new Date()
+      } : null
+
+      if (updatedData) {
+        setPromptData(updatedData)
+
+        // Reason: Update cache with saved state
+        documentCache.set(promptId, {
+          userId: currentUserId,
+          promptData: updatedData,
+          title,
+          content,
+          lastSaved: new Date()
         })
       }
 
-      // Reason: Update tab to mark as clean after save
-      updateTab(tabId, { isDirty: false })
+      // CRITICAL: Mark document as no longer "new" after successful save (P5S4eT10)
+      updateTab(tabId, { isDirty: false, isNewDocument: false })
 
       // Reason: Trigger refetch to sync PromptList with new title
       triggerPromptRefetch()
@@ -218,7 +373,19 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
       toast.error(result.error, { duration: 6000 })
     }
     setSaving(false)
-  }, [promptId, title, content, clearLocalContent, promptData, tabId, updateTab, triggerPromptRefetch])
+  }, [promptId, title, content, clearLocalContent, promptData, tabId, updateTab, triggerPromptRefetch, currentUserId])
+
+  // Reason: Handle title set from dialog (P5S4eT10)
+  const handleSetTitle = useCallback((newTitle: string) => {
+    setTitle(newTitle)
+    setShowSetTitleDialog(false)
+
+    // Trigger save after title is set
+    // Use setTimeout to ensure state update completes
+    setTimeout(() => {
+      handleSave()
+    }, 0)
+  }, [handleSave])
 
   // Reason: Keyboard listener for Ctrl+S manual save (P5S3bT14)
   useEffect(() => {
@@ -265,18 +432,20 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
 
   // Prompt loaded
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Title Section - Fixed Height */}
-      <div className="flex-none p-4 space-y-2 border-b overflow-hidden">
-        <Label htmlFor="prompt-title">Title</Label>
-        <Input
-          id="prompt-title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Enter prompt title..."
-          className="text-lg font-semibold w-full"
-        />
-      </div>
+    <>
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Title Section - Fixed Height */}
+        <div className="flex-none p-4 space-y-2 border-b overflow-hidden">
+          <Label htmlFor="prompt-title">Title</Label>
+          {/* P1T5: Convert null to empty string for input */}
+          <Input
+            id="prompt-title"
+            value={title || ""}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Enter prompt title..."
+            className="text-lg font-semibold w-full"
+          />
+        </div>
 
       {/* Editor Section - Takes Remaining Space */}
       <div className="flex-1 overflow-hidden relative">
@@ -310,6 +479,15 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+
+      {/* Set Title Dialog - Prompts for title when saving without valid title */}
+      <SetTitleDialog
+        open={showSetTitleDialog}
+        onOpenChange={setShowSetTitleDialog}
+        onConfirm={handleSetTitle}
+        currentTitle={title}
+      />
+    </>
   )
 }

@@ -215,8 +215,8 @@ export function DeleteDocumentDialog({
             <AlertTriangle className="h-5 w-5 text-destructive" />
             <AlertDialogTitle>Delete Document</AlertDialogTitle>
           </div>
-          <AlertDialogDescription className="space-y-2">
-            <p>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
               Are you sure you want to delete &ldquo;{documentTitle}&rdquo;?
             </p>
             {hasVersions && versionCount > 0 && (
@@ -235,7 +235,7 @@ export function DeleteDocumentDialog({
             <p className="text-muted-foreground text-sm mt-3">
               This action cannot be undone.
             </p>
-          </AlertDialogDescription>
+          </div>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>

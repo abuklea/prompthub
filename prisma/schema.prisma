@@ -33,7 +33,7 @@ model Folder {
 
 model Prompt {
   id          String                   @id @default(uuid())
-  title       String
+  title       String?
   content     String
   content_tsv Unsupported("tsvector")? // For Full-Text Search
   created_at  DateTime                 @default(now())

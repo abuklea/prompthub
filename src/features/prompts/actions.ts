@@ -45,27 +45,31 @@ export async function createPrompt(data: unknown): Promise<ActionResult<{ prompt
       return { success: false, error: "Unauthorized. Please sign in." }
     }
 
-    // Reason: Check for duplicate title in the same folder (case-insensitive)
-    const title = parsed.data.title || "Untitled Prompt"
-    const existing = await db.prompt.findFirst({
-      where: {
-        folder_id: parsed.data.folderId,
-        user_id: user.id,
-        title: {
-          equals: title,
-          mode: 'insensitive'
-        }
-      }
-    })
+    // Reason: Set title to null for new documents or validate if title provided
+    const title = parsed.data.title || null
 
-    if (existing) {
-      return {
-        success: false,
-        error: `A document named "${title}" already exists in this folder. Please choose a different title.`
+    // Reason: Check for duplicate custom title only if title is provided (case-insensitive)
+    if (title) {
+      const existing = await db.prompt.findFirst({
+        where: {
+          folder_id: parsed.data.folderId,
+          user_id: user.id,
+          title: {
+            equals: title,
+            mode: 'insensitive'
+          }
+        }
+      })
+
+      if (existing) {
+        return {
+          success: false,
+          error: `A document named "${title}" already exists in this folder. Please choose a different title.`
+        }
       }
     }
 
-    // Create prompt in database
+    // Create prompt in database with null title for new documents
     const prompt = await db.prompt.create({
       data: {
         user_id: user.id,

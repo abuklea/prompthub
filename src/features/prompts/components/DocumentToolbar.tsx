@@ -20,12 +20,20 @@ import { CreateDocumentDialog, RenameDocumentDialog, DeleteDocumentDialog } from
 
 export function DocumentToolbar() {
   const { selectedFolder, selectedPrompt, docSort, docFilter, setDocSort, setDocFilter, selectPrompt, triggerPromptRefetch } = useUiStore()
-  const { closeTabsByPromptId } = useTabStore()
+  const { closeTabsByPromptId, tabs, activeTabId, openTab } = useTabStore()
   const [creatingDoc, setCreatingDoc] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedPromptTitle, setSelectedPromptTitle] = useState("")
   const [selectedPromptHasVersions, setSelectedPromptHasVersions] = useState(false)
+
+  // Reason: Sync selectedPrompt with active tab to enable toolbar buttons
+  useEffect(() => {
+    const activeTab = tabs.find(t => t.id === activeTabId)
+    if (activeTab?.type === 'document' && activeTab.promptId) {
+      selectPrompt(activeTab.promptId)
+    }
+  }, [activeTabId, tabs, selectPrompt])
 
   // Reason: Fetch selected prompt details to get title for dialogs
   useEffect(() => {
@@ -57,14 +65,14 @@ export function DocumentToolbar() {
     'size-desc': 'Size (Largest)',
   }
 
-  // Reason: Handle new document creation
+  // Reason: Handle new document creation with auto-generated unique untitled name
   const handleNewDoc = async () => {
     if (!selectedFolder) return
 
     setCreatingDoc(true)
     const result = await createPrompt({
       folderId: selectedFolder,
-      title: "Untitled Prompt"
+      // Reason: No title provided - server will generate "[Untitled Doc]" or "[Untitled Doc N]"
     })
 
     if (!result.success) {
@@ -75,8 +83,14 @@ export function DocumentToolbar() {
 
     toast.success("Document created successfully", { duration: 3000 })
 
-    // Reason: Auto-select newly created document and trigger list refresh via state change
+    // Reason: Auto-open newly created document with isNewDocument flag (P5S4eT14)
     if (result.data?.promptId) {
+      openTab({
+        type: 'document',
+        title: "",  // Empty title - will display as "[Untitled Doc]" placeholder
+        promptId: result.data.promptId,
+        isNewDocument: true,  // CRITICAL: Mark as new to trigger save confirmation
+      })
       selectPrompt(result.data.promptId)
       triggerPromptRefetch()
     }
@@ -180,15 +194,20 @@ export function DocumentToolbar() {
       <div className="h-4 w-px bg-gray-600 mx-1 shrink-0" />
 
       {/* Sort Dropdown */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenu>
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="min-w-[80px] shrink-0">
                 <ArrowUpDown className="h-4 w-4 mr-1" />
                 <span className="text-xs truncate">{sortLabels[docSort]}</span>
               </Button>
             </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Sort documents by title, date, or size</p>
+          </TooltipContent>
+        </Tooltip>
         <DropdownMenuContent align="end">
           <DropdownMenuRadioGroup value={docSort} onValueChange={(value) => setDocSort(value as DocSort)}>
             <DropdownMenuRadioItem value="title-asc">Title (A-Z)</DropdownMenuRadioItem>
@@ -199,12 +218,7 @@ export function DocumentToolbar() {
             <DropdownMenuRadioItem value="size-desc">Size (Largest)</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
-          </DropdownMenu>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Sort documents by title, date, or size</p>
-        </TooltipContent>
-      </Tooltip>
+      </DropdownMenu>
 
       {/* Filter Input */}
       <Tooltip>

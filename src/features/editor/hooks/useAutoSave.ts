@@ -18,11 +18,11 @@ Changelog:
 import { useEffect, useRef } from 'react'
 
 export interface UseAutoSaveOptions {
-  title: string
+  title: string | null  // P1T5: Allow null titles
   content: string
   promptId: string | null
   delay?: number
-  onSave: (promptId: string, title: string, content: string) => void
+  onSave: (promptId: string, title: string | null, content: string) => void
 }
 
 /**
@@ -60,8 +60,8 @@ export function useAutoSave({
   const timeoutRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
-    // Reason: Skip auto-save if no prompt is selected or title is empty
-    if (!promptId || !title.trim()) return
+    // Reason: Skip auto-save if no prompt is selected or title is empty/null
+    if (!promptId || !title?.trim()) return
 
     // Reason: Clear previous timeout to reset debounce timer
     if (timeoutRef.current) {
