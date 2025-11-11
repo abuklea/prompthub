@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:27 GMT+10
-Last modified: 07/11/2025 20:32 GMT+10
+Last modified: 11/11/2025 21:50 GMT+10
 ---------------
 Monaco Editor wrapper component with Next.js SSR handling and Bold Simplicity theme.
 Uses dynamic import to prevent SSR issues with Monaco's browser dependencies.
 
 Changelog:
+11/11/2025 21:50 GMT+10 | CRITICAL FIX: Added explicit setValue in handleMount to fix first tab empty content bug
 07/11/2025 20:32 GMT+10 | Integrated markdown actions with keyboard shortcuts and context menu (P5S4T3)
 07/11/2025 16:16 GMT+10 | Enabled full Monaco features (context menu, find/replace) (P5S3bT15)
 07/11/2025 13:27 GMT+10 | Initial creation with dynamic import and custom theme
@@ -129,6 +130,16 @@ export default function Editor({
       cursorSmoothCaretAnimation: 'on',
       ...options  // User options override defaults
     })
+
+    // CRITICAL: Ensure value is applied after initialization (First tab empty bug fix)
+    // Reason: On first Monaco load, value prop may not be applied during mount race condition
+    // Solution: Explicitly set value after initialization completes if it doesn't match
+    if (value !== undefined) {
+      const currentValue = editor.getValue()
+      if (currentValue !== value) {
+        editor.setValue(value)
+      }
+    }
 
     // Reason: Register markdown editor actions (P5S4T3)
     markdownActions.forEach(action => {
