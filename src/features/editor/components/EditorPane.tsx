@@ -6,13 +6,14 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 09/11/2025 17:20 GMT+10
+Last modified: 11/11/2025 18:18 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
 Features: Auto-save (500ms debounce), localStorage persistence, manual save (Ctrl+S).
 
 Changelog:
+11/11/2025 18:18 GMT+10 | CRITICAL P0 DATA DESTRUCTION FIX: Added monacoPromptIdRef guard to prevent onChange contamination during unmount
 09/11/2025 17:20 GMT+10 | CRITICAL RACE CONDITION FIX: Implemented P5S5T1-T5 fixes for document contamination
 09/11/2025 17:20 GMT+10 | P5S5T2: Added synchronous state clearing BEFORE any checks to prevent mixed state
 09/11/2025 17:20 GMT+10 | P5S5T3: Replaced setTimeout with cleanup effect for proper lock release timing
@@ -115,6 +116,10 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
   // Reason: Track document transition state to prevent stale cache updates (P0T3)
   const isTransitioning = useRef(false)
 
+  // CRITICAL: Track Monaco editor's promptId to prevent onChange during unmount (P5S5 data destruction fix)
+  // Reason: Monaco fires onChange when unmounting (key change), guard prevents stale content saves
+  const monacoPromptIdRef = useRef<string | null>(null)
+
   // Reason: localStorage for unsaved changes (P5S3bT14)
   const [localContent, setLocalContent, clearLocalContent] = useLocalStorage({
     key: promptId ? `prompt-${promptId}` : 'prompt-draft',
@@ -145,6 +150,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         loadedRef.current = null  // Reset ref when no document selected
         contentPromptIdRef.current = null  // Reset content ownership
         isTransitioning.current = false  // Clear transition lock
+        monacoPromptIdRef.current = null  // CRITICAL: Clear Monaco ownership (P5S5 data destruction fix)
         return
       }
 
@@ -188,6 +194,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
           setLastSaved(cached.lastSaved)
           setLoading(false)
           setError("")
+          monacoPromptIdRef.current = promptId  // CRITICAL: Track Monaco ownership after cache load (P5S5 data destruction fix)
 
           // CRITICAL: Don't release lock here - let cleanup effect handle it (P5S5T3)
           return
@@ -244,6 +251,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         }
         // Reason: Mark content ownership after setting content
         contentPromptIdRef.current = promptId
+        monacoPromptIdRef.current = promptId  // CRITICAL: Track Monaco ownership after database load (P5S5 data destruction fix)
       }
       setLoading(false)
       isTransitioning.current = false  // Release lock after database load
@@ -517,7 +525,14 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
           <Editor
             key={promptId}
             value={content}
-            onChange={(value) => setContent(value || "")}
+            onChange={(value) => {
+              // CRITICAL: Only accept changes from current Monaco instance (P5S5 data destruction fix)
+              // Reason: Monaco fires onChange during unmount (key change) with stale content
+              // Solution: Guard prevents old content from contaminating new document during transition
+              if (monacoPromptIdRef.current === promptId) {
+                setContent(value || "")
+              }
+            }}
             language="markdown"
             height="100%"
           />
