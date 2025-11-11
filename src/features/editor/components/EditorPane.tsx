@@ -6,13 +6,14 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 11/11/2025 18:18 GMT+10
+Last modified: 11/11/2025 20:35 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
 Features: Auto-save (500ms debounce), localStorage persistence, manual save (Ctrl+S).
 
 Changelog:
+11/11/2025 20:35 GMT+10 | CRITICAL P0 DATA DESTRUCTION FIX #2: Read localStorage directly to prevent stale localContent contamination during restoration
 11/11/2025 18:18 GMT+10 | CRITICAL P0 DATA DESTRUCTION FIX: Added monacoPromptIdRef guard to prevent onChange contamination during unmount
 09/11/2025 17:20 GMT+10 | CRITICAL RACE CONDITION FIX: Implemented P5S5T1-T5 fixes for document contamination
 09/11/2025 17:20 GMT+10 | P5S5T2: Added synchronous state clearing BEFORE any checks to prevent mixed state
@@ -241,8 +242,14 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         setPromptData(data)
         setTitle(data.title)  // P1T5: Preserve null from database
 
-        // Reason: Check localStorage for unsaved changes
-        const storedContent = localContent || ''
+        // CRITICAL: Read localStorage DIRECTLY to avoid stale localContent state (P5S5 localStorage restoration fix)
+        // Reason: localContent state might be stale during document switching due to React's async setState
+        // Solution: Read localStorage synchronously using current promptId to get correct content
+        const localStorageKey = `prompt-${promptId}`
+        const storedContent = typeof window !== 'undefined'
+          ? (localStorage.getItem(localStorageKey) || '')
+          : ''
+
         if (storedContent && storedContent !== data.content) {
           setContent(storedContent)
           toast.info("Restored unsaved changes from browser storage")
