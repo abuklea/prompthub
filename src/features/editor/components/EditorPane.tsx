@@ -6,13 +6,14 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 11/11/2025 20:35 GMT+10
+Last modified: 11/11/2025 21:15 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
 Features: Auto-save (500ms debounce), localStorage persistence, manual save (Ctrl+S).
 
 Changelog:
+11/11/2025 21:15 GMT+10 | CRITICAL P0 CACHE CONTAMINATION FIX: Added titlePromptIdRef to prevent cache updates with stale title from previous document
 11/11/2025 20:35 GMT+10 | CRITICAL P0 DATA DESTRUCTION FIX #2: Read localStorage directly to prevent stale localContent contamination during restoration
 11/11/2025 18:18 GMT+10 | CRITICAL P0 DATA DESTRUCTION FIX: Added monacoPromptIdRef guard to prevent onChange contamination during unmount
 09/11/2025 17:20 GMT+10 | CRITICAL RACE CONDITION FIX: Implemented P5S5T1-T5 fixes for document contamination
@@ -121,6 +122,10 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
   // Reason: Monaco fires onChange when unmounting (key change), guard prevents stale content saves
   const monacoPromptIdRef = useRef<string | null>(null)
 
+  // CRITICAL: Track which document the current title belongs to (P5S5 cache contamination fix)
+  // Reason: Prevents cache updates with stale title during async state updates
+  const titlePromptIdRef = useRef<string | null>(null)
+
   // Reason: localStorage for unsaved changes (P5S3bT14)
   const [localContent, setLocalContent, clearLocalContent] = useLocalStorage({
     key: promptId ? `prompt-${promptId}` : 'prompt-draft',
@@ -150,6 +155,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         setError("")
         loadedRef.current = null  // Reset ref when no document selected
         contentPromptIdRef.current = null  // Reset content ownership
+        titlePromptIdRef.current = null  // Reset title ownership
         isTransitioning.current = false  // Clear transition lock
         monacoPromptIdRef.current = null  // CRITICAL: Clear Monaco ownership (P5S5 data destruction fix)
         return
@@ -184,6 +190,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
           // CRITICAL: Update ownership refs FIRST, before any state changes (P0T2)
           contentPromptIdRef.current = promptId
           loadedRef.current = promptId
+          titlePromptIdRef.current = promptId  // CRITICAL: Mark title ownership (P5S5 cache contamination fix)
 
           // Valid cache hit - now safe to update state
           if (process.env.NODE_ENV === 'development') {
@@ -241,6 +248,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         const data = result.data as PromptWithFolder
         setPromptData(data)
         setTitle(data.title)  // P1T5: Preserve null from database
+        titlePromptIdRef.current = promptId  // CRITICAL: Mark title ownership (P5S5 cache contamination fix)
 
         // CRITICAL: Read localStorage DIRECTLY to avoid stale localContent state (P5S5 localStorage restoration fix)
         // Reason: localContent state might be stale during document switching due to React's async setState
@@ -354,6 +362,15 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
 
     // CRITICAL: Check content ownership before updating cache (P5S5T5)
     if (contentPromptIdRef.current !== promptId) {
+      return
+    }
+
+    // CRITICAL: Check title ownership before updating cache (P5S5 cache contamination fix)
+    // Reason: Prevents cache updates with stale title from previous document during async state updates
+    if (titlePromptIdRef.current !== promptId) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[EditorPane] Blocked cache update - title belongs to different document:', titlePromptIdRef.current, 'current:', promptId)
+      }
       return
     }
 
