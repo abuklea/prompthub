@@ -74,11 +74,15 @@ export function DocumentToolbar() {
       // P5S5T3: Optimistic update - add document to store immediately (no refetch needed)
       addPrompt(result.data)
 
+      // P5S5 FIX 3: Explicitly set isPreview flag for new documents
+      // Reason: Omitting isPreview causes confusion - new docs should be permanent tabs (not preview)
+      // Solution: Explicitly set isPreview: false to make intent clear and prevent future bugs
       openTab({
         type: 'document',
         title: "",  // Empty title - will display as "[Untitled Doc]" placeholder
         promptId: result.data.id,
         isNewDocument: true,  // CRITICAL: Mark as new to trigger save confirmation
+        isPreview: false,     // EXPLICIT: New documents are permanent tabs, not preview tabs
       })
       selectPrompt(result.data.id)
     }

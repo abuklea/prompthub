@@ -323,14 +323,57 @@
   - **Step Dependencies**: Phase 5, Step 4c
   - **User Instructions**: (1) Creating new document shows "[Untitled Doc]" label in list and tab, (2) Cannot save with Save Version button until valid title is set, (3) Attempting to save without title opens SetTitleDialog modal, (4) Closing unsaved new document tab triggers UnsavedChangesDialog, (5) Can save from close dialog which then prompts for title if needed, (6) Canceling title dialog keeps document unsaved in tab, (7) Database only persists documents after explicit Save Version with valid title, (8) Title validation rejects empty strings and placeholder patterns like "[Untitled Doc]". Full implementation details in `PRPs/P5S4d-improved-document-naming.md`.
 
-- Step 5: [P] Version History UI
+- Step 5: Fix Document Contamination and Race Conditions
+  - **Task**: 
+  1. Archon Task P5S5T8 - Complete implementation plan
+  2. Analysis Document - /wip/P5S5T8-document-contamination-race-condition-analysis.md
+
+  Part 1: Fix useLocalStorage (30 min)
+  - Replace ref comparison with justLoadedRef flag
+  - Remove key from save effect dependencies
+  - Prevents save during key transitions
+  Part 2: Clear State Before Load (30 min)
+  - Add synchronous state clears in EditorPane
+  - No window with old content + new promptId
+  Part 3: Extend Transition Guards (30 min)
+  - Don't release isTransitioning until states settle
+  - Add content ownership validation to all saves
+  Part 4: Testing (90 min)
+  - Rapid document switching tests
+  - New document creation tests
+  - localStorage/cache isolation verification
+
+  Expected Results:
+  Before Fix:
+  - ❌ New docs show old content
+  - ❌ Titles change between tabs
+  - ❌ Content bleeding on rapid switching
+  - ❌ Flashing/incorrect content visible
+  After Fix:
+  - ✅ New docs always empty
+  - ✅ Titles stay with correct documents
+  - ✅ Clean content isolation
+  - ✅ VSCode-like instant tab switching
+  - ✅ No race conditions
+  Priority:
+  This should be the #1 priority before any other bug fixes:
+  CRITICAL PRIORITY ORDER:
+  1. P5S5T8 - Fix content contamination (BLOCKING)
+  2. P5S5T1 - Fix infinite render loop
+  3. P5S5T2 - Remove redundant requests
+  4. P5S5T3 - Optimistic updates
+  ... (other tasks)
+
+  Reason: Users can work around slow requests, but contaminated content is a data integrity violation that undermines trust in the application.
+
+- Step 6: [P] Version History UI
   - **Task**: Create a `VersionHistory.tsx` component. This component will display a list of all saved versions for a prompt, fetched via a new `getPromptVersions` server action. This can be displayed in a modal or a side panel.
   - **Assignee**: `Frontend_Engineer`
   - **Files**:
     - `src/features/editor/actions.ts`: Add the `getPromptVersions` action.
     - `src/features/editor/components/VersionHistory.tsx`: The UI component to list versions.
     - `src/features/editor/components/EditorPane.tsx`: Add a "History" button to open the version history view.
-  - **Step Dependencies**: Phase 5, Step 4
+  - **Step Dependencies**: Phase 5, Step 5
   - **User Instructions**: After saving a prompt multiple times, click the "History" button. A list or panel should appear showing an entry for each time you saved, with a timestamp.
 
 ## Phase 6: Final Features & Polish

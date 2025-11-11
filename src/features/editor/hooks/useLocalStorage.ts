@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript React Hook
 
 Created: 07/11/2025 16:13 GMT+10
-Last modified: 08/11/2025 12:24 GMT+10
+Last modified: 09/11/2025 17:20 GMT+10
 ---------------
 Custom React hook for localStorage persistence.
 Provides automatic save/load with SSR-safe implementation.
 
 Changelog:
+09/11/2025 17:20 GMT+10 | CRITICAL FIX: Replaced prevKeyRef with justLoadedRef flag to prevent race condition (P5S5T1)
 08/11/2025 12:24 GMT+10 | CRITICAL FIX: Prevent saving on key changes (P5S4bT1 root cause)
 07/11/2025 16:13 GMT+10 | Initial creation (P5S3bT12)
 */
@@ -51,8 +52,8 @@ export function useLocalStorage({
   key,
   initialValue
 }: UseLocalStorageOptions) {
-  // Reason: Track previous key to prevent saving on key changes (P5S4bT1 root cause fix)
-  const prevKeyRef = useRef<string>(key)
+  // CRITICAL: Track if we just loaded to prevent saving during key transitions (P5S5T1)
+  const justLoadedRef = useRef(false)
 
   // Reason: Initialize from localStorage on mount (SSR-safe)
   const [value, setValue] = useState<string>(() => {
@@ -68,23 +69,25 @@ export function useLocalStorage({
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(key)
       setValue(saved || initialValue)
+      // CRITICAL: Mark as just loaded to prevent save effect from triggering (P5S5T1)
+      justLoadedRef.current = true
     }
-    // Reason: Update ref AFTER loading to prevent save trigger
-    prevKeyRef.current = key
   }, [key, initialValue])
 
-  // Reason: Save to localStorage ONLY when value changes, NOT when key changes
+  // CRITICAL: Save to localStorage ONLY when value changes from user edits, NOT on loads (P5S5T1)
   // This prevents saving old document content to new document's localStorage key
   useEffect(() => {
-    // Skip save if key just changed (we're loading, not saving)
-    if (prevKeyRef.current !== key) {
+    // Skip save if we just loaded (prevents race condition during key transitions)
+    if (justLoadedRef.current) {
+      justLoadedRef.current = false
       return
     }
 
     if (typeof window !== 'undefined') {
       localStorage.setItem(key, value)
     }
-  }, [key, value])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])  // CRITICAL: Only [value] dependency - NOT key! (Intentionally excluding 'key' to prevent race condition)
   
   // Reason: Provide function to clear localStorage entry
   const clearStorage = () => {

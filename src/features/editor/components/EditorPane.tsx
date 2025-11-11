@@ -259,12 +259,15 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
 
   // CRITICAL: Release transition lock only after loading completes (P5S5T3)
   // This ensures all state updates have settled before allowing cache/localStorage updates
+  // P5S5 FIX 2: Strengthen transition lock guard to prevent premature release
+  // Reason: Without loadedRef check, lock releases when promptId changes but BEFORE loading state updates
+  // Solution: Only release lock when document is fully loaded AND refs match current document
   useEffect(() => {
-    if (promptId && !loading) {
-      // States have settled, safe to allow updates
+    if (promptId && !loading && loadedRef.current === promptId) {
+      // All conditions met: document loaded, not loading, refs match - safe to allow updates
       isTransitioning.current = false
     } else {
-      // Loading or no document - keep locked
+      // Any condition fails: keep locked during transition
       isTransitioning.current = true
     }
   }, [promptId, loading])
@@ -508,7 +511,11 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
       <div className="flex-1 overflow-hidden relative">
         {/* Reason: Absolute wrapper gives Monaco measurable dimensions for height="100%" */}
         <div className="absolute inset-0 h-full">
+          {/* P5S5 FIX 1: Force remount on document change to prevent contaminated state from rendering */}
+          {/* Reason: React's setState is async - without key prop, editor renders with old content + new promptId */}
+          {/* Solution: key prop forces React to unmount old editor instance and mount new one with correct state */}
           <Editor
+            key={promptId}
             value={content}
             onChange={(value) => setContent(value || "")}
             language="markdown"

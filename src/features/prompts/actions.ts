@@ -4,6 +4,7 @@ import db from "@/lib/db"
 import { createClient } from "@/lib/supabase/server"
 import { createPromptSchema, getPromptDetailsSchema } from "./schemas"
 import { ActionResult } from "@/types/actions"
+import { Prompt } from "@prisma/client"
 
 export async function getPromptsByFolder(folderId: string) {
   const supabase = createClient()
@@ -30,7 +31,7 @@ export async function getPromptsByFolder(folderId: string) {
  * @param data - Object containing folderId and optional title
  * @returns ActionResult with promptId on success, error message on failure
  */
-export async function createPrompt(data: unknown): Promise<ActionResult<{ promptId: string }>> {
+export async function createPrompt(data: unknown): Promise<ActionResult<Prompt>> {
   try {
     // Validate input
     const parsed = createPromptSchema.safeParse(data)
@@ -79,7 +80,9 @@ export async function createPrompt(data: unknown): Promise<ActionResult<{ prompt
       }
     })
 
-    return { success: true, data: { promptId: prompt.id } }
+    // Reason: Return full Prompt object for optimistic updates (P5S5T4 - Performance optimization)
+    // This eliminates 2 additional database requests (getPromptsByFolder + getPromptDetails)
+    return { success: true, data: prompt }
   } catch (error) {
     // Reason: NEXT_REDIRECT must be re-thrown for Next.js navigation
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {

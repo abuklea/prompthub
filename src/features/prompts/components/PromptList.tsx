@@ -82,11 +82,12 @@ export function PromptList() {
     toast.success("Document created successfully", { duration: 3000 })
 
     // Reason: Auto-open newly created document in tab and trigger list refresh
-    if (result.data?.promptId) {
+    // P5S5T4: Use full Prompt object from result to avoid additional database requests
+    if (result.data?.id) {
       openTab({
         type: 'document',
         title: "[Untitled Doc]",
-        promptId: result.data.promptId,
+        promptId: result.data.id,
       })
       triggerPromptRefetch()
     }

@@ -28,10 +28,22 @@ import { markdownActions } from '../markdown-actions'
 
 // CRITICAL: Dynamic import with SSR disabled
 // Monaco Editor requires browser environment (window, document, etc.)
-const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
-  ssr: false,  // MUST be false - Monaco breaks SSR
-  loading: () => <EditorSkeleton />
-})
+const MonacoEditor = dynamic(
+  () => import('@monaco-editor/react').then((mod) => {
+    // CRITICAL: Configure to use self-hosted Monaco from public directory
+    mod.loader.config({
+      paths: {
+        vs: '/monaco-editor/vs'
+      }
+    })
+
+    return mod
+  }),
+  {
+    ssr: false,  // MUST be false - Monaco breaks SSR
+    loading: () => <EditorSkeleton />
+  }
+)
 
 /**
  * Editor - Monaco Editor wrapper for Next.js
