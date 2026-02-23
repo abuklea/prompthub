@@ -79,7 +79,7 @@ export function FolderToolbar() {
   }
 
   return (
-    <div className="flex items-center gap-2 overflow-hidden">
+    <div className="flex items-center gap-2 overflow-x-auto overflow-y-hidden pb-1">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -162,7 +162,7 @@ export function FolderToolbar() {
         placeholder="Filter..."
         value={folderFilter}
         onChange={(e) => setFolderFilter(e.target.value)}
-        className="h-8 text-sm flex-1 max-w-[200px] min-w-[80px]"
+        className="h-8 text-sm flex-1 max-w-[200px] min-w-[100px] shrink-0"
       />
 
       {/* Dialogs */}
