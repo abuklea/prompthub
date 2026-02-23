@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -14,6 +15,7 @@ import { SignInSchema, SignUpSchema } from "../schemas"
 import { z } from "zod"
 
 export function AuthForm() {
+  const router = useRouter()
   const [isSignIn, setIsSignIn] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
@@ -66,11 +68,16 @@ export function AuthForm() {
       // Success - show redirect message before redirect happens
       toast.success(isSignIn ? "Welcome back!" : "Account created!", { duration: 3000 })
       setIsRedirecting(true)
-      // Redirect will happen from server action
+      const redirectTo = (result?.data as { redirectTo?: string } | undefined)?.redirectTo ?? "/dashboard"
+      router.replace(redirectTo)
 
     } catch (error) {
       // Unexpected client-side errors
-      const errorMessage = "An unexpected error occurred"
+      const errorMessage = error instanceof Error && error.message
+        ? error.message.includes("fetch")
+          ? "Unable to reach the auth service. Please check your connection and try again."
+          : error.message
+        : "An unexpected error occurred"
       setFormError(errorMessage)
       toast.error(errorMessage, { duration: 6000 })
       setIsLoading(false)

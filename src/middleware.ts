@@ -2,6 +2,13 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const isPublicRoute =
+    pathname === "/login" ||
+    pathname === "/" ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/auth");
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -58,8 +65,12 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  if (!session && request.nextUrl.pathname.startsWith("/app")) {
+  if (!session && !isPublicRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (session && pathname === "/login") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return response;
