@@ -3,6 +3,7 @@
 import db from "@/lib/db"
 import { createServer } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
+import { ensureProfileExists } from "@/lib/ensure-profile"
 
 export async function getRootFolders() {
   const supabase = createServer()
@@ -30,6 +31,8 @@ export async function createFolder(name: string, parentId: string | null) {
   if (!user) {
     throw new Error("User not found")
   }
+
+  await ensureProfileExists(user.id)
 
   const newFolder = await db.folder.create({
     data: {

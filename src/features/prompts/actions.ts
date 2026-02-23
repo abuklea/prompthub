@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createPromptSchema, getPromptDetailsSchema } from "./schemas"
 import { ActionResult } from "@/types/actions"
 import { Prompt } from "@prisma/client"
+import { ensureProfileExists } from "@/lib/ensure-profile"
 
 export async function getPromptsByFolder(folderId: string) {
   const supabase = createClient()
@@ -45,6 +46,8 @@ export async function createPrompt(data: unknown): Promise<ActionResult<Prompt>>
     if (!user) {
       return { success: false, error: "Unauthorized. Please sign in." }
     }
+
+    await ensureProfileExists(user.id)
 
     // Reason: Set title to null for new documents or validate if title provided
     const title = parsed.data.title || null

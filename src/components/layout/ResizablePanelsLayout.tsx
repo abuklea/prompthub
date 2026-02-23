@@ -19,7 +19,9 @@ Changelog:
 
 import { PanelGroup, Panel } from "react-resizable-panels"
 import { AnimatedResizeHandle } from "./AnimatedResizeHandle"
-import { ReactNode } from "react"
+import { ReactNode, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface ResizablePanelsLayoutProps {
   foldersPanel: ReactNode
@@ -47,45 +49,80 @@ export function ResizablePanelsLayout({
   documentsPanel,
   editorPanel
 }: ResizablePanelsLayoutProps) {
+  const [activePanel, setActivePanel] = useState<"folders" | "documents" | "editor">("folders")
+
   return (
-    <PanelGroup
-      direction="horizontal"
-      className="flex-1 overflow-hidden"
-      autoSaveId="main-layout"
-    >
-      {/* Folders Panel */}
-      <Panel
-        defaultSize={20}
-        minSize={15}
-        maxSize={30}
-        className="flex flex-col overflow-hidden"
+    <>
+      {/* Mobile/Small tablet: single panel with quick switcher */}
+      <div className="flex md:hidden flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="grid grid-cols-3 gap-2 px-3 py-2 border-b bg-muted/20">
+          <Button
+            size="sm"
+            variant={activePanel === "folders" ? "default" : "outline"}
+            onClick={() => setActivePanel("folders")}
+          >
+            Folders
+          </Button>
+          <Button
+            size="sm"
+            variant={activePanel === "documents" ? "default" : "outline"}
+            onClick={() => setActivePanel("documents")}
+          >
+            Documents
+          </Button>
+          <Button
+            size="sm"
+            variant={activePanel === "editor" ? "default" : "outline"}
+            onClick={() => setActivePanel("editor")}
+          >
+            Editor
+          </Button>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <section className={cn("h-full flex flex-col", activePanel === "folders" ? "flex" : "hidden")}>{foldersPanel}</section>
+          <section className={cn("h-full flex flex-col", activePanel === "documents" ? "flex" : "hidden")}>{documentsPanel}</section>
+          <section className={cn("h-full flex flex-col", activePanel === "editor" ? "flex" : "hidden")}>{editorPanel}</section>
+        </div>
+      </div>
+
+      {/* Desktop/large tablet: resizable 3-panel layout */}
+      <PanelGroup
+        direction="horizontal"
+        className="hidden md:flex flex-1 overflow-hidden"
+        autoSaveId="main-layout"
       >
-        {foldersPanel}
-      </Panel>
+        <Panel
+          defaultSize={20}
+          minSize={15}
+          maxSize={30}
+          className="flex flex-col overflow-hidden"
+        >
+          {foldersPanel}
+        </Panel>
 
-      <AnimatedResizeHandle />
+        <AnimatedResizeHandle />
 
-      {/* Documents Panel */}
-      <Panel
-        defaultSize={30}
-        minSize={20}
-        maxSize={40}
-        className="flex flex-col overflow-hidden"
-      >
-        {documentsPanel}
-      </Panel>
+        <Panel
+          defaultSize={30}
+          minSize={20}
+          maxSize={40}
+          className="flex flex-col overflow-hidden"
+        >
+          {documentsPanel}
+        </Panel>
 
-      <AnimatedResizeHandle />
+        <AnimatedResizeHandle />
 
-      {/* Editor Panel */}
-      <Panel
-        defaultSize={50}
-        minSize={40}
-        maxSize={70}
-        className="flex flex-col overflow-hidden"
-      >
-        {editorPanel}
-      </Panel>
-    </PanelGroup>
+        <Panel
+          defaultSize={50}
+          minSize={40}
+          maxSize={70}
+          className="flex flex-col overflow-hidden"
+        >
+          {editorPanel}
+        </Panel>
+      </PanelGroup>
+    </>
   )
 }

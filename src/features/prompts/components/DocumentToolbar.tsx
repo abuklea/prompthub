@@ -134,7 +134,7 @@ export function DocumentToolbar() {
   }
 
   return (
-    <div className="flex items-center gap-2 overflow-hidden">
+    <div className="flex items-center gap-2 overflow-x-auto overflow-y-hidden pb-1">
       {/* New Doc Button */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -226,7 +226,7 @@ export function DocumentToolbar() {
             placeholder="Filter..."
             value={docFilter}
             onChange={(e) => setDocFilter(e.target.value)}
-            className="h-8 text-sm flex-1 max-w-[200px] min-w-[80px]"
+            className="h-8 text-sm flex-1 max-w-[200px] min-w-[100px] shrink-0"
           />
         </TooltipTrigger>
         <TooltipContent>

@@ -38,12 +38,12 @@ export function PanelSubheader({ title, children, className }: PanelSubheaderPro
   return (
     <div
       className={cn(
-        "flex items-center justify-between",
-        "h-10 px-3 border-b bg-muted/30",
+        "flex items-center justify-between gap-2",
+        "h-10 px-2 sm:px-3 border-b bg-muted/30",
         className
       )}
     >
-      <h2 className="text-xs font-semibold text-foreground">
+      <h2 className="text-sm font-semibold text-foreground">
         {title}
       </h2>
       {children && (

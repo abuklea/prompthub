@@ -42,10 +42,10 @@ export function Header({ user }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="container flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-6">
+      <div className="container flex h-16 items-center justify-between px-3 sm:px-4 gap-2">
+        <div className="flex items-center gap-3 sm:gap-6 min-w-0">
           <Link href={user ? "/dashboard" : "/"}>
-            <h1 className="font-extrabold tracking-tighter text-2xl">
+            <h1 className="font-extrabold tracking-tighter text-xl sm:text-2xl whitespace-nowrap">
               PromptHub
             </h1>
           </Link>
@@ -73,7 +73,7 @@ export function Header({ user }: HeaderProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           {user ? (
             <>
               <span className="hidden sm:inline text-sm text-muted-foreground">
@@ -110,7 +110,7 @@ export function Header({ user }: HeaderProps) {
               </TooltipProvider>
 
               <form onSubmit={handleSignOut}>
-                <Button variant="outline" size="sm" type="submit">Sign Out</Button>
+                <Button variant="outline" size="sm" type="submit" className="px-2 sm:px-3">Sign Out</Button>
               </form>
             </>
           ) : (
