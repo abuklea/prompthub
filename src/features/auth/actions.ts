@@ -24,6 +24,16 @@ async function ensureProfileExists(userId: string) {
   }
 }
 
+async function ensureProfileExistsSafe(userId: string) {
+  try {
+    await ensureProfileExists(userId)
+  } catch (error) {
+    // Do not block auth flow if profile sync fails.
+    // This allows users to sign in even when DB is temporarily unavailable.
+    console.error("Profile sync failed during auth", error)
+  }
+}
+
 export async function signUp(values: z.infer<typeof SignUpSchema>): Promise<ActionResult> {
   try {
     const supabase = createClient()
@@ -35,17 +45,14 @@ export async function signUp(values: z.infer<typeof SignUpSchema>): Promise<Acti
 
     // Ensure profile exists for the new user
     if (data.user?.id) {
-      await ensureProfileExists(data.user.id)
+      await ensureProfileExistsSafe(data.user.id)
     }
 
     revalidatePath("/", "layout")
-    redirect("/dashboard") // This throws NEXT_REDIRECT - expected!
+    return { success: true, data: { redirectTo: "/dashboard" } }
   } catch (error) {
-    // Catch both auth errors and other unexpected errors
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error // Re-throw redirect
-    }
-    return { success: false, error: "An unexpected error occurred" }
+    const message = error instanceof Error ? error.message : "An unexpected error occurred"
+    return { success: false, error: message }
   }
 }
 
@@ -60,16 +67,14 @@ export async function signIn(values: z.infer<typeof SignInSchema>): Promise<Acti
 
     // Ensure profile exists for existing users (in case it was deleted or missed)
     if (data.user?.id) {
-      await ensureProfileExists(data.user.id)
+      await ensureProfileExistsSafe(data.user.id)
     }
 
     revalidatePath("/", "layout")
-    redirect("/dashboard")
+    return { success: true, data: { redirectTo: "/dashboard" } }
   } catch (error) {
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error
-    }
-    return { success: false, error: "An unexpected error occurred" }
+    const message = error instanceof Error ? error.message : "An unexpected error occurred"
+    return { success: false, error: message }
   }
 }
 
