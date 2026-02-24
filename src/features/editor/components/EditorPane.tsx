@@ -374,7 +374,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
       return
     }
 
-    if (title && promptData && promptId) {
+    if (promptData && promptId) {
       const isDirty = content !== promptData.content
 
       // Reason: Update document cache for instant tab switching
@@ -386,7 +386,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
       documentCache.set(cacheKey, {
         userId: currentUserId,
         promptData,
-        title,
+        title: title ?? null,
         content,
         lastSaved
       })
@@ -403,6 +403,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
       // Update tab after promotion check - use display title for null handling (P1T5)
       updateTab(tabId, {
         title: getDisplayTitle(title),
+        folderId: promptData.folder.id,
         isDirty
       })
     }

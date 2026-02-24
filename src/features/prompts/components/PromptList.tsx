@@ -34,7 +34,17 @@ import { toast } from "sonner"
 import { getDisplayTitle } from "../utils"
 
 export function PromptList() {
-  const { selectedFolder, docSort, docFilter, promptRefetchTrigger, triggerPromptRefetch, prompts, setPrompts, selectPrompt } = useUiStore()
+  const {
+    selectedFolder,
+    docSort,
+    docFilter,
+    promptRefetchTrigger,
+    triggerPromptRefetch,
+    prompts,
+    setPrompts,
+    selectPrompt,
+    selectFolder,
+  } = useUiStore()
   const openTab = useTabStore(state => state.openTab)
   const setActiveTab = useTabStore(state => state.setActiveTab)
   const promotePreviewTab = useTabStore(state => state.promotePreviewTab)
@@ -88,6 +98,7 @@ export function PromptList() {
         type: 'document',
         title: "[Untitled Doc]",
         promptId: result.data.id,
+        folderId: result.data.folder_id,
       })
       triggerPromptRefetch()
     }
@@ -134,6 +145,22 @@ export function PromptList() {
     () => tabs.find(t => t.id === activeTabId),
     [tabs, activeTabId]
   )
+
+  // Reason: Keep folder/document browser synchronized with active editor tab selection
+  useEffect(() => {
+    if (activeTab?.type !== 'document' || !activeTab.promptId) {
+      return
+    }
+
+    selectPrompt(activeTab.promptId)
+
+    const promptFromStore = prompts.find((prompt) => prompt.id === activeTab.promptId)
+    const resolvedFolderId = activeTab.folderId || promptFromStore?.folder_id
+
+    if (resolvedFolderId && resolvedFolderId !== selectedFolder) {
+      selectFolder(resolvedFolderId)
+    }
+  }, [activeTab, prompts, selectedFolder, selectFolder, selectPrompt])
 
   if (!selectedFolder) {
     return (
@@ -201,6 +228,7 @@ export function PromptList() {
                     type: 'document',
                     title: getDisplayTitle(prompt.title),
                     promptId: prompt.id,
+                    folderId: prompt.folder_id,
                     isPreview: true,
                   })
                 }
@@ -224,6 +252,7 @@ export function PromptList() {
                     type: 'document',
                     title: getDisplayTitle(prompt.title),
                     promptId: prompt.id,
+                    folderId: prompt.folder_id,
                     isPreview: false,
                   })
                 }

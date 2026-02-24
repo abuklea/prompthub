@@ -36,6 +36,7 @@ export interface TabData {
   title: string                 // Display title in tab
   icon?: string                 // Optional icon (lucide-react name)
   promptId?: string             // Only for type='document'
+  folderId?: string             // Parent folder for type='document' tabs
   isDirty?: boolean             // Unsaved changes indicator
   isPinned?: boolean            // Pinned tabs don't close
   isPreview?: boolean           // Preview tab (italic title, replaces on next click)

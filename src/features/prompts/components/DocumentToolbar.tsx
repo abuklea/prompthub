@@ -81,6 +81,7 @@ export function DocumentToolbar() {
         type: 'document',
         title: "",  // Empty title - will display as "[Untitled Doc]" placeholder
         promptId: result.data.id,
+        folderId: result.data.folder_id,
         isNewDocument: true,  // CRITICAL: Mark as new to trigger save confirmation
         isPreview: false,     // EXPLICIT: New documents are permanent tabs, not preview tabs
       })
