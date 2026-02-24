@@ -44,6 +44,6 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "/home/allan/projects/.claude/hooks/statusline.sh"
+    "command": "/home/allan/projects/PromptHub/.claude/hooks/statusline.sh"
   }
 }

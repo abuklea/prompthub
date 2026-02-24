@@ -17,7 +17,7 @@ This project uses **Archon MCP server** for task management. Do NOT use TodoWrit
 # Project Configuration
 ARCHON_PROJECT_ID: d449f266-1f36-47ad-bd2d-30f1a0f5e999
 ARCHON_PROJECT_NAME: PromptHub
-WORKSPACE_FOLDER: /home/allan/projects
+WORKSPACE_FOLDER: /home/allan/projects/PromptHub
 SUPABASE_PROJECT_ID: xmuysganwxygcsxwteil
 SUPABASE_PROJECT_URL: https://xmuysganwxygcsxwteil.supabase.co
 ```
@@ -248,7 +248,7 @@ DIRECT_URL=""
 ### Mermaid Diagram Generation
 Always generate BOTH formats:
 ```bash
-# Output location: /home/allan/projects/mermaid/
+# Output location: /home/allan/projects/PromptHub/mermaid/
 # Format: {{filename}}-{{diagram_id}}.png
 # Format: {{filename}}-{{diagram_id}}.svg
 # Background: transparent (both files)
