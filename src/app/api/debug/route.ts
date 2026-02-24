@@ -5,10 +5,18 @@ import { createServer } from "@/lib/supabase"
 export async function GET() {
   const results: Record<string, unknown> = {}
 
-  // Test 1: Environment variables
+  // Test 1: Environment variables (show host:port only, no credentials)
+  const dbUrl = process.env.DATABASE_URL ?? ""
+  const directUrl = process.env.DIRECT_URL ?? ""
+  const extractHostPort = (url: string) => {
+    try {
+      const match = url.match(/@([^/]+)/)
+      return match ? match[1] : "PARSE_ERROR"
+    } catch { return "PARSE_ERROR" }
+  }
   results.env = {
-    DATABASE_URL: process.env.DATABASE_URL ? "SET" : "MISSING",
-    DIRECT_URL: process.env.DIRECT_URL ? "SET" : "MISSING",
+    DATABASE_URL: dbUrl ? `SET → ${extractHostPort(dbUrl)}` : "MISSING",
+    DIRECT_URL: directUrl ? `SET → ${extractHostPort(directUrl)}` : "MISSING",
     SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "MISSING",
     SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "MISSING",
   }
