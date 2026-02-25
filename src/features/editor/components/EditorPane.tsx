@@ -85,6 +85,31 @@ const documentCache = new Map<string, {
 documentCache.clear()
 
 // Reason: Export cache clearing function for logout
+type PromptWithOptionalFolder = Prompt & {
+  folder: {
+    id: string
+    name: string
+  } | null
+}
+
+export function hydrateDocumentCache(userId: string, prompts: PromptWithOptionalFolder[]) {
+  prompts.forEach((prompt) => {
+    documentCache.set(`${userId}-${prompt.id}`, {
+      userId,
+      promptData: {
+        ...prompt,
+        folder: prompt.folder ?? {
+          id: "",
+          name: "Unfiled",
+        },
+      },
+      title: prompt.title,
+      content: prompt.content,
+      lastSaved: prompt.updated_at,
+    })
+  })
+}
+
 export function clearDocumentCache() {
   documentCache.clear()
   if (process.env.NODE_ENV === 'development') {

@@ -11,6 +11,7 @@ import { DocumentToolbar } from "@/features/prompts/components/DocumentToolbar";
 import { TabbedEditorContainer } from "@/features/tabs/components/TabbedEditorContainer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TabCleanupProvider } from "@/components/layout/TabCleanupProvider";
+import { WorkspacePreloader } from "@/components/layout/WorkspacePreloader";
 
 export default async function AppLayout() {
   const supabase = createServer();
@@ -23,6 +24,7 @@ export default async function AppLayout() {
   return (
     <TabCleanupProvider>
       <div className="flex flex-col h-screen">
+        <WorkspacePreloader />
         <Header user={data.user} />
 
         <TooltipProvider delayDuration={700}>

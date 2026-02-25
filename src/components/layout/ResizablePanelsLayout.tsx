@@ -1,26 +1,10 @@
-/*
-Project: PromptHub
-Author: Allan James
-Source: src/components/layout/ResizablePanelsLayout.tsx
-MIME: text/x-typescript
-Type: TypeScript React Component
-
-Created: 07/11/2025 18:07 GMT+10
-Last modified: 07/11/2025 18:07 GMT+10
----------------
-Resizable 3-column panel layout wrapper component using react-resizable-panels.
-Provides user-adjustable column widths with localStorage persistence.
-
-Changelog:
-07/11/2025 18:07 GMT+10 | Initial creation - ResizablePanelsLayout with 3 panels
-*/
-
 "use client"
 
-import { PanelGroup, Panel } from "react-resizable-panels"
+import { PanelGroup, Panel, type ImperativePanelHandle } from "react-resizable-panels"
 import { AnimatedResizeHandle } from "./AnimatedResizeHandle"
-import { Fragment, ReactNode, useState } from "react"
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { ChevronLeft, ChevronRight, Columns3 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ResizablePanelsLayoutProps {
@@ -29,186 +13,107 @@ interface ResizablePanelsLayoutProps {
   editorPanel: ReactNode
 }
 
-/**
- * Resizable 3-column panel layout with persistence
- *
- * Column Configuration:
- * - Folders: 15-30% width, default 20%
- * - Documents: 20-40% width, default 30%
- * - Editor: 40-70% width, default 50%
- *
- * Column widths are automatically persisted to localStorage
- * and restored on subsequent page loads.
- *
- * @param foldersPanel - Content for the folders column
- * @param documentsPanel - Content for the documents column
- * @param editorPanel - Content for the editor column
- */
-export function ResizablePanelsLayout({
-  foldersPanel,
-  documentsPanel,
-  editorPanel
-}: ResizablePanelsLayoutProps) {
-  const [activePanel, setActivePanel] = useState<"folders" | "documents" | "editor">("folders")
+type PanelKey = "folders" | "documents" | "editor"
 
-  const panelConfig = {
-    folders: { label: "Folders", content: foldersPanel },
-    documents: { label: "Documents", content: documentsPanel },
-    editor: { label: "Editor", content: editorPanel }
-  } as const
+export function ResizablePanelsLayout({ foldersPanel, documentsPanel, editorPanel }: ResizablePanelsLayoutProps) {
+  const [activePanel, setActivePanel] = useState<PanelKey>("folders")
+  const [isWideLayout, setIsWideLayout] = useState(false)
 
-  const thinBottomPanels = (Object.keys(panelConfig) as Array<keyof typeof panelConfig>).filter(
-    (panel) => panel !== activePanel
+  const folderRef = useRef<ImperativePanelHandle>(null)
+  const documentsRef = useRef<ImperativePanelHandle>(null)
+  const editorRef = useRef<ImperativePanelHandle>(null)
+
+  const panelConfig = useMemo(
+    () => ({
+      folders: { label: "Folders", content: foldersPanel },
+      documents: { label: "Documents", content: documentsPanel },
+      editor: { label: "Editor", content: editorPanel },
+    }),
+    [documentsPanel, editorPanel, foldersPanel]
   )
 
-  const getThinBottomDefaultSize = (panel: keyof typeof panelConfig) => {
-    if (panel === "editor") return 68
-    if (panel === "documents") return 32
-    return 28
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1440px), (min-aspect-ratio: 16/9) and (min-width: 1200px)")
+    const update = () => setIsWideLayout(mediaQuery.matches)
+    update()
+    mediaQuery.addEventListener("change", update)
+    return () => mediaQuery.removeEventListener("change", update)
+  }, [])
+
+  const collapsePanel = (panel: PanelKey) => {
+    const ref = panel === "folders" ? folderRef : panel === "documents" ? documentsRef : editorRef
+    ref.current?.collapse()
   }
 
-  const getThinBottomMinSize = (panel: keyof typeof panelConfig) => {
-    if (panel === "editor") return 55
-    return 18
+  const expandPanel = (panel: PanelKey) => {
+    const ref = panel === "folders" ? folderRef : panel === "documents" ? documentsRef : editorRef
+    ref.current?.expand()
   }
 
-  const getThinBottomMaxSize = (panel: keyof typeof panelConfig) => {
-    if (panel === "editor") return 82
-    return 45
-  }
+  const twoColumnPanels = (["folders", "documents", "editor"] as PanelKey[]).filter((panel) => panel !== activePanel)
 
   return (
     <>
-      {/* Mobile/Small tablet: single panel with quick switcher */}
       <div className="flex md:hidden flex-col flex-1 min-h-0 overflow-hidden">
         <div className="grid grid-cols-3 gap-2 px-3 py-2 border-b bg-muted/20">
-          <Button
-            size="sm"
-            variant={activePanel === "folders" ? "default" : "outline"}
-            onClick={() => setActivePanel("folders")}
-          >
-            Folders
-          </Button>
-          <Button
-            size="sm"
-            variant={activePanel === "documents" ? "default" : "outline"}
-            onClick={() => setActivePanel("documents")}
-          >
-            Documents
-          </Button>
-          <Button
-            size="sm"
-            variant={activePanel === "editor" ? "default" : "outline"}
-            onClick={() => setActivePanel("editor")}
-          >
-            Editor
-          </Button>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <section className={cn("h-full flex flex-col", activePanel === "folders" ? "flex" : "hidden")}>{foldersPanel}</section>
-          <section className={cn("h-full flex flex-col", activePanel === "documents" ? "flex" : "hidden")}>{documentsPanel}</section>
-          <section className={cn("h-full flex flex-col", activePanel === "editor" ? "flex" : "hidden")}>{editorPanel}</section>
-        </div>
-      </div>
-
-      {/* Thin layout: folders at top with 2-column workspace below */}
-      <div className="hidden md:flex xl:hidden flex-1 flex-col overflow-hidden">
-        <div className="grid grid-cols-3 gap-2 px-3 py-2 border-b bg-muted/20">
-          {(Object.keys(panelConfig) as Array<keyof typeof panelConfig>).map((panel) => (
-            <Button
-              key={panel}
-              size="sm"
-              variant={activePanel === panel ? "default" : "outline"}
-              onClick={() => setActivePanel(panel)}
-            >
+          {(Object.keys(panelConfig) as PanelKey[]).map((panel) => (
+            <Button key={panel} size="sm" variant={activePanel === panel ? "default" : "outline"} onClick={() => setActivePanel(panel)}>
               {panelConfig[panel].label}
             </Button>
           ))}
         </div>
-
-        <PanelGroup
-          direction="vertical"
-          className="flex-1 overflow-hidden"
-          autoSaveId={`main-layout-thin-${activePanel}`}
-        >
-          <Panel
-            defaultSize={16}
-            minSize={10}
-            maxSize={45}
-            className="flex flex-col overflow-hidden"
-          >
-            {panelConfig[activePanel].content}
-          </Panel>
-
-          <AnimatedResizeHandle direction="horizontal" />
-
-          <Panel
-            defaultSize={84}
-            minSize={55}
-            className="flex flex-col overflow-hidden"
-          >
-            <PanelGroup
-              direction="horizontal"
-              className="flex-1 overflow-hidden"
-              autoSaveId={`main-layout-thin-bottom-${activePanel}`}
-            >
-              {thinBottomPanels.map((panel, index) => (
-                <Fragment key={panel}>
-                  <Panel
-                    defaultSize={getThinBottomDefaultSize(panel)}
-                    minSize={getThinBottomMinSize(panel)}
-                    maxSize={getThinBottomMaxSize(panel)}
-                    className="flex flex-col overflow-hidden"
-                  >
-                    {panelConfig[panel].content}
-                  </Panel>
-
-                  {index === 0 && <AnimatedResizeHandle />}
-                </Fragment>
-              ))}
-            </PanelGroup>
-          </Panel>
-        </PanelGroup>
+        <div className="flex-1 min-h-0 overflow-hidden">{panelConfig[activePanel].content}</div>
       </div>
 
-      {/* Wide layout: resizable 3-panel layout */}
-      <PanelGroup
-        direction="horizontal"
-        className="hidden xl:flex flex-1 overflow-hidden"
-        autoSaveId="main-layout"
-      >
-        <Panel
-          defaultSize={20}
-          minSize={15}
-          maxSize={30}
-          className="flex flex-col overflow-hidden"
-        >
-          {foldersPanel}
-        </Panel>
+      {!isWideLayout ? (
+        <div className="hidden md:flex flex-1 flex-col overflow-hidden">
+          <div className="grid grid-cols-3 gap-2 px-3 py-2 border-b bg-muted/20">
+            {(Object.keys(panelConfig) as PanelKey[]).map((panel) => (
+              <Button key={panel} size="sm" variant={activePanel === panel ? "default" : "outline"} onClick={() => setActivePanel(panel)}>
+                {panelConfig[panel].label}
+              </Button>
+            ))}
+          </div>
 
-        <AnimatedResizeHandle />
+          <PanelGroup direction="horizontal" className="flex-1 overflow-hidden" autoSaveId={`main-layout-two-column-${activePanel}`}>
+            <Panel defaultSize={35} minSize={15} collapsible collapsedSize={0} className="flex flex-col overflow-hidden">
+              {panelConfig[twoColumnPanels[0]].content}
+            </Panel>
+            <AnimatedResizeHandle />
+            <Panel defaultSize={65} minSize={30} collapsible collapsedSize={0} className="flex flex-col overflow-hidden">
+              {panelConfig[twoColumnPanels[1]].content}
+            </Panel>
+          </PanelGroup>
+        </div>
+      ) : (
+        <div className="hidden md:flex flex-1 overflow-hidden">
+          <PanelGroup direction="horizontal" className="flex-1 overflow-hidden" autoSaveId="main-layout-wide">
+            <Panel ref={folderRef} defaultSize={20} minSize={0} maxSize={35} collapsible collapsedSize={0} className="flex flex-col overflow-hidden">
+              {foldersPanel}
+            </Panel>
+            <AnimatedResizeHandle />
 
-        <Panel
-          defaultSize={30}
-          minSize={20}
-          maxSize={40}
-          className="flex flex-col overflow-hidden"
-        >
-          {documentsPanel}
-        </Panel>
+            <Panel ref={documentsRef} defaultSize={28} minSize={0} maxSize={45} collapsible collapsedSize={0} className="flex flex-col overflow-hidden">
+              {documentsPanel}
+            </Panel>
+            <AnimatedResizeHandle />
 
-        <AnimatedResizeHandle />
+            <Panel ref={editorRef} defaultSize={52} minSize={30} maxSize={85} collapsible collapsedSize={0} className="flex flex-col overflow-hidden">
+              {editorPanel}
+            </Panel>
+          </PanelGroup>
 
-        <Panel
-          defaultSize={50}
-          minSize={40}
-          maxSize={70}
-          className="flex flex-col overflow-hidden"
-        >
-          {editorPanel}
-        </Panel>
-      </PanelGroup>
+          <div className="absolute right-3 top-[92px] z-10 flex items-center gap-1 rounded-md border bg-background/90 p-1 backdrop-blur">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => collapsePanel("folders")}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => expandPanel("folders")}><ChevronRight className="h-4 w-4" /></Button>
+            <div className={cn("h-4 w-px bg-border mx-1")} />
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => collapsePanel("documents")}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => expandPanel("documents")}><ChevronRight className="h-4 w-4" /></Button>
+            <div className={cn("h-4 w-px bg-border mx-1")} />
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => expandPanel("editor")}><Columns3 className="h-4 w-4" /></Button>
+          </div>
+        </div>
+      )}
     </>
   )
 }

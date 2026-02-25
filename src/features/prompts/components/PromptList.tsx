@@ -28,11 +28,12 @@ import { Prompt } from "@prisma/client"
 import { cn } from "@/lib/utils"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
-import { Plus } from "lucide-react"
+import { Loader2, Plus } from "lucide-react"
 import { createPrompt } from "../actions"
 import { toast } from "sonner"
 import { getDisplayTitle } from "../utils"
 import { OverflowTooltipText } from "@/components/ui/overflow-tooltip-text"
+import { getPromptsByFolderFromCache, hasWorkspaceSnapshot, setPromptsForFolderInCache, upsertPromptInCache } from "@/features/workspace/cache"
 
 export function PromptList() {
   const {
@@ -61,10 +62,20 @@ export function PromptList() {
         setPrompts([])
         return
       }
-      setLoading(true)
+
+      const cached = getPromptsByFolderFromCache(selectedFolder)
+      if (cached.length > 0) {
+        setPrompts(cached)
+      }
+
+      if (!hasWorkspaceSnapshot() && cached.length === 0) {
+        setLoading(true)
+      }
+
       try {
         const folderPrompts = await getPromptsByFolder(selectedFolder)
         setPrompts(folderPrompts)
+        setPromptsForFolderInCache(selectedFolder, folderPrompts)
       } catch (error) {
         console.error("Failed to fetch prompts:", error)
       } finally {
@@ -79,30 +90,52 @@ export function PromptList() {
     if (!selectedFolder) return
 
     setCreatingDoc(true)
+
+    const tempPrompt: Prompt = {
+      id: `temp-${Date.now()}`,
+      user_id: "local",
+      folder_id: selectedFolder,
+      title: "[Untitled Doc]",
+      content: "",
+      created_at: new Date(),
+      updated_at: new Date(),
+    }
+
+    setPrompts([...prompts, tempPrompt])
+
     const result = await createPrompt({
       folderId: selectedFolder,
-      // Reason: No title provided - server will generate "[Untitled Doc]" or "[Untitled Doc N]"
     })
 
     if (!result.success) {
+      setPrompts(prompts)
       toast.error(result.error, { duration: 6000 })
       setCreatingDoc(false)
       return
     }
 
+    if (!result.data) {
+      setPrompts(prompts)
+      toast.error("Document creation returned no data", { duration: 6000 })
+      setCreatingDoc(false)
+      return
+    }
+
+    const nextPrompts = [...prompts.filter((item) => item.id !== tempPrompt.id), result.data]
+    setPrompts(nextPrompts)
+    setPromptsForFolderInCache(selectedFolder, nextPrompts)
+    upsertPromptInCache(result.data)
+
     toast.success("Document created successfully", { duration: 3000 })
 
-    // Reason: Auto-open newly created document in tab and trigger list refresh
-    // P5S5T4: Use full Prompt object from result to avoid additional database requests
-    if (result.data?.id) {
-      openTab({
-        type: 'document',
-        title: "[Untitled Doc]",
-        promptId: result.data.id,
-        folderId: result.data.folder_id ?? undefined,
-      })
-      triggerPromptRefetch()
-    }
+    openTab({
+      type: 'document',
+      title: "[Untitled Doc]",
+      promptId: result.data.id,
+      folderId: result.data.folder_id ?? undefined,
+    })
+
+    triggerPromptRefetch()
     setCreatingDoc(false)
   }
 
@@ -172,7 +205,7 @@ export function PromptList() {
   }
 
   if (loading) {
-    return <div>Loading documents...</div>
+    return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading documents...</div>
   }
 
   // Show empty state when no documents exist in the folder (and not filtered)
