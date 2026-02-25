@@ -19,7 +19,7 @@ Changelog:
 
 import { PanelGroup, Panel } from "react-resizable-panels"
 import { AnimatedResizeHandle } from "./AnimatedResizeHandle"
-import { ReactNode, useState } from "react"
+import { Fragment, ReactNode, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -50,6 +50,32 @@ export function ResizablePanelsLayout({
   editorPanel
 }: ResizablePanelsLayoutProps) {
   const [activePanel, setActivePanel] = useState<"folders" | "documents" | "editor">("folders")
+
+  const panelConfig = {
+    folders: { label: "Folders", content: foldersPanel },
+    documents: { label: "Documents", content: documentsPanel },
+    editor: { label: "Editor", content: editorPanel }
+  } as const
+
+  const thinBottomPanels = (Object.keys(panelConfig) as Array<keyof typeof panelConfig>).filter(
+    (panel) => panel !== activePanel
+  )
+
+  const getThinBottomDefaultSize = (panel: keyof typeof panelConfig) => {
+    if (panel === "editor") return 68
+    if (panel === "documents") return 32
+    return 28
+  }
+
+  const getThinBottomMinSize = (panel: keyof typeof panelConfig) => {
+    if (panel === "editor") return 55
+    return 18
+  }
+
+  const getThinBottomMaxSize = (panel: keyof typeof panelConfig) => {
+    if (panel === "editor") return 82
+    return 45
+  }
 
   return (
     <>
@@ -87,53 +113,64 @@ export function ResizablePanelsLayout({
       </div>
 
       {/* Thin layout: folders at top with 2-column workspace below */}
-      <PanelGroup
-        direction="vertical"
-        className="hidden md:flex xl:hidden flex-1 overflow-hidden"
-        autoSaveId="main-layout-thin"
-      >
-        <Panel
-          defaultSize={22}
-          minSize={12}
-          maxSize={45}
-          className="flex flex-col overflow-hidden"
-        >
-          {foldersPanel}
-        </Panel>
+      <div className="hidden md:flex xl:hidden flex-1 flex-col overflow-hidden">
+        <div className="grid grid-cols-3 gap-2 px-3 py-2 border-b bg-muted/20">
+          {(Object.keys(panelConfig) as Array<keyof typeof panelConfig>).map((panel) => (
+            <Button
+              key={panel}
+              size="sm"
+              variant={activePanel === panel ? "default" : "outline"}
+              onClick={() => setActivePanel(panel)}
+            >
+              {panelConfig[panel].label}
+            </Button>
+          ))}
+        </div>
 
-        <AnimatedResizeHandle direction="horizontal" />
-
-        <Panel
-          defaultSize={78}
-          minSize={55}
-          className="flex flex-col overflow-hidden"
+        <PanelGroup
+          direction="vertical"
+          className="flex-1 overflow-hidden"
+          autoSaveId={`main-layout-thin-${activePanel}`}
         >
-          <PanelGroup
-            direction="horizontal"
-            className="flex-1 overflow-hidden"
-            autoSaveId="main-layout-thin-bottom"
+          <Panel
+            defaultSize={16}
+            minSize={10}
+            maxSize={45}
+            className="flex flex-col overflow-hidden"
           >
-            <Panel
-              defaultSize={27}
-              minSize={18}
-              maxSize={40}
-              className="flex flex-col overflow-hidden"
-            >
-              {documentsPanel}
-            </Panel>
+            {panelConfig[activePanel].content}
+          </Panel>
 
-            <AnimatedResizeHandle />
+          <AnimatedResizeHandle direction="horizontal" />
 
-            <Panel
-              defaultSize={73}
-              minSize={60}
-              className="flex flex-col overflow-hidden"
+          <Panel
+            defaultSize={84}
+            minSize={55}
+            className="flex flex-col overflow-hidden"
+          >
+            <PanelGroup
+              direction="horizontal"
+              className="flex-1 overflow-hidden"
+              autoSaveId={`main-layout-thin-bottom-${activePanel}`}
             >
-              {editorPanel}
-            </Panel>
-          </PanelGroup>
-        </Panel>
-      </PanelGroup>
+              {thinBottomPanels.map((panel, index) => (
+                <Fragment key={panel}>
+                  <Panel
+                    defaultSize={getThinBottomDefaultSize(panel)}
+                    minSize={getThinBottomMinSize(panel)}
+                    maxSize={getThinBottomMaxSize(panel)}
+                    className="flex flex-col overflow-hidden"
+                  >
+                    {panelConfig[panel].content}
+                  </Panel>
+
+                  {index === 0 && <AnimatedResizeHandle />}
+                </Fragment>
+              ))}
+            </PanelGroup>
+          </Panel>
+        </PanelGroup>
+      </div>
 
       {/* Wide layout: resizable 3-panel layout */}
       <PanelGroup
