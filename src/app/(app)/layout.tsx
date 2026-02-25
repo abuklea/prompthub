@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { PanelSubheader } from "@/components/layout/PanelSubheader";
 import { HistoryButton } from "@/components/layout/HistoryButton";
 import { ResizablePanelsLayout } from "@/components/layout/ResizablePanelsLayout";
+import { WorkspacePreloader } from "@/components/layout/WorkspacePreloader";
 import { FolderTree } from "@/features/folders/components/FolderTree";
 import { FolderToolbar } from "@/features/folders/components/FolderToolbar";
 import { PromptList } from "@/features/prompts/components/PromptList";
@@ -22,7 +23,8 @@ export default async function AppLayout() {
 
   return (
     <TabCleanupProvider>
-      <div className="flex flex-col h-screen">
+      <div className="relative flex flex-col h-screen">
+        <WorkspacePreloader />
         <Header user={data.user} />
 
         <TooltipProvider delayDuration={700}>
