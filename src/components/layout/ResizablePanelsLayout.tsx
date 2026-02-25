@@ -86,10 +86,59 @@ export function ResizablePanelsLayout({
         </div>
       </div>
 
-      {/* Desktop/large tablet: resizable 3-panel layout */}
+      {/* Thin layout: folders at top with 2-column workspace below */}
+      <PanelGroup
+        direction="vertical"
+        className="hidden md:flex xl:hidden flex-1 overflow-hidden"
+        autoSaveId="main-layout-thin"
+      >
+        <Panel
+          defaultSize={22}
+          minSize={12}
+          maxSize={45}
+          className="flex flex-col overflow-hidden"
+        >
+          {foldersPanel}
+        </Panel>
+
+        <AnimatedResizeHandle direction="horizontal" />
+
+        <Panel
+          defaultSize={78}
+          minSize={55}
+          className="flex flex-col overflow-hidden"
+        >
+          <PanelGroup
+            direction="horizontal"
+            className="flex-1 overflow-hidden"
+            autoSaveId="main-layout-thin-bottom"
+          >
+            <Panel
+              defaultSize={27}
+              minSize={18}
+              maxSize={40}
+              className="flex flex-col overflow-hidden"
+            >
+              {documentsPanel}
+            </Panel>
+
+            <AnimatedResizeHandle />
+
+            <Panel
+              defaultSize={73}
+              minSize={60}
+              className="flex flex-col overflow-hidden"
+            >
+              {editorPanel}
+            </Panel>
+          </PanelGroup>
+        </Panel>
+      </PanelGroup>
+
+      {/* Wide layout: resizable 3-panel layout */}
       <PanelGroup
         direction="horizontal"
-        className="hidden md:flex flex-1 overflow-hidden"
+        className="hidden xl:flex flex-1 overflow-hidden"
         autoSaveId="main-layout"
       >
         <Panel
