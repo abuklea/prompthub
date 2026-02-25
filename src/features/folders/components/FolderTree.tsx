@@ -40,7 +40,7 @@ export function FolderTree() {
       name,
       parent_id: null,
       created_at: new Date(),
-      updated_at: new Date(),
+      user_id: folders[0]?.user_id ?? "",
     }
 
     // Optimistic update for immediate visual feedback
