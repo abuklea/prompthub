@@ -5,12 +5,13 @@ import { Folder } from "@prisma/client"
 import { useUiStore } from "@/stores/use-ui-store"
 import { useTabStore } from "@/stores/use-tab-store"
 import { getFolderChildren, renameFolder, deleteFolder, createFolder } from "../actions"
-import { ChevronRight, Folder as FolderIcon, Plus } from "lucide-react"
+import { ChevronRight, Folder as FolderIcon, Loader2, Plus } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { CreateFolderDialog, RenameFolderDialog, DeleteFolderDialog } from "./FolderDialogs"
 import { OverflowTooltipText } from "@/components/ui/overflow-tooltip-text"
+import { getFolderChildrenFromCache, removeFolderFromCache, upsertFolderInCache } from "@/features/workspace/cache"
 
 interface FolderItemProps {
   folder: Folder
@@ -33,10 +34,17 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
   const handleToggle = async () => {
     toggleFolder(folder.id)
     if (!isExpanded && children.length === 0) {
+      const cachedChildren = getFolderChildrenFromCache(folder.id)
+      if (cachedChildren.length > 0) {
+        setChildren(cachedChildren)
+        return
+      }
+
       setLoading(true)
       try {
         const childFolders = await getFolderChildren(folder.id)
         setChildren(childFolders)
+        childFolders.forEach((child) => upsertFolderInCache(child))
       } catch (error) {
         console.error("Failed to fetch folder children:", error)
       } finally {
@@ -62,6 +70,7 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
       // Reconcile with server response
       if (onUpdate) {
         onUpdate(folder.id, updatedFolder)
+        upsertFolderInCache(updatedFolder)
       }
       // Update local state for display
       setChildren((prev) =>
@@ -92,6 +101,7 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
         closeTabsByPromptId(promptId)
       })
 
+      removeFolderFromCache(folder.id, folder.parent_id)
       if (onDelete) {
         onDelete(folder.id)
       }
@@ -121,6 +131,7 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
 
     try {
       const newFolder = await createFolder(name, folder.id)
+      upsertFolderInCache(newFolder)
       // Reconcile optimistic child with server response
       setChildren((prev) =>
         prev
@@ -176,7 +187,7 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {loading && <div className="pl-6">Loading...</div>}
+      {loading && <div className="pl-6 flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Loading...</div>}
       {isExpanded && !loading && (
         <div>
           {depth < MAX_DEPTH && (

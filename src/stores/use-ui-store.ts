@@ -24,6 +24,10 @@ interface UiState {
   // Prompts state (for auto-save updates without refetch)
   prompts: Prompt[]
 
+  // Workspace preload state
+  workspacePreloading: boolean
+  workspaceLoadedAt: string | null
+
   // Selection actions
   toggleFolder: (folderId: string) => void
   selectFolder: (folderId: string | null) => void
@@ -41,6 +45,10 @@ interface UiState {
 
   // Prompts management actions
   setPrompts: (prompts: Prompt[]) => void
+
+  // Workspace preload actions
+  setWorkspacePreloading: (loading: boolean) => void
+  setWorkspaceLoadedAt: (loadedAt: string | null) => void
   updatePromptTitle: (promptId: string, newTitle: string) => void
   addPrompt: (prompt: Prompt) => void
   removePrompt: (promptId: string) => void
@@ -64,6 +72,10 @@ export const useUiStore = create<UiState>((set) => ({
 
   // Prompts state
   prompts: [],
+
+  // Workspace preload state
+  workspacePreloading: false,
+  workspaceLoadedAt: null,
 
   // Selection actions
   toggleFolder: (folderId) =>
@@ -93,6 +105,10 @@ export const useUiStore = create<UiState>((set) => ({
 
   // Prompts management actions
   setPrompts: (prompts) => set({ prompts }),
+
+  // Workspace preload actions
+  setWorkspacePreloading: (loading) => set({ workspacePreloading: loading }),
+  setWorkspaceLoadedAt: (loadedAt) => set({ workspaceLoadedAt: loadedAt }),
   updatePromptTitle: (promptId, newTitle) =>
     set((state) => ({
       prompts: state.prompts.map((prompt) =>
