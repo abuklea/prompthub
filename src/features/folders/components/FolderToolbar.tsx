@@ -13,7 +13,7 @@ import { Plus, Edit, Trash2, ArrowUpDown } from "lucide-react"
 import { toast } from "sonner"
 
 export function FolderToolbar() {
-  const { selectedFolder, folderSort, folderFilter, setFolderSort, setFolderFilter, triggerFolderRefetch, triggerPromptRefetch, selectFolder } = useUiStore()
+  const { selectedFolder, folderSort, folderFilter, setFolderSort, setFolderFilter, selectFolder, folders, upsertFolder, removeFolder } = useUiStore()
   const { closeTabsByPromptId } = useTabStore()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
@@ -21,8 +21,8 @@ export function FolderToolbar() {
 
   const handleCreateFolder = async (name: string) => {
     try {
-      await createFolder(name, null)
-      triggerFolderRefetch()
+      const created = await createFolder(name, null)
+      upsertFolder(created)
       toast.success("Folder created successfully", { duration: 3000 })
     } catch (error) {
       console.error("Failed to create folder:", error)
@@ -33,8 +33,8 @@ export function FolderToolbar() {
   const handleRenameFolder = async (newName: string) => {
     if (!selectedFolder) return
     try {
-      await renameFolder(selectedFolder, newName)
-      triggerFolderRefetch()
+      const updated = await renameFolder(selectedFolder, newName)
+      upsertFolder(updated)
       toast.success("Folder renamed successfully", { duration: 3000 })
     } catch (error) {
       console.error("Failed to rename folder:", error)
@@ -53,11 +53,8 @@ export function FolderToolbar() {
         closeTabsByPromptId(promptId)
       })
 
-      // Reason: Clear folder selection since it's been deleted (P5S4b - folder deletion fix)
       selectFolder(null)
-      // Reason: Trigger both folder and prompt refetch to update both panels (P5S4b)
-      triggerFolderRefetch()
-      triggerPromptRefetch()
+      removeFolder(selectedFolder)
       toast.success("Folder deleted successfully", { duration: 3000 })
     } catch (error) {
       console.error("Failed to delete folder:", error)
@@ -176,14 +173,14 @@ export function FolderToolbar() {
         open={renameDialogOpen}
         onOpenChange={setRenameDialogOpen}
         onConfirm={handleRenameFolder}
-        currentName={selectedFolder || ""}
+        currentName={folders.find((folder) => folder.id === selectedFolder)?.name || ""}
       />
 
       <DeleteFolderDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteFolder}
-        folderName={selectedFolder || ""}
+        folderName={folders.find((folder) => folder.id === selectedFolder)?.name || ""}
       />
     </div>
   )
