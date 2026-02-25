@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { CreateFolderDialog, RenameFolderDialog, DeleteFolderDialog } from "./FolderDialogs"
+import { OverflowTooltipText } from "@/components/ui/overflow-tooltip-text"
 
 interface FolderItemProps {
   folder: Folder
@@ -49,9 +50,16 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
   }
 
   const handleConfirmRename = async (newName: string) => {
+    const previousName = folder.name
+
+    // Optimistic update for snappy UI
+    if (onUpdate) {
+      onUpdate(folder.id, { ...folder, name: newName })
+    }
+
     try {
       const updatedFolder = await renameFolder(folder.id, newName)
-      // Update parent's state immediately
+      // Reconcile with server response
       if (onUpdate) {
         onUpdate(folder.id, updatedFolder)
       }
@@ -61,6 +69,10 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
       )
       toast.success("Folder renamed successfully", { duration: 3000 })
     } catch (error) {
+      // Rollback optimistic update
+      if (onUpdate) {
+        onUpdate(folder.id, { ...folder, name: previousName })
+      }
       console.error("Failed to rename folder:", error)
       toast.error("Failed to rename folder", { duration: 6000 })
     }
@@ -80,7 +92,6 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
         closeTabsByPromptId(promptId)
       })
 
-      // Update parent's state immediately
       if (onDelete) {
         onDelete(folder.id)
       }
@@ -96,16 +107,35 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
   }
 
   const handleConfirmCreateSubfolder = async (name: string) => {
+    const tempId = `temp-${Date.now()}`
+    const optimisticFolder = {
+      ...folder,
+      id: tempId,
+      name,
+      parent_id: folder.id,
+      created_at: new Date(),
+      updated_at: new Date(),
+    }
+
+    // Optimistic add to children
+    setChildren((prev) => [...prev, optimisticFolder].sort((a, b) => a.name.localeCompare(b.name)))
+
     try {
       const newFolder = await createFolder(name, folder.id)
-      // Add to children state immediately
-      setChildren((prev) => [...prev, newFolder].sort((a, b) => a.name.localeCompare(b.name)))
+      // Reconcile optimistic child with server response
+      setChildren((prev) =>
+        prev
+          .map((child) => (child.id === tempId ? newFolder : child))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      )
       // Expand folder if not already expanded
       if (!isExpanded) {
         toggleFolder(folder.id)
       }
       toast.success("Subfolder created successfully", { duration: 3000 })
     } catch (error) {
+      // Rollback optimistic add
+      setChildren((prev) => prev.filter((child) => child.id !== tempId))
       console.error("Failed to create subfolder:", error)
       toast.error("Failed to create subfolder", { duration: 6000 })
     }
@@ -130,8 +160,10 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
             handleToggle()
           }}
         />
-        <FolderIcon className="h-4 w-4 mr-2" />
-        <span className="flex-1">{folder.name}</span>
+        <FolderIcon className="h-4 w-4 mr-2 shrink-0 hidden sm:block" />
+        <div className="flex-1 min-w-0">
+          <OverflowTooltipText text={folder.name} />
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger
             className="p-1 hover:bg-gray-600 rounded"

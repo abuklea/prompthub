@@ -32,6 +32,7 @@ import { Plus } from "lucide-react"
 import { createPrompt } from "../actions"
 import { toast } from "sonner"
 import { getDisplayTitle } from "../utils"
+import { OverflowTooltipText } from "@/components/ui/overflow-tooltip-text"
 
 export function PromptList() {
   const {
@@ -262,7 +263,7 @@ export function PromptList() {
                 <div
                   key={prompt.id}
                   className={cn(
-                    "p-2 rounded-md cursor-pointer transition-colors",
+                    "p-2 rounded-md cursor-pointer transition-colors whitespace-nowrap",
                     isActive
                       ? "bg-primary text-primary-foreground"
                       : "hover:bg-accent"
@@ -270,7 +271,7 @@ export function PromptList() {
                   onClick={handleSingleClick}
                   onDoubleClick={handleDoubleClick}
                 >
-                  {getDisplayTitle(prompt.title)}
+                  <OverflowTooltipText text={getDisplayTitle(prompt.title)} />
                 </div>
               )
             })}
