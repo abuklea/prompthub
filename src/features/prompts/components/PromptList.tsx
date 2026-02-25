@@ -99,7 +99,7 @@ export function PromptList() {
         type: 'document',
         title: "[Untitled Doc]",
         promptId: result.data.id,
-        folderId: result.data.folder_id,
+        folderId: result.data.folder_id ?? undefined,
       })
       triggerPromptRefetch()
     }
@@ -229,7 +229,7 @@ export function PromptList() {
                     type: 'document',
                     title: getDisplayTitle(prompt.title),
                     promptId: prompt.id,
-                    folderId: prompt.folder_id,
+                    folderId: prompt.folder_id ?? undefined,
                     isPreview: true,
                   })
                 }
@@ -253,7 +253,7 @@ export function PromptList() {
                     type: 'document',
                     title: getDisplayTitle(prompt.title),
                     promptId: prompt.id,
-                    folderId: prompt.folder_id,
+                    folderId: prompt.folder_id ?? undefined,
                     isPreview: false,
                   })
                 }
