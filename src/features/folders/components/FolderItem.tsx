@@ -114,7 +114,6 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
       name,
       parent_id: folder.id,
       created_at: new Date(),
-      updated_at: new Date(),
     }
 
     // Optimistic add to children
