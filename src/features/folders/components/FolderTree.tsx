@@ -35,12 +35,29 @@ export function FolderTree() {
   }
 
   const handleConfirmCreate = async (name: string) => {
+    const tempFolder: Folder = {
+      id: `temp-${Date.now()}`,
+      name,
+      parent_id: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    }
+
+    // Optimistic update for immediate visual feedback
+    setFolders((prev) => [...prev, tempFolder].sort((a, b) => a.name.localeCompare(b.name)))
+
     try {
       const newFolder = await createFolder(name, null)
-      // Immediately update local state to show the new folder
-      setFolders((prev) => [...prev, newFolder].sort((a, b) => a.name.localeCompare(b.name)))
+      // Reconcile optimistic folder with server response
+      setFolders((prev) =>
+        prev
+          .map((folder) => (folder.id === tempFolder.id ? newFolder : folder))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      )
       toast.success("Folder created successfully", { duration: 3000 })
     } catch (error) {
+      // Rollback optimistic create
+      setFolders((prev) => prev.filter((folder) => folder.id !== tempFolder.id))
       console.error("Failed to create folder:", error)
       toast.error("Failed to create folder", { duration: 6000 })
     }
