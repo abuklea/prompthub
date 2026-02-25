@@ -75,13 +75,23 @@ export function ResizablePanelsLayout({ foldersPanel, documentsPanel, editorPane
             ))}
           </div>
 
-          <PanelGroup direction="horizontal" className="flex-1 overflow-hidden" autoSaveId={`main-layout-two-column-${activePanel}`}>
-            <Panel defaultSize={35} minSize={15} collapsible collapsedSize={0} className="flex flex-col overflow-hidden">
-              {panelConfig[twoColumnPanels[0]].content}
+          <PanelGroup direction="vertical" className="flex-1 overflow-hidden" autoSaveId={`main-layout-stacked-${activePanel}`}>
+            <Panel defaultSize={48} minSize={25} className="flex flex-col overflow-hidden">
+              {panelConfig[activePanel].content}
             </Panel>
-            <AnimatedResizeHandle />
-            <Panel defaultSize={65} minSize={30} collapsible collapsedSize={0} className="flex flex-col overflow-hidden">
-              {panelConfig[twoColumnPanels[1]].content}
+
+            <AnimatedResizeHandle direction="horizontal" />
+
+            <Panel defaultSize={52} minSize={25} className="flex flex-col overflow-hidden">
+              <PanelGroup direction="horizontal" className="h-full overflow-hidden" autoSaveId={`main-layout-two-column-${activePanel}`}>
+                <Panel defaultSize={35} minSize={15} collapsible collapsedSize={0} className="flex flex-col overflow-hidden">
+                  {panelConfig[twoColumnPanels[0]].content}
+                </Panel>
+                <AnimatedResizeHandle />
+                <Panel defaultSize={65} minSize={30} collapsible collapsedSize={0} className="flex flex-col overflow-hidden">
+                  {panelConfig[twoColumnPanels[1]].content}
+                </Panel>
+              </PanelGroup>
             </Panel>
           </PanelGroup>
         </div>
