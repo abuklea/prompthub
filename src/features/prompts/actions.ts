@@ -2,12 +2,21 @@
 
 import db from "@/lib/db"
 import { createClient } from "@/lib/supabase/server"
-import { createPromptSchema, getPromptDetailsSchema } from "./schemas"
+import {
+  assignPromptTagsSchema,
+  createPromptSchema,
+  createTagSchema,
+  getPromptDetailsSchema,
+  getPromptVersionHistorySchema,
+  listTagsSchema,
+  restorePromptVersionSchema,
+  searchPromptsSchema,
+} from "./schemas"
 import { ActionResult } from "@/types/actions"
-import { Prompt } from "@prisma/client"
+import { PromptListItem, PromptVersionHistoryItem } from "./types"
 import { ensureProfileExists } from "@/lib/ensure-profile"
 
-export async function getPromptsByFolder(folderId: string) {
+export async function getPromptsByFolder(folderId: string, filters?: { query?: string; tagIds?: string[] }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -15,10 +24,36 @@ export async function getPromptsByFolder(folderId: string) {
     throw new Error("User not found")
   }
 
+  const safeQuery = filters?.query?.trim()
+  const safeTagIds = filters?.tagIds?.filter(Boolean) ?? []
+
+  if (safeQuery) {
+    return searchPrompts({ folderId, query: safeQuery, tagIds: safeTagIds })
+  }
+
   return await db.prompt.findMany({
     where: {
       user_id: user.id,
       folder_id: folderId,
+      ...(safeTagIds.length > 0
+        ? {
+            tags: {
+              some: {
+                id: {
+                  in: safeTagIds,
+                },
+              },
+            },
+          }
+        : {}),
+    },
+    include: {
+      tags: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
     },
     orderBy: {
       title: "asc",
@@ -32,7 +67,7 @@ export async function getPromptsByFolder(folderId: string) {
  * @param data - Object containing folderId and optional title
  * @returns ActionResult with promptId on success, error message on failure
  */
-export async function createPrompt(data: unknown): Promise<ActionResult<Prompt>> {
+export async function createPrompt(data: unknown): Promise<ActionResult<PromptListItem>> {
   try {
     // Validate input
     const parsed = createPromptSchema.safeParse(data)
@@ -85,7 +120,7 @@ export async function createPrompt(data: unknown): Promise<ActionResult<Prompt>>
 
     // Reason: Return full Prompt object for optimistic updates (P5S5T4 - Performance optimization)
     // This eliminates 2 additional database requests (getPromptsByFolder + getPromptDetails)
-    return { success: true, data: prompt }
+    return { success: true, data: { ...prompt, tags: [] } }
   } catch (error) {
     // Reason: NEXT_REDIRECT must be re-thrown for Next.js navigation
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {
@@ -137,7 +172,7 @@ export async function getPromptDetails(data: unknown): Promise<ActionResult> {
       return { success: false, error: "Prompt not found" }
     }
 
-    return { success: true, data: prompt }
+    return { success: true, data: { ...prompt, tags: [] } }
   } catch (error) {
     // Reason: NEXT_REDIRECT must be re-thrown for Next.js navigation
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {
@@ -296,5 +331,329 @@ export async function validatePrompts(promptIds: string[]): Promise<ActionResult
     }
     console.error("validatePrompts error:", error)
     return { success: false, error: "Failed to validate prompts" }
+  }
+}
+
+
+export async function searchPrompts(data: unknown) {
+  const parsed = searchPromptsSchema.safeParse(data)
+  if (!parsed.success) {
+    return []
+  }
+
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return []
+  }
+
+  const { query, folderId, tagIds } = parsed.data
+  const tsQuery = query
+    .split(/\s+/)
+    .map((token) => token.replace(/[^\p{L}\p{N}_-]/gu, "").trim())
+    .filter(Boolean)
+    .join(" & ")
+
+  if (!tsQuery) {
+    return []
+  }
+
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT p.id
+    FROM "Prompt" p
+    WHERE p.user_id = ${user.id}
+      AND (${folderId ?? null}::text IS NULL OR p.folder_id = ${folderId ?? null})
+      AND to_tsvector('english', coalesce(p.title, '') || ' ' || coalesce(p.content, '')) @@ to_tsquery('english', ${tsQuery})
+      AND (
+        array_length(${tagIds}::text[], 1) IS NULL
+        OR EXISTS (
+          SELECT 1
+          FROM "_PromptToTag" pt
+          JOIN "Tag" t ON t.id = pt."B"
+          WHERE pt."A" = p.id
+            AND t.user_id = ${user.id}
+            AND pt."B" = ANY(${tagIds}::text[])
+        )
+      )
+    ORDER BY p.updated_at DESC
+    LIMIT 100
+  `
+
+  if (rows.length === 0) {
+    return []
+  }
+
+  const prompts = await db.prompt.findMany({
+    where: {
+      id: {
+        in: rows.map((row) => row.id),
+      },
+      user_id: user.id,
+    },
+    include: {
+      tags: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  })
+
+  const order = new Map(rows.map((row, index) => [row.id, index]))
+  return prompts.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+}
+
+export async function getTags(data: unknown = {}) {
+  const parsed = listTagsSchema.safeParse(data)
+  if (!parsed.success) {
+    return []
+  }
+
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return []
+  }
+
+  const tags = await db.tag.findMany({
+    where: {
+      user_id: user.id,
+      ...(parsed.data.folderId
+        ? {
+            prompts: {
+              some: {
+                folder_id: parsed.data.folderId,
+                user_id: user.id,
+              },
+            },
+          }
+        : {}),
+    },
+    orderBy: { name: 'asc' },
+  })
+
+  return tags
+}
+
+export async function createTag(data: unknown): Promise<ActionResult<{ id: string; name: string }>> {
+  try {
+    const parsed = createTagSchema.safeParse(data)
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid input data' }
+    }
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'Unauthorized. Please sign in.' }
+    }
+
+    const existing = await db.tag.findFirst({
+      where: {
+        user_id: user.id,
+        name: {
+          equals: parsed.data.name,
+          mode: 'insensitive',
+        },
+      },
+      select: { id: true, name: true },
+    })
+
+    if (existing) {
+      return { success: true, data: existing }
+    }
+
+    const tag = await db.tag.create({
+      data: {
+        user_id: user.id,
+        name: parsed.data.name,
+      },
+      select: { id: true, name: true },
+    })
+
+    return { success: true, data: tag }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
+      throw error
+    }
+    console.error('createTag error:', error)
+    return { success: false, error: 'Failed to create tag' }
+  }
+}
+
+export async function assignTagsToPrompt(data: unknown): Promise<ActionResult<void>> {
+  try {
+    const parsed = assignPromptTagsSchema.safeParse(data)
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid input data' }
+    }
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'Unauthorized. Please sign in.' }
+    }
+
+    const prompt = await db.prompt.findFirst({
+      where: {
+        id: parsed.data.promptId,
+        user_id: user.id,
+      },
+      select: { id: true },
+    })
+
+    if (!prompt) {
+      return { success: false, error: 'Prompt not found or access denied' }
+    }
+
+    const uniqueTagIds = Array.from(new Set(parsed.data.tagIds))
+
+    if (uniqueTagIds.length > 0) {
+      const ownedTags = await db.tag.count({
+        where: {
+          id: { in: uniqueTagIds },
+          user_id: user.id,
+        },
+      })
+
+      if (ownedTags !== uniqueTagIds.length) {
+        return { success: false, error: 'One or more tags are invalid' }
+      }
+    }
+
+    await db.prompt.update({
+      where: { id: parsed.data.promptId },
+      data: {
+        tags: {
+          set: uniqueTagIds.map((tagId) => ({ id: tagId })),
+        },
+      },
+    })
+
+    return { success: true, data: undefined }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
+      throw error
+    }
+    console.error('assignTagsToPrompt error:', error)
+    return { success: false, error: 'Failed to assign tags' }
+  }
+}
+
+export async function getPromptVersionHistory(data: unknown): Promise<ActionResult<PromptVersionHistoryItem[]>> {
+  try {
+    const parsed = getPromptVersionHistorySchema.safeParse(data)
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid prompt ID' }
+    }
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'Unauthorized. Please sign in.' }
+    }
+
+    const prompt = await db.prompt.findFirst({
+      where: {
+        id: parsed.data.promptId,
+        user_id: user.id,
+      },
+      select: { id: true },
+    })
+
+    if (!prompt) {
+      return { success: false, error: 'Prompt not found or access denied' }
+    }
+
+    const versions = await db.promptVersion.findMany({
+      where: { prompt_id: parsed.data.promptId },
+      select: {
+        id: true,
+        created_at: true,
+        title_snapshot: true,
+        content_snapshot: true,
+      },
+      orderBy: { created_at: 'desc' },
+      take: 50,
+    })
+
+    return { success: true, data: versions }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
+      throw error
+    }
+    console.error('getPromptVersionHistory error:', error)
+    return { success: false, error: 'Failed to fetch prompt history' }
+  }
+}
+
+export async function restorePromptVersion(data: unknown): Promise<ActionResult<void>> {
+  try {
+    const parsed = restorePromptVersionSchema.safeParse(data)
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid restore request' }
+    }
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'Unauthorized. Please sign in.' }
+    }
+
+    const prompt = await db.prompt.findFirst({
+      where: {
+        id: parsed.data.promptId,
+        user_id: user.id,
+      },
+      select: { id: true, title: true, content: true },
+    })
+
+    if (!prompt) {
+      return { success: false, error: 'Prompt not found or access denied' }
+    }
+
+    const version = await db.promptVersion.findFirst({
+      where: {
+        id: parsed.data.versionId,
+        prompt_id: parsed.data.promptId,
+      },
+      select: {
+        title_snapshot: true,
+        content_snapshot: true,
+      },
+    })
+
+    if (!version) {
+      return { success: false, error: 'Version not found' }
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.promptVersion.create({
+        data: {
+          prompt_id: parsed.data.promptId,
+          diff: '',
+          title_snapshot: prompt.title,
+          content_snapshot: prompt.content,
+        },
+      })
+
+      await tx.prompt.update({
+        where: { id: parsed.data.promptId },
+        data: {
+          title: version.title_snapshot,
+          content: version.content_snapshot,
+          updated_at: new Date(),
+        },
+      })
+    })
+
+    return { success: true, data: undefined }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
+      throw error
+    }
+    console.error('restorePromptVersion error:', error)
+    return { success: false, error: 'Failed to restore prompt version' }
   }
 }

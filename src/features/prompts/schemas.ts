@@ -52,3 +52,32 @@ export const titleValidationSchema = z.string()
   )
 
 export type ValidTitle = z.infer<typeof titleValidationSchema>
+
+
+export const searchPromptsSchema = z.object({
+  folderId: z.string().uuid('Invalid folder ID').optional(),
+  query: z.string().trim().min(1, 'Query required').max(200, 'Query too long'),
+  tagIds: z.array(z.string().uuid('Invalid tag ID')).max(20).optional().default([]),
+})
+
+export const listTagsSchema = z.object({
+  folderId: z.string().uuid('Invalid folder ID').optional(),
+})
+
+export const createTagSchema = z.object({
+  name: z.string().trim().min(1, 'Tag name is required').max(50, 'Tag name too long'),
+})
+
+export const assignPromptTagsSchema = z.object({
+  promptId: z.string().uuid('Invalid prompt ID'),
+  tagIds: z.array(z.string().uuid('Invalid tag ID')).max(20),
+})
+
+export const getPromptVersionHistorySchema = z.object({
+  promptId: z.string().uuid('Invalid prompt ID'),
+})
+
+export const restorePromptVersionSchema = z.object({
+  promptId: z.string().uuid('Invalid prompt ID'),
+  versionId: z.number().int().positive('Invalid version ID'),
+})
