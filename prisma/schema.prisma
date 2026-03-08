@@ -52,6 +52,8 @@ model Prompt {
 model PromptVersion {
   id         Int      @id @default(autoincrement())
   diff       String   // Stores the patch from diff-match-patch
+  title_snapshot String?
+  content_snapshot String @default("")
   created_at DateTime @default(now())
   prompt_id  String
   prompt     Prompt   @relation(fields: [prompt_id], references: [id], onDelete: Cascade)

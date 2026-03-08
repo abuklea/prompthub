@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Prompt } from '@prisma/client'
+import type { PromptListItem } from '@/features/prompts/types'
 
 // Sort and filter types
 export type FolderSort = 'name-asc' | 'name-desc' | 'date-asc' | 'date-desc'
@@ -16,13 +16,14 @@ interface UiState {
   folderFilter: string
   docSort: DocSort
   docFilter: string
+  selectedTagIds: string[]
 
   // Refetch triggers (P5S4bT2)
   folderRefetchTrigger: number
   promptRefetchTrigger: number
 
   // Prompts state (for auto-save updates without refetch)
-  prompts: Prompt[]
+  prompts: PromptListItem[]
 
   // Workspace preload state
   workspacePreloading: boolean
@@ -38,19 +39,20 @@ interface UiState {
   setFolderFilter: (filter: string) => void
   setDocSort: (sort: DocSort) => void
   setDocFilter: (filter: string) => void
+  setSelectedTagIds: (tagIds: string[]) => void
 
   // Refetch trigger actions (P5S4bT2)
   triggerFolderRefetch: () => void
   triggerPromptRefetch: () => void
 
   // Prompts management actions
-  setPrompts: (prompts: Prompt[]) => void
+  setPrompts: (prompts: PromptListItem[]) => void
 
   // Workspace preload actions
   setWorkspacePreloading: (loading: boolean) => void
   setWorkspaceLoadedAt: (loadedAt: string | null) => void
   updatePromptTitle: (promptId: string, newTitle: string) => void
-  addPrompt: (prompt: Prompt) => void
+  addPrompt: (prompt: PromptListItem) => void
   removePrompt: (promptId: string) => void
 }
 
@@ -65,6 +67,7 @@ export const useUiStore = create<UiState>((set) => ({
   folderFilter: '',
   docSort: 'title-asc',
   docFilter: '',
+  selectedTagIds: [],
 
   // Refetch triggers (P5S4bT2)
   folderRefetchTrigger: 0,
@@ -96,6 +99,7 @@ export const useUiStore = create<UiState>((set) => ({
   setFolderFilter: (filter) => set({ folderFilter: filter }),
   setDocSort: (sort) => set({ docSort: sort }),
   setDocFilter: (filter) => set({ docFilter: filter }),
+  setSelectedTagIds: (tagIds) => set({ selectedTagIds: tagIds }),
 
   // Refetch trigger actions (P5S4bT2)
   triggerFolderRefetch: () =>

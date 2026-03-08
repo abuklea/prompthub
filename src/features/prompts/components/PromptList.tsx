@@ -24,7 +24,7 @@ import { useEffect, useState, useMemo } from "react"
 import { useUiStore } from "@/stores/use-ui-store"
 import { useTabStore } from "@/stores/use-tab-store"
 import { getPromptsByFolder } from "../actions"
-import { Prompt } from "@prisma/client"
+import { PromptListItem } from "@/features/prompts/types"
 import { cn } from "@/lib/utils"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
@@ -40,6 +40,7 @@ export function PromptList() {
     selectedFolder,
     docSort,
     docFilter,
+    selectedTagIds,
     promptRefetchTrigger,
     triggerPromptRefetch,
     prompts,
@@ -73,7 +74,7 @@ export function PromptList() {
       }
 
       try {
-        const folderPrompts = await getPromptsByFolder(selectedFolder)
+        const folderPrompts = await getPromptsByFolder(selectedFolder, { query: docFilter, tagIds: selectedTagIds })
         setPrompts(folderPrompts)
         setPromptsForFolderInCache(selectedFolder, folderPrompts)
       } catch (error) {
@@ -83,7 +84,7 @@ export function PromptList() {
       }
     }
     loadPrompts()
-  }, [selectedFolder, promptRefetchTrigger, setPrompts])
+  }, [selectedFolder, promptRefetchTrigger, setPrompts, docFilter, selectedTagIds])
 
   // Reason: Handle new document creation from empty state with auto-generated unique name
   const handleCreateFirstDoc = async () => {
@@ -91,7 +92,7 @@ export function PromptList() {
 
     setCreatingDoc(true)
 
-    const tempPrompt: Prompt = {
+    const tempPrompt: PromptListItem = {
       id: `temp-${Date.now()}`,
       user_id: "local",
       folder_id: selectedFolder,
@@ -99,6 +100,7 @@ export function PromptList() {
       content: "",
       created_at: new Date(),
       updated_at: new Date(),
+      tags: [],
     }
 
     setPrompts([...prompts, tempPrompt])
@@ -143,13 +145,6 @@ export function PromptList() {
   const filteredAndSortedPrompts = useMemo(() => {
     let result = [...prompts]
 
-    // Apply filter (case-insensitive title search)
-    if (docFilter) {
-      result = result.filter(prompt =>
-        (prompt.title || "").toLowerCase().includes(docFilter.toLowerCase())
-      )
-    }
-
     // Apply sort
     result.sort((a, b) => {
       switch (docSort) {
@@ -171,7 +166,7 @@ export function PromptList() {
     })
 
     return result
-  }, [prompts, docSort, docFilter])
+  }, [prompts, docSort])
 
   // Reason: Calculate activeTab once per render, not for every prompt
   // This prevents infinite re-render loops when tabs state changes

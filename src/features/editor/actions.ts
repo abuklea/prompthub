@@ -88,6 +88,8 @@ export async function saveNewVersion(
         data: {
           prompt_id: promptId,
           diff: diff, // Git-style patch from diff-match-patch
+          title_snapshot: currentPrompt.title,
+          content_snapshot: currentPrompt.content,
         },
       })
 

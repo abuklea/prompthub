@@ -44,7 +44,7 @@ Changelog:
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useUiStore } from "@/stores/use-ui-store"
 import { useTabStore } from "@/stores/use-tab-store"
-import { getPromptDetails } from "@/features/prompts/actions"
+import { getPromptDetails, getPromptVersionHistory, restorePromptVersion } from "@/features/prompts/actions"
 import { saveNewVersion, autoSavePrompt } from "@/features/editor/actions"
 import { titleValidationSchema } from "@/features/prompts/schemas"
 import { SetTitleDialog } from "@/features/prompts/components/SetTitleDialog"
@@ -55,8 +55,10 @@ import { createClient } from "@/lib/supabase/client"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Editor } from "@/features/editor"
 import { toast } from "sonner"
+import type { PromptVersionHistoryItem } from "@/features/prompts/types"
 import type { Prompt, Folder } from "@prisma/client"
 
 type PromptWithFolder = Prompt & {
@@ -130,6 +132,10 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [showSetTitleDialog, setShowSetTitleDialog] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyItems, setHistoryItems] = useState<PromptVersionHistoryItem[]>([])
+  const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null)
 
   // Reason: Prevent duplicate loads in React Strict Mode (P5S4T4)
   const loadedRef = useRef<string | null>(null)
@@ -505,6 +511,42 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
     }, 0)
   }, [handleSave])
 
+
+  const handleOpenHistory = useCallback(async () => {
+    if (!promptId) return
+
+    setHistoryOpen(true)
+    setHistoryLoading(true)
+
+    const result = await getPromptVersionHistory({ promptId })
+    if (!result.success) {
+      toast.error(result.error)
+      setHistoryLoading(false)
+      return
+    }
+
+    setHistoryItems(result.data || [])
+    setHistoryLoading(false)
+  }, [promptId])
+
+  const handleRestoreVersion = useCallback(async (versionId: number) => {
+    if (!promptId) return
+
+    setRestoringVersionId(versionId)
+    const result = await restorePromptVersion({ promptId, versionId })
+    if (!result.success) {
+      toast.error(result.error)
+      setRestoringVersionId(null)
+      return
+    }
+
+    toast.success("Version restored")
+    loadedRef.current = null
+    triggerPromptRefetch()
+    setHistoryOpen(false)
+    setRestoringVersionId(null)
+  }, [promptId, triggerPromptRefetch])
+
   // Reason: Keyboard listener for Ctrl+S manual save (P5S3bT14)
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -599,6 +641,13 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
 
           <div className="flex gap-2">
             <Button
+              onClick={handleOpenHistory}
+              disabled={!promptId}
+              variant="outline"
+            >
+              History
+            </Button>
+            <Button
               onClick={handleSave}
               disabled={saving || !promptId}
               variant="default"
@@ -617,6 +666,39 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         onConfirm={handleSetTitle}
         currentTitle={title}
       />
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Version history</DialogTitle>
+            <DialogDescription>Restore a previous snapshot of this document.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-auto space-y-2">
+            {historyLoading && <p className="text-sm text-muted-foreground">Loading history...</p>}
+            {!historyLoading && historyItems.length === 0 && (
+              <p className="text-sm text-muted-foreground">No saved versions yet.</p>
+            )}
+            {historyItems.map((item) => (
+              <div key={item.id} className="border rounded-md p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">{new Date(item.created_at).toLocaleString()}</p>
+                  <Button
+                    size="sm"
+                    onClick={() => handleRestoreVersion(item.id)}
+                    disabled={restoringVersionId === item.id}
+                  >
+                    {restoringVersionId === item.id ? "Restoring..." : "Restore"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Title: {item.title_snapshot || "[Untitled Doc]"}</p>
+                <pre className="text-xs bg-muted/50 p-2 rounded-md overflow-auto max-h-36 whitespace-pre-wrap">
+                  {item.content_snapshot.slice(0, 1200)}
+                </pre>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

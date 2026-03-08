@@ -5,26 +5,33 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUiStore, type DocSort } from "@/stores/use-ui-store"
 import { useTabStore } from "@/stores/use-tab-store"
-import { createPrompt, renamePrompt, deletePrompt } from "../actions"
+import { assignTagsToPrompt, createPrompt, createTag, deletePrompt, getTags, renamePrompt } from "../actions"
 import { toast } from "sonner"
-import { Plus, Edit, Trash2, ArrowUpDown } from "lucide-react"
+import { Plus, Edit, Trash2, ArrowUpDown, Tag } from "lucide-react"
 import { CreateDocumentDialog, RenameDocumentDialog, DeleteDocumentDialog } from "./DocumentDialogs"
 
 export function DocumentToolbar() {
-  const { selectedFolder, selectedPrompt, docSort, docFilter, setDocSort, setDocFilter, selectPrompt, triggerPromptRefetch, prompts, addPrompt, removePrompt, updatePromptTitle } = useUiStore()
+  const { selectedFolder, selectedPrompt, docSort, docFilter, selectedTagIds, setDocSort, setDocFilter, setSelectedTagIds, selectPrompt, triggerPromptRefetch, prompts, addPrompt, removePrompt, updatePromptTitle } = useUiStore()
   const { closeTabsByPromptId, tabs, activeTabId, openTab } = useTabStore()
   const [creatingDoc, setCreatingDoc] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedPromptHasVersions, setSelectedPromptHasVersions] = useState(false)
+
+  const [tags, setTags] = useState<Array<{ id: string; name: string }>>([])
+  const [newTagName, setNewTagName] = useState("")
 
   // Reason: Sync selectedPrompt with active tab to enable toolbar buttons
   useEffect(() => {
@@ -88,6 +95,57 @@ export function DocumentToolbar() {
       selectPrompt(result.data.id)
     }
     setCreatingDoc(false)
+  }
+
+
+  useEffect(() => {
+    async function loadTags() {
+      const fetched = await getTags({ folderId: selectedFolder || undefined })
+      setTags(fetched)
+    }
+    loadTags()
+  }, [selectedFolder, prompts])
+
+  const selectedPromptTagIds = selectedPrompt
+    ? (prompts.find((p) => p.id === selectedPrompt)?.tags?.map((tag) => tag.id) ?? [])
+    : []
+
+  const toggleTagFilter = (tagId: string) => {
+    if (selectedTagIds.includes(tagId)) {
+      setSelectedTagIds(selectedTagIds.filter((id) => id !== tagId))
+      return
+    }
+    setSelectedTagIds([...selectedTagIds, tagId])
+  }
+
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return
+    const result = await createTag({ name: newTagName.trim() })
+    if (!result.success || !result.data) {
+      toast.error(!result.success ? result.error : "Failed to create tag")
+      return
+    }
+    setNewTagName("")
+    setTags((prev) => {
+      if (prev.some((tag) => tag.id === result.data?.id)) return prev
+      return [...prev, result.data!].sort((a, b) => a.name.localeCompare(b.name))
+    })
+    toast.success(`Tag "${result.data.name}" ready`)
+  }
+
+  const toggleTagForPrompt = async (tagId: string) => {
+    if (!selectedPrompt) return
+    const next = selectedPromptTagIds.includes(tagId)
+      ? selectedPromptTagIds.filter((id) => id !== tagId)
+      : [...selectedPromptTagIds, tagId]
+
+    const result = await assignTagsToPrompt({ promptId: selectedPrompt, tagIds: next })
+    if (!result.success) {
+      toast.error(result.error)
+      return
+    }
+
+    triggerPromptRefetch()
   }
 
   const handleRename = () => {
@@ -234,6 +292,58 @@ export function DocumentToolbar() {
           <p>Filter documents by title</p>
         </TooltipContent>
       </Tooltip>
+
+      {/* Tag Filters */}
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="min-w-[70px] shrink-0">
+                <Tag className="h-4 w-4 mr-1" />
+                <span className="text-xs">Tags ({selectedTagIds.length})</span>
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Filter documents by tags and manage selected document tags</p>
+          </TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuLabel>Filter by tags</DropdownMenuLabel>
+          {tags.map((tag) => (
+            <DropdownMenuCheckboxItem
+              key={`filter-${tag.id}`}
+              checked={selectedTagIds.includes(tag.id)}
+              onCheckedChange={() => toggleTagFilter(tag.id)}
+            >
+              {tag.name}
+            </DropdownMenuCheckboxItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Selected document tags</DropdownMenuLabel>
+          {selectedPrompt ? tags.map((tag) => (
+            <DropdownMenuCheckboxItem
+              key={`prompt-${tag.id}`}
+              checked={selectedPromptTagIds.includes(tag.id)}
+              onCheckedChange={() => toggleTagForPrompt(tag.id)}
+            >
+              {tag.name}
+            </DropdownMenuCheckboxItem>
+          )) : <DropdownMenuItem disabled>Select a document first</DropdownMenuItem>}
+          <DropdownMenuSeparator />
+          <div className="p-2 flex gap-2">
+            <Input
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              placeholder="New tag"
+              className="h-8"
+            />
+            <Button size="sm" onClick={handleCreateTag}>
+              Add
+            </Button>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Dialogs */}
       <RenameDocumentDialog
