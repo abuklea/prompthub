@@ -35,7 +35,9 @@ model Prompt {
   id          String                   @id @default(uuid())
   title       String?
   content     String
-  content_tsv Unsupported("tsvector")? // For Full-Text Search
+  // Full-text search vector: a Postgres STORED generated column derived from
+  // title + content (migration 20260708000000). Never written by Prisma.
+  content_tsv Unsupported("tsvector")?
   created_at  DateTime                 @default(now())
   updated_at  DateTime                 @updatedAt
   user_id     String

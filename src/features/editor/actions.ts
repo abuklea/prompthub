@@ -93,9 +93,11 @@ export async function saveNewVersion(
         },
       })
 
-      // Update prompt with new content
-      await tx.prompt.update({
-        where: { id: promptId },
+      // Update prompt with new content.
+      // Reason: user-scoped write (defence-in-depth) — updateMany allows the
+      // composite (id, user_id) predicate that update() cannot express.
+      await tx.prompt.updateMany({
+        where: { id: promptId, user_id: user.id },
         data: {
           title: newTitle,
           content: newContent,

@@ -79,17 +79,21 @@ npx prisma migrate dev
 
 This command will sync your Supabase database with the schema defined in `prisma/schema.prisma`.
 
-### 6. Apply Supabase SQL Scripts
+### 6. (Optional) Apply Row Level Security Policies
 
-To ensure the application functions correctly, you need to run two SQL scripts on your Supabase database. These scripts set up the user profile trigger and the security policies.
+Tenant isolation is enforced in application code: every server action authenticates the
+user and scopes every Prisma query by `user_id`. You do **not** need any database trigger
+for the app to work — new `Profile` rows are created in application code via
+`ensureProfileExists()`, and Supabase Cloud does not permit triggers on `auth.users`.
 
-Navigate to the **SQL Editor** in your Supabase dashboard and run the contents of the following files one by one:
+If you additionally want Postgres Row Level Security as defence-in-depth (it constrains
+connections that carry the end-user JWT, i.e. the Supabase client), open the **SQL Editor**
+in your Supabase dashboard and run the contents of:
 
-1.  **User Profile Trigger:** This script creates a trigger to automatically add a new user to the `Profile` table upon sign-up.
-    -   Open and run the SQL from: `wip/T2.1-supabase-profile-trigger.sql`
+-   `wip/P3S1-rls-policies.sql`
 
-2.  **Row Level Security (RLS) Policies:** These policies ensure that users can only access their own data.
-    -   Open and run the SQL from: `wip/T3.1-rls-policies.sql`
+Note: RLS does not constrain Prisma, which connects with a database role, so this is a
+secondary layer and not required for the application to enforce isolation.
 
 ### 7. Run the Development Server
 
@@ -99,4 +103,4 @@ You are now ready to start the application:
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result. You should be able to sign up, log in, and access the main application.
+Open [http://localhost:3010](http://localhost:3010) with your browser to see the result. You should be able to sign up, log in, and access the main application.

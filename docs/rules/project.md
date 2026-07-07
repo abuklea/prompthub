@@ -6,9 +6,9 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 
 ## WEB PORTAL ARCHITECTURE
 
-**Frontend**: Next.js 15 + React 19 + TypeScript + Tailwind CSS + Shadcn/UI + Framer Motion  
-**Backend**: Supabase (PostgreSQL+Auth+Storage+Realtime+RLS policies)
-**State Management**: Zustand for global state, React Context for local state  
+**Frontend**: Next.js 14.2.35 (App Router) + React 18 + TypeScript + Tailwind CSS + Shadcn/UI + Framer Motion  
+**Backend**: Supabase Auth + PostgreSQL accessed via Prisma; tenant isolation enforced in application server actions (see note below)
+**State Management**: Zustand for global state, React Hook Form + local React state for local state  
 **Deployment**: Vercel hosting for frontend with Next.js API routes for serverless functions, Supabase managed backend  
 **UI Components**: Shadcn components and custom additions  
 **Development**: Node.js + npm ecosystem
@@ -64,13 +64,26 @@ PromptHub is a centralized repository where users can efficiently store, organiz
   - Connect using: `supabase link --project-ref {{SUPABASE_PROJECT_ID}}` (Note: The developer must be prompted to login manually using `supabase cli` if not already logged in)
   - Use the `supabase cli` tools to perform db migration, management, and configuration of the database
 - **NEVER** call `supabase start` or create a local Supabase instance; we are using cloud Supabase
-- **Auth**: Supabase JWT + RLS policies
-- **NO database triggers on auth.users** when using Supabase Auth as it not permitted in Supabase Cloud
+- **Auth**: Supabase JWT (validated server-side with `supabase.auth.getUser()`)
+- **Tenant isolation (authoritative)**: enforced in application code. Every server
+  action authenticates the user and scopes every Prisma query with
+  `where: { user_id: user.id }`. Prisma connects with a database role over
+  `DATABASE_URL`, so Postgres RLS does **not** constrain Prisma queries — the
+  application filter is the enforced boundary.
+- **RLS (optional defence-in-depth)**: policy definitions live in
+  `wip/P3S1-rls-policies.sql`. They are NOT part of `prisma migrate` and only affect
+  connections that carry the end-user JWT (the Supabase client). Treat them as a
+  secondary layer, not the primary isolation mechanism.
+- **NO database triggers on auth.users** when using Supabase Auth as it is not
+  permitted in Supabase Cloud. New `Profile` rows are created in application code via
+  `ensureProfileExists()` (`src/lib/ensure-profile.ts`), not by a DB trigger.
 - **Storage**: Example: `storage/{user_id}/{dataset_id}/` isolation
 - **Quotas**: Per-user file size limits (env vars: DEFAULT_MAX_*_SIZE_MB)
 
 ### Supabase Integration
-- **Authentication**: Row Level Security (RLS) policies for data isolation
+- **Authentication**: Supabase Auth (JWT). Data isolation is enforced by application
+  server actions (see "Tenant isolation" above), with RLS available as optional
+  defence-in-depth.
 - **Storage**: User-scoped file storage with path pattern `{user_id}/{dataset_id}/`
 - **Real-time**: Supabase
 - **Edge Functions**: For server-side processing
@@ -105,13 +118,15 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ### EXAMPLE PATTERNS
 
-**Security Patterns**:
+**Security Patterns** (PromptHub uses Prisma, not the Supabase data client, for data access):
 ```typescript
-// Row Level Security (RLS) enforcement in all Supabase queries
-const { data, error } = await supabase
-  .from('tours')
-  .select('*')
-  .eq('user_id', user.id); // RLS policy auto-enforces this filter
+// Authoritative isolation: authenticate, then scope EVERY query by user_id.
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) throw new Error("Unauthorized");
+
+const prompts = await db.prompt.findMany({
+  where: { user_id: user.id }, // application-enforced tenant boundary
+});
 
 // Environment variable validation
 const requiredEnvVars = [

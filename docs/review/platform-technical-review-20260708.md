@@ -3,10 +3,11 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Platform Technical Review and Analysis | 08/07/2026 09:00 GMT+10 | 08/07/2026 09:00 GMT+10 |
+| Platform Technical Review and Analysis | 08/07/2026 09:00 GMT+10 | 08/07/2026 09:35 GMT+10 |
 
 ## Table of Contents
 - [Scope and Method](#scope-and-method)
+- [Remediation Status (08/07/2026)](#remediation-status-08072026)
 - [Executive Summary](#executive-summary)
 - [Architecture Overview](#architecture-overview)
 - [Findings Register (Ranked)](#findings-register-ranked)
@@ -39,6 +40,40 @@ Where a claim could not be verified to 100% certainty from the source, it is sta
 as a candidate and the verification step is named. No runtime deployment or live
 database was inspected; findings that depend on deployment configuration
 (specifically the Prisma database role) are flagged as such.
+
+---
+
+## Remediation Status (08/07/2026)
+
+The findings below were acted on in the same branch immediately after the review.
+Fixes were verified with `npm run lint`, `npx tsc --noEmit`, `npm test` (29 tests),
+`npx prisma validate`, and a full `npm run build` (all green). Items requiring a live
+database or full browser-driven UI validation were deferred (see rationale) rather than
+changed blind.
+
+| # | Finding | Status | Notes |
+|---|---------|--------|-------|
+| F1 | RLS untracked / bypassed by Prisma | **Docs corrected** | Docs now state app-layer filtering is the authoritative, enforced boundary and RLS is optional defence-in-depth. Making RLS a tracked migration (Option B) deferred — needs live DB + a decision to route reads through the JWT. |
+| F2 | Unauthenticated `/api/debug` | **Fixed** | Route deleted. |
+| F3 | Committed credentials | **Fixed (rotate pending)** | Secrets removed from `docs/rules/archon.md` and `docs/rules/testing.md`. The exposed credentials must still be **rotated** by an owner (they remain in git history). |
+| F4 | Dead / unindexed FTS | **Fixed** | `content_tsv` is now a STORED generated column (migration `20260708000000`); search uses `content_tsv @@ to_tsquery(...)` so the GIN index is live. Requires `prisma migrate deploy` against the DB. |
+| F5 | Fragile editor state model | **Deferred** | A TanStack Query/SWR refactor of `EditorPane` is 2–4 days and must be validated in a running browser; doing it blind risks regressing the save path. Tracked for a dedicated PRP. |
+| F6 | Missing security headers / rate limiting | **Partially fixed** | Security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) added in `next.config.mjs`. Rate limiting deferred (needs an external store, e.g. Upstash). CSP should be validated in-browser against Monaco. |
+| F7 | Duplicated Supabase client factories | **Fixed** | `src/lib/supabase.ts` deleted; all imports consolidated onto `@/lib/supabase/server` and `@/lib/supabase/client`. |
+| F8 | Ownership-check-then-unscoped write | **Fixed** | `renamePrompt` and `saveNewVersion` now use single-statement `updateMany({ where: { id, user_id }})`. |
+| F9 | Unbounded workspace preload | **Deferred** | Pagination/lazy-load changes runtime behaviour of the preloader and cache; requires UI validation. Tracked. |
+| F10 | Contradictory version storage | **Deferred** | Dropping `diff` is a data-model change; snapshots-only recommended but deferred to a migration PRP. |
+| F11 | No content length cap | **Fixed** | `MAX_CONTENT_LENGTH` (500k) enforced in `saveNewVersionSchema` and `autoSaveSchema`. |
+| F12 | No tests / no CI | **Fixed** | Vitest added with 29 unit tests (diff-utils, prompt/editor/auth schemas, display helper); GitHub Actions CI runs lint, typecheck, test, build, Prisma validate, and gitleaks secret scan. |
+| F13 | Docs / version drift | **Fixed** | `CLAUDE.md`, `docs/rules/project.md`, and `README.md` corrected (Next 14.2.35 App Router; accurate isolation model; real RLS file path; removed the forbidden `auth.users` trigger instruction; dev port 3010). |
+| F14 | Dead / stray files | **Fixed** | Removed unused `components/Header.tsx`, publicly-routable `pages/test-editor.tsx`, committed `npm_output.log`; consolidated the duplicate `ensureProfileExists`; hardened `.gitignore`. |
+| F15 | Case-insensitive dedupe vs case-sensitive constraint | **Deferred** | Needs a `lower(name)` unique index migration; low severity, tracked. |
+| F16 | Stale session-refresh comments | **Fixed** | Comments in `src/lib/supabase/server.ts` corrected to reflect the post-504-fix reality. |
+
+**Net:** 10 of 16 findings fixed, 1 partially fixed, 5 deferred with rationale. The
+deferred items are the ones that cannot be safely completed without a live
+database/deployment or that constitute a multi-day refactor best done as its own
+tracked unit of work.
 
 ---
 

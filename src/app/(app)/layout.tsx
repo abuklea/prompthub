@@ -1,4 +1,4 @@
-import { createServer } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { PanelSubheader } from "@/components/layout/PanelSubheader";
@@ -14,7 +14,7 @@ import { TabCleanupProvider } from "@/components/layout/TabCleanupProvider";
 import { WorkspacePreloader } from "@/components/layout/WorkspacePreloader";
 
 export default async function AppLayout() {
-  const supabase = createServer();
+  const supabase = createClient();
   const { data, error } = await supabase.auth.getUser();
 
   if (error || !data?.user) {

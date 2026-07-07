@@ -1,10 +1,10 @@
 "use server"
 
 import db from "@/lib/db"
-import { createServer } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 
 export async function getWorkspaceSnapshot() {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {

@@ -1,12 +1,12 @@
 "use server"
 
 import db from "@/lib/db"
-import { createServer } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { ensureProfileExists } from "@/lib/ensure-profile"
 
 export async function getRootFolders() {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -25,7 +25,7 @@ export async function getRootFolders() {
 }
 
 export async function createFolder(name: string, parentId: string | null) {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -47,7 +47,7 @@ export async function createFolder(name: string, parentId: string | null) {
 }
 
 export async function renameFolder(folderId: string, newName: string) {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -69,7 +69,7 @@ export async function renameFolder(folderId: string, newName: string) {
 }
 
 export async function deleteFolder(folderId: string) {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -104,7 +104,7 @@ export async function deleteFolder(folderId: string) {
 }
 
 export async function getFolderChildren(parentId: string) {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
