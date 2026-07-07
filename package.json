@@ -8,6 +8,9 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "postinstall": "node scripts/copy-monaco.js"
   },
   "dependencies": {
@@ -55,9 +58,11 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^16.0.1",
+    "@vitest/coverage-v8": "^2.1.9",
     "css-loader": "^7.1.2",
     "monaco-editor-webpack-plugin": "^7.1.1",
     "prisma": "^6.19.0",
-    "style-loader": "^4.0.0"
+    "style-loader": "^4.0.0",
+    "vitest": "^2.1.9"
   }
 }

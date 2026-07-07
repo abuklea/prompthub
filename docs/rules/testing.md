@@ -1,6 +1,8 @@
 ## Testing Strategy
 
-**PRIMARY TEST USER**: allan@formationmedia.net / *.Password123
+**PRIMARY TEST USER**: credentials are NOT stored in the repository. Provide them at
+runtime via untracked env vars (e.g. `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` in
+`.env.test`, which is git-ignored). Never commit credentials to version control.
 
 ### Test-Driven Development (TDD)
 1. **Write the test first** - Define expected behavior before implementation

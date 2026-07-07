@@ -27,6 +27,10 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.test
+
+# tooling logs
+npm_output.log
 
 # vercel
 .vercel

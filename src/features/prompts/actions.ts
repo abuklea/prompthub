@@ -235,16 +235,22 @@ export async function renamePrompt(promptId: string, newTitle: string): Promise<
       }
     }
 
-    // Update prompt title
-    await db.prompt.update({
+    // Update prompt title.
+    // Reason: single-statement, user-scoped write (defence-in-depth, avoids TOCTOU).
+    const updated = await db.prompt.updateMany({
       where: {
-        id: promptId
+        id: promptId,
+        user_id: user.id,
       },
       data: {
         title: newTitle,
         updated_at: new Date()
       }
     })
+
+    if (updated.count === 0) {
+      return { success: false, error: "Prompt not found or access denied" }
+    }
 
     return { success: true, data: undefined }
   } catch (error) {
@@ -363,7 +369,7 @@ export async function searchPrompts(data: unknown) {
     FROM "Prompt" p
     WHERE p.user_id = ${user.id}
       AND (${folderId ?? null}::text IS NULL OR p.folder_id = ${folderId ?? null})
-      AND to_tsvector('english', coalesce(p.title, '') || ' ' || coalesce(p.content, '')) @@ to_tsquery('english', ${tsQuery})
+      AND p.content_tsv @@ to_tsquery('english', ${tsQuery})
       AND (
         array_length(${tagIds}::text[], 1) IS NULL
         OR EXISTS (

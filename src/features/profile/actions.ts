@@ -1,11 +1,11 @@
 "use server"
 
 import db from "@/lib/db"
-import { createServer } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 import { ensureProfileExists } from "@/lib/ensure-profile"
 
 export async function getProfileDetails() {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -31,7 +31,7 @@ export async function getProfileDetails() {
 }
 
 export async function updateDisplayName(displayName: string) {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {

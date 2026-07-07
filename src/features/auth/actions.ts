@@ -5,24 +5,8 @@ import { SignUpSchema, SignInSchema } from "./schemas"
 import { z } from "zod"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import db from "@/lib/db"
 import { ActionResult } from "@/types/actions"
-
-async function ensureProfileExists(userId: string) {
-  // Check if profile exists
-  const existingProfile = await db.profile.findUnique({
-    where: { id: userId }
-  })
-
-  // Create profile if it doesn't exist
-  if (!existingProfile) {
-    await db.profile.create({
-      data: {
-        id: userId
-      }
-    })
-  }
-}
+import { ensureProfileExists } from "@/lib/ensure-profile"
 
 async function ensureProfileExistsSafe(userId: string) {
   try {

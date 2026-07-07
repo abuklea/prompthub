@@ -30,10 +30,7 @@
 1. **Get sources** → `rag_get_available_sources()` - Returns list with id, title, url
 2. **Find source ID** → Match to documentation (e.g., "Supabase docs" → "src_abc123")
 3. **Search** → `rag_search_knowledge_base(query="vector functions", source_id="src_abc123")`
-{
-    "identity": "walkingoncountry",
-    "password": "*.Viser456"
-}
+
 ### General Research:
 ```bash
 # Search knowledge base (2-5 keywords only!)

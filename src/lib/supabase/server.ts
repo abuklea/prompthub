@@ -16,18 +16,18 @@ export function createClient() {
           try {
             cookieStore.set({ name, value, ...options })
           } catch (error) {
-            // The `set` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // Cookies cannot be written during a Server Component render. Safe to
+            // ignore: token refresh is handled by the browser client SDK and the
+            // auth route handlers, not by edge middleware (which makes no Supabase
+            // network calls — see commit e701d51, the Vercel 504 fix).
           }
         },
         remove(name: string, options: any) {
           try {
             cookieStore.set({ name, value: '', ...options })
           } catch (error) {
-            // The `delete` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // See note in `set` above — cookie removal during a Server Component
+            // render is a no-op and is handled by the client SDK / route handlers.
           }
         },
       },

@@ -37,7 +37,7 @@ SUPABASE_PROJECT_URL: https://xmuysganwxygcsxwteil.supabase.co
 ## Technology Stack
 
 **Frontend:**
-- Next.js 14.2.3 (Pages Router)
+- Next.js 14.2.35 (App Router)
 - React 18.3.1
 - TypeScript 5.4.5
 - Tailwind CSS 3.4.3
