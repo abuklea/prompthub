@@ -157,9 +157,9 @@ export function PromptList() {
         case 'date-desc':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         case 'size-asc':
-          return a.content.length - b.content.length
+          return (a.content?.length ?? 0) - (b.content?.length ?? 0)
         case 'size-desc':
-          return b.content.length - a.content.length
+          return (b.content?.length ?? 0) - (a.content?.length ?? 0)
         default:
           return 0
       }

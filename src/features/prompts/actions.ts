@@ -15,6 +15,7 @@ import {
 import { ActionResult } from "@/types/actions"
 import { PromptListItem, PromptVersionHistoryItem } from "./types"
 import { ensureProfileExists } from "@/lib/ensure-profile"
+import { checkMutationRateLimit } from "@/lib/rate-limit"
 
 export async function getPromptsByFolder(folderId: string, filters?: { query?: string; tagIds?: string[] }) {
   const supabase = createClient()
@@ -80,6 +81,11 @@ export async function createPrompt(data: unknown): Promise<ActionResult<PromptLi
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return { success: false, error: "Unauthorized. Please sign in." }
+    }
+
+    const { allowed } = checkMutationRateLimit(user.id)
+    if (!allowed) {
+      return { success: false, error: "Too many requests. Please slow down." }
     }
 
     await ensureProfileExists(user.id)
@@ -470,15 +476,41 @@ export async function createTag(data: unknown): Promise<ActionResult<{ id: strin
       return { success: true, data: existing }
     }
 
-    const tag = await db.tag.create({
-      data: {
-        user_id: user.id,
-        name: parsed.data.name,
-      },
-      select: { id: true, name: true },
-    })
-
-    return { success: true, data: tag }
+    try {
+      const tag = await db.tag.create({
+        data: {
+          user_id: user.id,
+          name: parsed.data.name,
+        },
+        select: { id: true, name: true },
+      })
+      return { success: true, data: tag }
+    } catch (createError) {
+      // Reason: Handle race condition where a concurrent request
+      // created the same tag (case-insensitive match) between our
+      // findFirst check and this create call, triggering the
+      // Tag_name_user_id_ci_key unique index violation.
+      if (
+        createError instanceof Error &&
+        'code' in createError &&
+        (createError as any).code === 'P2002'
+      ) {
+        const raced = await db.tag.findFirst({
+          where: {
+            user_id: user.id,
+            name: {
+              equals: parsed.data.name,
+              mode: 'insensitive',
+            },
+          },
+          select: { id: true, name: true },
+        })
+        if (raced) {
+          return { success: true, data: raced }
+        }
+      }
+      throw createError
+    }
   } catch (error) {
     if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
       throw error

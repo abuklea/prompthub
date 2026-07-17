@@ -1,6 +1,12 @@
 import type { Folder, Prompt } from "@prisma/client"
 
-type PromptWithFolder = Prompt & {
+// Reason: Workspace preload excludes content/content_tsv for performance.
+// On-demand fetches supply full Prompt objects which also satisfy this type.
+type PromptListing = Omit<Prompt, 'content' | 'content_tsv'> & {
+  content?: string
+}
+
+type PromptListingWithFolder = PromptListing & {
   folder: {
     id: string
     name: string
@@ -10,7 +16,7 @@ type PromptWithFolder = Prompt & {
 interface WorkspaceSnapshot {
   userId: string
   folders: Folder[]
-  prompts: PromptWithFolder[]
+  prompts: PromptListingWithFolder[]
   loadedAt: string
 }
 
@@ -19,8 +25,8 @@ const workspaceCache = {
   loadedAt: "",
   rootFolders: [] as Folder[],
   foldersByParent: new Map<string | null, Folder[]>(),
-  promptsByFolder: new Map<string, Prompt[]>(),
-  promptsById: new Map<string, PromptWithFolder>(),
+  promptsByFolder: new Map<string, PromptListing[]>(),
+  promptsById: new Map<string, PromptListingWithFolder>(),
 }
 
 export function hydrateWorkspaceCache(snapshot: WorkspaceSnapshot) {
@@ -84,7 +90,7 @@ export function removeFolderFromCache(folderId: string, parentId: string | null)
   workspaceCache.rootFolders = workspaceCache.foldersByParent.get(null) ?? []
 }
 
-export function setPromptsForFolderInCache(folderId: string, prompts: Prompt[]) {
+export function setPromptsForFolderInCache(folderId: string, prompts: PromptListing[]) {
   workspaceCache.promptsByFolder.set(folderId, [...prompts])
   prompts.forEach((prompt) => {
     const existing = workspaceCache.promptsById.get(prompt.id)
@@ -92,7 +98,7 @@ export function setPromptsForFolderInCache(folderId: string, prompts: Prompt[]) 
   })
 }
 
-export function upsertPromptInCache(prompt: Prompt) {
+export function upsertPromptInCache(prompt: PromptListing) {
   if (!prompt.folder_id) return
 
   const list = workspaceCache.promptsByFolder.get(prompt.folder_id) ?? []

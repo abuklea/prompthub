@@ -5,7 +5,10 @@ export type PromptTag = {
   name: string
 }
 
-export type PromptListItem = Prompt & {
+// Reason: content is optional because workspace preload excludes it for performance.
+// On-demand fetches (getPromptsByFolder) return full Prompt objects with content.
+export type PromptListItem = Omit<Prompt, 'content' | 'content_tsv'> & {
+  content?: string
   tags?: PromptTag[]
 }
 

@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript
 
 Created: 07/11/2025 14:30 GMT+10
-Last modified: 07/11/2025 16:15 GMT+10
+Last modified: 17/07/2026 10:00 GMT+10
 ---------------
 Server actions for prompt editor operations.
-Handles version saving with Git-style diff generation, atomic transactions, and auto-save.
+Handles version saving with snapshot-based versioning, atomic transactions, and auto-save.
 
 Changelog:
+17/07/2026 10:00 GMT+10 | F10: Removed dead diff computation; snapshots are now the sole version-storage model
 07/11/2025 16:15 GMT+10 | Added autoSavePrompt action (P5S3bT13)
 07/11/2025 14:30 GMT+10 | Initial creation with saveNewVersion action
 */
@@ -22,13 +23,13 @@ import db from "@/lib/db"
 import { createClient } from "@/lib/supabase/server"
 import { saveNewVersionSchema, autoSaveSchema } from "./schemas"
 import { ActionResult } from "@/types/actions"
-import { createPatch } from "@/lib/diff-utils"
 import { titleValidationSchema } from "@/features/prompts/schemas"
+import { checkMutationRateLimit } from "@/lib/rate-limit"
 
 /**
- * Save a new version of a prompt with Git-style diff
+ * Save a new version of a prompt with snapshot-based versioning
  *
- * Creates a PromptVersion record with the diff between current and new content,
+ * Creates a PromptVersion record with title and content snapshots,
  * then updates the Prompt record with new title and content. Both operations
  * are wrapped in a transaction for atomicity.
  *
@@ -64,6 +65,11 @@ export async function saveNewVersion(
       return { success: false, error: "Unauthorized. Please sign in." }
     }
 
+    const { allowed } = checkMutationRateLimit(user.id)
+    if (!allowed) {
+      return { success: false, error: "Too many requests. Please slow down." }
+    }
+
     // Step 4: Fetch current prompt with user isolation
     // Reason: MUST filter by both id AND user_id to enforce ownership
     const currentPrompt = await db.prompt.findFirst({
@@ -77,17 +83,13 @@ export async function saveNewVersion(
       return { success: false, error: "Prompt not found or access denied" }
     }
 
-    // Step 5: Calculate patch using diff-utils
-    const diff = createPatch(currentPrompt.content, newContent)
-
-    // Step 6: Execute transaction (atomic operation)
+    // Step 5: Execute transaction (atomic operation)
     // Reason: Both version creation and prompt update must succeed or both fail
     const result = await db.$transaction(async (tx) => {
-      // Create new version with diff
+      // Create new version with snapshots
       const promptVersion = await tx.promptVersion.create({
         data: {
           prompt_id: promptId,
-          diff: diff, // Git-style patch from diff-match-patch
           title_snapshot: currentPrompt.title,
           content_snapshot: currentPrompt.content,
         },
@@ -108,7 +110,7 @@ export async function saveNewVersion(
       return promptVersion
     })
 
-    // Step 7: Return success with versionId
+    // Step 6: Return success with versionId
     return { success: true, data: { versionId: result.id } }
   } catch (error) {
     // Reason: NEXT_REDIRECT must be re-thrown for Next.js navigation

@@ -3,10 +3,12 @@
 import { createClient } from "@/lib/supabase/server"
 import { SignUpSchema, SignInSchema } from "./schemas"
 import { z } from "zod"
+import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { ActionResult } from "@/types/actions"
 import { ensureProfileExists } from "@/lib/ensure-profile"
+import { checkAuthRateLimit } from "@/lib/rate-limit"
 
 async function ensureProfileExistsSafe(userId: string) {
   try {
@@ -20,6 +22,12 @@ async function ensureProfileExistsSafe(userId: string) {
 
 export async function signUp(values: z.infer<typeof SignUpSchema>): Promise<ActionResult> {
   try {
+    const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+    const { allowed } = checkAuthRateLimit(ip)
+    if (!allowed) {
+      return { success: false, error: "Too many attempts. Please try again later." }
+    }
+
     const supabase = createClient()
     const { data, error } = await supabase.auth.signUp(values)
 
@@ -42,6 +50,12 @@ export async function signUp(values: z.infer<typeof SignUpSchema>): Promise<Acti
 
 export async function signIn(values: z.infer<typeof SignInSchema>): Promise<ActionResult> {
   try {
+    const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+    const { allowed } = checkAuthRateLimit(ip)
+    if (!allowed) {
+      return { success: false, error: "Too many attempts. Please try again later." }
+    }
+
     const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithPassword(values)
 

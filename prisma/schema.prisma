@@ -53,7 +53,7 @@ model Prompt {
 
 model PromptVersion {
   id         Int      @id @default(autoincrement())
-  diff       String   // Stores the patch from diff-match-patch
+  diff       String   @default("") // No longer computed; snapshots are the authoritative version-storage model
   title_snapshot String?
   content_snapshot String @default("")
   created_at DateTime @default(now())
