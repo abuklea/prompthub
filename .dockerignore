@@ -1,0 +1,17 @@
+.git
+.next
+node_modules
+docker
+*.md
+!README.md
+.env*
+.vercel
+.DS_Store
+coverage
+wip/
+PRPs/
+mermaid/
+docs/
+npm-debug.log*
+npm_output.log
+*.tsbuildinfo

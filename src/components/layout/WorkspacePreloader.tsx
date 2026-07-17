@@ -4,7 +4,6 @@ import { useEffect } from "react"
 import { useUiStore } from "@/stores/use-ui-store"
 import { getWorkspaceSnapshot } from "@/features/workspace/actions"
 import { hydrateWorkspaceCache } from "@/features/workspace/cache"
-import { hydrateDocumentCache } from "@/features/editor/components/EditorPane"
 
 export function WorkspacePreloader() {
   const { setWorkspacePreloading, setWorkspaceLoadedAt } = useUiStore()
@@ -29,7 +28,6 @@ export function WorkspacePreloader() {
         if (!mounted) return
 
         hydrateWorkspaceCache(snapshot)
-        hydrateDocumentCache(snapshot.userId, snapshot.prompts)
         setWorkspaceLoadedAt(snapshot.loadedAt)
       } catch (error) {
         console.error("Failed to preload workspace snapshot", error)

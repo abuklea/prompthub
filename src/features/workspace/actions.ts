@@ -18,7 +18,13 @@ export async function getWorkspaceSnapshot() {
     }),
     db.prompt.findMany({
       where: { user_id: user.id },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        created_at: true,
+        updated_at: true,
+        user_id: true,
+        folder_id: true,
         folder: {
           select: {
             id: true,
