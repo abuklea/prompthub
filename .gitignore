@@ -41,3 +41,6 @@ next-env.d.ts
 
 # monaco editor (copied from node_modules)
 /public/monaco-editor
+
+# docker
+docker/postgres/data/
