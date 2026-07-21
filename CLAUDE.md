@@ -239,9 +239,8 @@ DIRECT_URL=""
 ### Tool Priority Order
 1. **archon** - Task management (PRIMARY - never use TodoWrite)
 2. **serena** - Code analysis, intelligent editing, cross-references
-3. **perplex** / **brave** - Online research, debugging, solutions
+3. **brave** - Online research, debugging, solutions
 4. **seqthk** - Complex task planning and reasoning
-5. **ref** / **context7** - API docs and code examples
 6. **time** - Date/time and timezone tools
 7. **mermaid** - Generate PNG + SVG (transparent backgrounds)
 
