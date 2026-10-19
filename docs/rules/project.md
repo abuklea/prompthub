@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Project Rules | 07/11/2025 12:46 GMT+10 | 19/10/2026 23:07 GMT+10 |
+| Project Rules | 07/11/2025 12:46 GMT+10 | 19/10/2026 23:12 GMT+10 |
 
 ## Table of Contents
 - [Project Variables](#project-variables)
@@ -189,8 +189,11 @@ Names and purposes (template: `.env.example`; CI supplies placeholders):
 - Layouts are modular and responsive, with separate mobile (touch) and desktop (mouse) designs; collapsible sections
   persist their state in localStorage.
 - Background work uses interval management with an exit condition: NEVER poll continuously.
-- File size follows `docs/rules/code-size.md`: a RED file needs a `split` or `accept` row in the register. No tool
-  enforces its limits (ESLint extends only `next/core-web-vitals`; no Prettier config): adding one is its own decision.
+- File size follows `docs/rules/code-size.md`: a RED file needs a `split` or `accept` row in the register.
+- `npm run lint` enforces the size limits (`.eslintrc.json`): errors past 600 lines per file and 160 characters per
+  line (URLs and the generated `src/components/ui/` aside; this overrides the advisory line length in
+  `code-size.md`), warnings past 80 lines per function, nesting depth 4 and complexity 20. New code adds no warning. A
+  registered RED file disables `max-lines` in one comment that cites the register, deleted with the split.
 - Performance targets: initial load < 2 s, time to interactive < 3 s, Lighthouse > 90.
 
 ```typescript

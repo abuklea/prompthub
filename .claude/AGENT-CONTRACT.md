@@ -2,7 +2,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Agent Contract | 19/10/2026 18:13 GMT+10 | 19/10/2026 23:07 GMT+10 |
+| Agent Contract | 19/10/2026 18:13 GMT+10 | 19/10/2026 23:12 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -138,8 +138,10 @@ and `npm run build`. The gitleaks scan runs in CI only.
   `coverage/coverage-summary.json` rather than the text table. The fixed include list in `vitest.config.ts` misses
   most changed files.
 - Expected noise, not failures: Prisma's "Update available" banner (never upgrade: `docs/rules/project.md#stack`), the
-  Next.js telemetry notice, Vite's "CJS build of Vite's Node API is deprecated" warning, and the
-  baseline-browser-mapping "over two months old" notice.
+  Next.js telemetry notice, Vite's "CJS build of Vite's Node API is deprecated" warning, the
+  baseline-browser-mapping "over two months old" notice, and the `max-lines-per-function` warnings `npm run lint`
+  reports on existing components. Your change adds no lint warning; if it cannot avoid one, stop and report why
+  (`docs/rules/project.md#architecture-constraints`).
 
 ## Final Report
 

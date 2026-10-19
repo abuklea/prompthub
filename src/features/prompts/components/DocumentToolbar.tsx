@@ -23,7 +23,10 @@ import { Plus, Edit, Trash2, ArrowUpDown, Tag } from "lucide-react"
 import { CreateDocumentDialog, RenameDocumentDialog, DeleteDocumentDialog } from "./DocumentDialogs"
 
 export function DocumentToolbar() {
-  const { selectedFolder, selectedPrompt, docSort, docFilter, selectedTagIds, setDocSort, setDocFilter, setSelectedTagIds, selectPrompt, triggerPromptRefetch, prompts, addPrompt, removePrompt, updatePromptTitle } = useUiStore()
+  const {
+    selectedFolder, selectedPrompt, docSort, docFilter, selectedTagIds, setDocSort, setDocFilter, setSelectedTagIds,
+    selectPrompt, triggerPromptRefetch, prompts, addPrompt, removePrompt, updatePromptTitle,
+  } = useUiStore()
   const { closeTabsByPromptId, tabs, activeTabId, openTab } = useTabStore()
   const [creatingDoc, setCreatingDoc] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)

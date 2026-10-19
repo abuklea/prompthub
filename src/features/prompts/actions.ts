@@ -1,5 +1,7 @@
 "use server"
 
+/* eslint-disable max-lines -- RED in docs/rules/code-size-register.md (split, #51); delete with the split */
+
 import db from "@/lib/db"
 import { createClient } from "@/lib/supabase/server"
 import {
