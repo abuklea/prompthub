@@ -1,6 +1,6 @@
 ---
 name: system-architect
-description: Architect for PromptHub changes that cross modules - server actions and client components, the Prisma schema and migrations, Supabase auth, stores, the editor and workspace. Produces an implementable blueprint in the existing stack: components, data model, contracts, trade-offs, risks, and a task order with an agent per task. Use before cross-module, schema or integration work; needs a spec (product-manager first). Not for production code.
+description: Architect for PromptHub changes that cross modules - server actions and client components, the Prisma schema and migrations, Supabase auth, stores, the editor and workspace. Produces an implementable blueprint in the existing stack - components, data model, contracts, trade-offs, risks, and a task order with an agent per task. Use before cross-module, schema or integration work; needs a spec (product-manager first). Not for production code.
 model: opus
 effort: max
 maxTurns: 60

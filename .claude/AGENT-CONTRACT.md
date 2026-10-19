@@ -1,8 +1,9 @@
-# Agent Contract
+# PromptHub
+## Agent Contract
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Agent Contract | 19/10/2026 18:13 GMT+10 | 19/10/2026 22:36 GMT+10 |
+| Agent Contract | 19/10/2026 18:13 GMT+10 | 19/10/2026 22:43 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -38,8 +39,8 @@ from then on they belong to the project, and `install --force` never overwrites 
 ## Rules for Every File
 
 - The header block from `docs/rules/documentation.md#documentation-rules` on every source and documentation file you
-  create, and a changelog line in it for every file you edit. Agent, command and skill files are exempt: their first
-  line is YAML frontmatter.
+  create, and a changelog line in it for every file you edit, except the files
+  `docs/rules/project.md#files-and-documents` exempts.
 - Timestamps from the `time` tool in `{{TIMEZONE}}`, read just before you write each one: never estimated, carried
   forward from an earlier reading, or copied from another file. Without the `time` server, use the command in
   `docs/rules/tools.md#cloud-sessions`.
@@ -104,10 +105,12 @@ Verify what is drawn, gestures and media in a real browser, and say what you cou
   no port scheme for parallel agents: a worktree agent reports its browser check as not run, and the dispatcher runs
   it on 3010 after merging.
 - Layouts: check the three that `src/components/layout/ResizablePanelsLayout.tsx` switches between: mobile below 768 px
-  (one panel and a panel switcher; emulate touch), medium (two columns), and wide from 1440 px, or 1200 px at a 16:9
+  (one panel and a panel switcher; emulate touch), medium (a panel switcher, the active panel on top and the other two
+  side by side below), and wide from 1440 px, or 1200 px at a 16:9
   aspect or wider (three columns). For example 390x844, 1024x768 and 1440x900.
-- Sign in only per `docs/rules/project.md#dispatched-agents`: supplied credentials, or a throwaway user on the local
-  Docker stack.
+- Targets and sign-in follow `docs/rules/project.md#dispatched-agents`: no write action (submit, save, delete) against
+  a non-local target unless your prompt authorises it, and sign in only with supplied credentials or as a throwaway
+  user on the local Docker stack.
 - Screenshots go in your session scratchpad, never the repository; look at them with Read. A check that prints "ok"
   without reading the DOM or a screenshot proves little.
 - Wait on an observable condition; a fixed wait only lets a frame render. Read the console after each check.
@@ -123,7 +126,7 @@ Your definition's `maxTurns` is a hard stop: at the limit you halt mid-task with
   heading's line with Grep and reading from there.
 - Never loop edit, run and revert by hand: mutation testing, sweeps and repeated browser runs go through a script.
 - Write the deliverable as you go. Once about four-fifths of your budget is spent, start nothing new: leave every file
-  consistent (no applied mutation, no half edit), commit with a `wip:` subject if your prompt lets you commit, and
+  consistent (no applied mutation, no half edit), commit with a `chore: wip` subject if your prompt lets you commit, and
   report what is done and what is left.
 
 ## Validation Gates
@@ -133,11 +136,11 @@ Run every gate `.github/workflows/ci.yml` runs, from the repository or worktree 
 and `npm run build`. The gitleaks scan runs in CI only.
 
 - Per-file coverage: `npx vitest run --coverage --coverage.include=<file> --coverage.reporter=json-summary`, then read
-  `coverage/coverage-summary.json`. Text tables can leave out fully covered files, and the fixed include list in
-  `vitest.config.ts` misses most changed files.
+  `coverage/coverage-summary.json` rather than the text table. The fixed include list in `vitest.config.ts` misses
+  most changed files.
 - Expected noise, not failures: Prisma's "Update available" banner (never upgrade: `docs/rules/project.md#stack`), the
-  Next.js telemetry notice, Vite's "CJS build of Vite's Node API is deprecated" warning, and the baseline-browser-mapping
-  "over two months old" notice.
+  Next.js telemetry notice, Vite's "CJS build of Vite's Node API is deprecated" warning, and the
+  baseline-browser-mapping "over two months old" notice.
 
 ## Final Report
 

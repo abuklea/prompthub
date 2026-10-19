@@ -1,8 +1,9 @@
-# GitHub Issues and Task Tracking
+# PromptHub
+## GitHub Issues and Task Tracking
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| GitHub Issues and Task Tracking | 19/10/2026 18:13 GMT+10 | 19/10/2026 22:36 GMT+10 |
+| GitHub Issues and Task Tracking | 19/10/2026 18:13 GMT+10 | 19/10/2026 22:43 GMT+10 |
 
 ## Table of Contents
 - [The Rule](#the-rule)

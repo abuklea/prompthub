@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Project Rules | 07/11/2025 12:46 GMT+10 | 19/10/2026 22:36 GMT+10 |
+| Project Rules | 07/11/2025 12:46 GMT+10 | 19/10/2026 22:43 GMT+10 |
 
 ## Table of Contents
 - [Project Variables](#project-variables)
@@ -137,6 +137,8 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
 - Use `// Reason:` comments for non-obvious logic. Source headers follow `docs/rules/documentation.md`.
 - No `CHANGELOG.md`: history lives in git, PRP REPORTs and each file's changelog header. This overrides
   `documentation.md`.
+- Agent, command and skill files under `.claude/` carry no header block: Claude Code loads them as prompts, some
+  behind YAML frontmatter. This overrides `documentation.md`.
 - Diagrams: write `mermaid` code blocks; there is no render step and no PNG/SVG output.
 
 ## Database, Auth and Tenancy

@@ -1,7 +1,7 @@
 ---
 name: problem-solver
 color: red
-description: Root-cause investigator for PromptHub faults - server actions and Prisma, Supabase auth and cookies, Zustand stores, the Monaco tabbed editor and its caches, render loops. Read-only: reproduces the fault, proves the cause with evidence, and returns a diagnosis, a minimal fix and a test plan. Use proactively before fixing a regression, an intermittent failure or anything non-obvious. Not for implementing the fix (senior-backend-engineer, senior-frontend-engineer).
+description: Root-cause investigator for PromptHub faults - server actions and Prisma, Supabase auth and cookies, Zustand stores, the Monaco tabbed editor and its caches, render loops. Read-only - reproduces the fault, proves the cause with evidence, and returns a diagnosis, a minimal fix and a test plan. Use proactively before fixing a regression, an intermittent failure or anything non-obvious. Not for implementing the fix (senior-backend-engineer, senior-frontend-engineer).
 model: opus
 effort: max
 maxTurns: 80
