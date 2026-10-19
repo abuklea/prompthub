@@ -2,7 +2,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| GitHub Issues and Task Tracking | 19/10/2026 18:13 GMT+10 | 19/10/2026 18:36 GMT+10 |
+| GitHub Issues and Task Tracking | 19/10/2026 18:13 GMT+10 | 19/10/2026 18:50 GMT+10 |
 
 ## Table of Contents
 - [The Rule](#the-rule)
@@ -61,7 +61,7 @@ relationship, mirrored by `flag: blocked`), owners (assignees).
 
 ## Board and Milestones
 
-- Board: `PromptHub` (Projects v2, owner `abuklea`); URL [TODO: record after `.github/setup-project-board.sh` (#27)].
+- Board: `PromptHub` (Projects v2, owner `abuklea`): https://github.com/users/abuklea/projects/16.
   One column per `status:` value, in the order above.
   A closed issue is always Done and an open one never is. The Priority, Size and Area fields derive from the labels:
   change the label, never the field.
