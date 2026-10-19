@@ -370,9 +370,7 @@ console.error('[EditorPane] Auto-save FAILED:', error)
 
 ## File Size Limits
 
-- **Max 500 lines per file** - Refactor when approaching limit
-- **Max 50 lines per function** - Single, clear responsibility
-- **Max 100 characters per line**
+- **Code-size bands, not a hard cap** - see `docs/rules/code-size.md`; gate: `scripts/audit-code-size.sh`
 - **All text files end with newline** (mandatory)
 
 ## Import Organization

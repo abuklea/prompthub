@@ -83,7 +83,8 @@ function example() {
 ```
 
 - Use tables, visual charts and `mermaid` diagrams to better communicate.
-- Keep each file under 500 lines. 
+- Keep each file within the project's code-size bands (`docs/rules/code-size.md`); split a RED document by topic
+  behind an index.
 
 - NEVER leak env values.
 

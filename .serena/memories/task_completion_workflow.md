@@ -129,7 +129,7 @@ Before marking a task as complete, verify:
 - [ ] Lint passes: `npm run lint`
 - [ ] Build succeeds: `npm run build`
 - [ ] Code follows style guidelines
-- [ ] File sizes under 500 lines
+- [ ] File sizes within the code-size bands (`bash scripts/audit-code-size.sh --summary` passes)
 - [ ] Functions under 50 lines
 - [ ] No console errors or warnings
 

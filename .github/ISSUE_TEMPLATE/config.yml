@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Issue and board conventions
+    url: https://github.com/abuklea/prompthub/blob/HEAD/docs/rules/github-issues.md
+    about: Label taxonomy, board columns, relationships and the work cycle.

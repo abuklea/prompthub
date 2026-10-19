@@ -41,30 +41,29 @@ Note: If validation fails, use error patterns in PRP to fix and retry.
 
 ## Imports
 @docs/rules/project.md
-@docs/rules/archon.md
+@docs/rules/github-issues.md
 @docs/rules/documentation.md
 @docs/rules/documentation-prp.md
 
 ### Important Notes
 
 - **FIRST STEP**: Ensure the PRP start report has been created and is accurate and current. If it does not exist, create it
-- **CRITICAL**: Follow the definitive Archon process
-- Task status flow: `todo` → `doing` → `review` → `done`
-- Keep queries SHORT (2-5 keywords) for better search results
-- Higher `task_order` = higher priority (0-100)
+- **CRITICAL**: Track every task in GitHub Issues per `docs/rules/github-issues.md`. Archon is legacy and read-only: never create or update an Archon task
+- Status flow: `status: ready` → `status: in-progress` → `status: in-review`; closing is the developer's decision
+- Priority is the `priority:` label and effort the `size:` label
 - Tasks should be 30 min - 4 hours of work
 - Split tasks or related collections of tasks, and factor into smallest discrete self-contained tasks (where possible and optimal)
 - **Parallelize tasks** where possible using subagents and the Task tool
 - **ALWAYS** use the most aligned/suitable subagent available for any discrete task or collection of related tasks.
-- Keep the Archon tasks list up to date, and update task statuses - set tasks to "doing" before beginning implementation
-- Move Archon tasks to review before completion
-- Make sure that Archon tasks are synched with the PRP documents, and all Archon titles are prefixed with the correct Phase and Task IDs PXTX (e.g. P1T1: Initialise project)
+- Create the PRP's issues at its INITIAL stage (a `type: epic`, a `type: task` per task, a `type: dev-review` per check only the developer can run), and set each issue to `status: in-progress` before beginning implementation
+- Move each issue to `status: in-review` with a comment (what was built, gates run, what is unverified) before completion; never close an issue
+- Keep issues in sync with the PRP document: titles start with the PRP task ID (`P7S1T1: …`), and the epic lists its children as `- [ ] #NN P#S#T# — short title`
 - Use subagents or _subagent teams_, to assign tasks to the best/optimal, most-suitable, and most-qualified agent/s.
 - Spawn agents in parallel using the Task tool, and when tasks have been marked as parallelizable [P]
 - Share comprehensive and detailed information between agent/caller to guarantee robust results and context integrity and relevance.
-- NEVER create duplicate tasks - ALWAYS check existing tasks first to ensure new tasks are unique and not duplicating task (or subtask) entries. Update existing tasks where suitable.
-- For each Archon task, identify discrete tasks or collections of related tasks (and sequences of tasks) that are suitable for parallelization, and mark each task with `[P]` (this will be used to schedule and run multiple subagents simultaneously using the Task tool).
-- Make sure the `assignee` of each task is set to the most-suitable/most-aligned agent to complete each task.
+- NEVER create duplicate issues - ALWAYS search existing issues first to ensure new issues are unique and not duplicating task (or subtask) entries. Update existing issues where suitable.
+- For each task issue, identify discrete tasks or collections of related tasks (and sequences of tasks) that are suitable for parallelization, and mark each task with `[P]` (this will be used to schedule and run multiple subagents simultaneously using the Task tool).
+- Name the most-suitable/most-aligned agent for each task in its issue body and the PRP (GitHub assignees are people, not agents).
 - Provide a lean but complete foundation for the task within the task description:
 - A clear task goal and success criteria, with error handling and fallback guidance
 - Extensive relevant details and context to complete the task

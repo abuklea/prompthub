@@ -1,0 +1,42 @@
+# Epic form: a container whose children are sub-issues.
+name: Epic
+description: A container tracking a phase, milestone deliverable or large work area made of several issues.
+title: "[epic] "
+labels: ["type: epic", "status: backlog"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        List children as a task list of issue references. The sync links each one as a
+        sub-issue and ticks its box when it closes. Close the epic only when every box is ticked.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What is true when this epic closes.
+    validations:
+      required: true
+  - type: textarea
+    id: background
+    attributes:
+      label: Background
+      description: Why now. Link the design document, plan or legacy task file this replaces.
+  - type: textarea
+    id: children
+    attributes:
+      label: Child issues
+      description: One issue reference per line. Plain-text lines are allowed for work not yet filed; promote each to an issue when it starts.
+      placeholder: |
+        - [ ] #12 ...
+        - [ ] #13 ...
+        - [ ] (not yet filed) ...
+    validations:
+      required: true
+  - type: textarea
+    id: exit
+    attributes:
+      label: Exit criteria
+      placeholder: |
+        - [ ] All child issues closed
+        - [ ] Full test suite passing
+        - [ ] Verified in the target environment

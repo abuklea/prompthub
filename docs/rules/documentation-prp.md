@@ -2,7 +2,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| PRP Document Footer Formatting Standards | 21/10/2025 14:16 GMT+10 | 21/10/2025 14:16 GMT+10 |
+| PRP Document Footer Formatting Standards | 21/10/2025 14:16 GMT+10 | 19/10/2026 18:36 GMT+10 |
 
 ## Table of Contents
 - [Overview](#overview)
@@ -44,7 +44,7 @@ These fields appear in **all** PRP document types:
 |-------|--------|----------|-------------|
 | **PRP Status** | Enum (see below) | Yes | Current status of the PRP |
 | **PRP ID** | `P#S#` | Yes | Phase-Step identifier |
-| **Archon Project** | `ProjectName (project-id)` | Yes | Archon MCP project reference |
+| **Epic Issue** | `#NN` | Yes | GitHub `type: epic` issue tracking this PRP |
 | **PRP Document** | `PRPs/P#S#-*.md` | Yes | Path to main PRP document |
 | **Tasks** | `# tasks (P#S#T#-P#S#T#)` | Yes | Task count and range |
 | **Phase** | `Phase # - Description` | Yes | Project phase context |
@@ -117,10 +117,12 @@ Additional fields for work-in-progress documents:
 - **Source**: Use `mcp__time__get_current_time` tool
 - **Example**: `21/10/2025 14:16 GMT+10`
 
-### Archon Project
-- **Format**: `ProjectName (project-id)`
-- **Example**: `WalkingTours (67f567de-8bee-4709-9e19-4123e693de61)`
-- **Source**: Project configuration
+### Epic Issue
+- **Format**: `#NN`
+- **Example**: `#31`
+- **Source**: the PRP's `type: epic` issue (`docs/rules/github-issues.md`)
+- **Legacy**: PRPs written before Phase 7 carry `**Archon Project**: ProjectName (project-id)` instead; leave them
+  as they are
 
 ### PRP Document
 - **Format**: Relative path from project root
@@ -237,7 +239,7 @@ Notes:**
 **Plan Status**: READY
 **PRP Status**: TODO
 **PRP ID**: P2S9
-**Archon Project**: WalkingTours (67f567de-8bee-4709-9e19-4123e693de61)
+**Epic Issue**: #31
 **PRP Document**: PRPs/P2S9-unity-core-architecture-rebuild.md
 **Tasks**: 10 tasks (P2S9T1 - P2S9T10)
 **Phase**: Phase 2 - Multi-Project Management (Unity)
@@ -265,7 +267,7 @@ Notes:**
 **Report Status**: FINAL
 **PRP Status**: COMPLETE
 **PRP ID**: P2S8
-**Archon Project**: WalkingTours (67f567de-8bee-4709-9e19-4123e693de61)
+**Epic Issue**: #31
 **PRP Document**: PRPs/P2S8-implement-create-project-form.md
 **Tasks**: 12 tasks (P2S8T1 - P2S8T12)
 **Phase**: Phase 2 - Multi-Project Management (Web Portal)
@@ -285,7 +287,7 @@ Notes:**
 ----
 **PRP Status**: COMPLETE
 **PRP ID**: P2S8
-**Archon Project**: WalkingTours (67f567de-8bee-4709-9e19-4123e693de61)
+**Epic Issue**: #31
 **Tasks**: 12 tasks (P2S8T1 - P2S8T12)
 **Phase**: Phase 2 - Multi-Project Management (Web Portal)
 **Dependencies**: P2S7 (Complete), P2S6 (Complete), P2S5 (Complete)
@@ -338,7 +340,7 @@ Notes:**
 - [ ] File ends with single newline character
 - [ ] No blank lines between fields
 - [ ] All paths use forward slashes
-- [ ] Archon Project ID matches project configuration
+- [ ] Epic Issue names the PRP's `type: epic` issue
 
 ### Document Type-Specific Checks
 

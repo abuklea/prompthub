@@ -1,6 +1,7 @@
 # MCP TOOL USAGE
 
-1. **ALWAYS** use `archon` and follow the ARCHON-FIRST commitment.
+1. **ALWAYS** track work in GitHub Issues per `github-issues.md`. `archon` is legacy and read-only: use it only to
+  export tasks and records for the Archon import (#29).
 
 2. **ALWAYS** use `serena` for understanding code structure, relationships, and semantics through language server integration, deep code analysis and intelligent editing suggestions. Apply these capabilities as needed:
   - **Project Understanding**: Analyze entire codebases and understand architectural patterns

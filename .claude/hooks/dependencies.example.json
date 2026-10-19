@@ -1,0 +1,7 @@
+{
+  "_comment": "Copy to .claude/hooks/dependencies.json to arm pre_tool_use_dependencies.py. Each key is a glob of files; each value lists the files that must be read in the session before a matching file may be edited. Paths are project-relative with forward slashes.",
+  "globs": {
+    "src/api/*": ["src/schema/index.ts"],
+    "migrations/*.sql": ["docs/data-model.md"]
+  }
+}
