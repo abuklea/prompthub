@@ -149,7 +149,7 @@
       "color": "D93F0B",
       "boardColor": "ORANGE",
       "column": "In review",
-      "description": "Board column: pull request open"
+      "description": "Board column: built and gated, or a pull request is open"
     },
     {
       "name": "status: awaiting-verification",
@@ -163,7 +163,7 @@
       "color": "0E8A16",
       "boardColor": "GREEN",
       "column": "Done",
-      "description": "Board column: confirmed complete"
+      "description": "Board column: closed"
     },
     {
       "name": "size: XS",

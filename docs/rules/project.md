@@ -1,4 +1,17 @@
-# PROJECT: PromptHub
+# PromptHub
+## Project Rules
+
+| `Title` | `Created` | `Last modified` |
+|---------|-----------|-----------------|
+| Project Rules | 07/11/2025 12:46 GMT+10 | 19/10/2026 23:12 GMT+10 |
+
+## Table of Contents
+- [Project Variables](#project-variables)
+- [Stack](#stack)
+- [Working Rules](#working-rules)
+- [Database, Auth and Tenancy](#database-auth-and-tenancy)
+- [Architecture Constraints](#architecture-constraints)
+- [Pre-commit](#pre-commit)
 
 <brief>
 PromptHub is a centralized repository where users store, organize and manage their AI prompts, with a themeable,
@@ -51,6 +64,7 @@ docker/         nginx gateway and Postgres init for the local Docker stack (see 
 scripts/        copy-monaco.js (postinstall), audit-code-size.sh, find-old-size-rules.sh
 supabase/       Supabase CLI link state (.temp/)
 .github/        workflows/ci.yml, issue forms, labels.json, board scripts
+.claude/        agents/, AGENT-CONTRACT.md, hooks/, commands/, skills/; .serena/ holds the Serena project config
 public/         static assets; public/monaco-editor is copied at install and gitignored
 ```
 
@@ -81,6 +95,7 @@ public/         static assets; public/monaco-editor is copied at install and git
   check each call for a missing or misplaced `await`.
 - Debounce user-input handlers.
 - Done means: goal met, gates pass, docs updated, completion comment on the issue, issue at `status: in-review`.
+- Git: `master` is the default and only long-lived branch; read it wherever `git.md` says `main`.
 
 ### Servers
 
@@ -93,7 +108,7 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
 - The Never list in `.claude/AGENT-CONTRACT.md` outranks the commit, push, branch, issue-status and subagent
   instructions in this file, `git.md` and `github-issues.md`. A dispatched agent changes git state or issues only when
   its prompt says so.
-- Run every gate listed under Project Variables, not only the four the contract names. Report each gate the
+- Run every gate listed under Project Variables (`.claude/AGENT-CONTRACT.md#validation-gates`). Report each gate the
   environment cannot run as not run, with the reason.
 - When an answer would change the result, stop and return the question as your report. Otherwise record the
   assumption and continue.
@@ -111,7 +126,7 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
 | PRP specs | `PRPs/` | `P#S#-feature-name.md` |
 | PRP start and completion reports | `PRPs/reports/` | `*-INITIAL.md`, `*-REPORT.md` (both mandatory per PRP) |
 | PRP guides and working documents | `PRPs/docs/` | |
-| Scratch, test and debug files | `wip/` | task-code prefix, lower hyphen case: `T417-T420-validation-testing-guide.md` |
+| Scratch, test and debug files | `wip/` | task-code prefix, lower hyphen case: `P5S3T5-integration-testing-report.md` |
 
 | Code type | Convention | Example |
 |---|---|---|
@@ -121,7 +136,14 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
 | Schemas, types | `schemas.ts`, `types.ts` per feature | `src/features/editor/schemas.ts` |
 
 - Use `// Reason:` comments for non-obvious logic. Source headers follow `docs/rules/documentation.md`.
-- Diagrams: write `mermaid` code blocks; there is no render step and no PNG/SVG output.
+- No `CHANGELOG.md`: history lives in git, PRP REPORTs and each file's changelog header. This overrides
+  `documentation.md`.
+- Agent, command and skill files under `.claude/` carry no header block: Claude Code loads them as prompts, some
+  behind YAML frontmatter. This overrides `documentation.md`.
+- Diagrams: write `mermaid` code blocks; there is no render step and no PNG/SVG output, so report rendering as not
+  checked. This overrides `documentation.md`.
+- PRP footers: Plan Status also takes `READY` (planned, not started), as the PRPs already use. This overrides
+  `documentation-prp.md`.
 
 ## Database, Auth and Tenancy
 
@@ -143,7 +165,7 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
 - Rate-limit server actions with `src/lib/rate-limit.ts` (in-memory, single instance; a multi-instance deploy needs a
   shared store).
 - Validate every user input with Zod; use Prisma's parameterized queries only.
-- Validate required environment variables on startup and fail fast when one is missing.
+- Validate required environment variables on startup and fail fast when one is missing. Not implemented yet: #65.
 - NEVER commit secrets or env values.
 
 ### Environment variables
@@ -153,8 +175,10 @@ Names and purposes (template: `.env.example`; CI supplies placeholders):
 | Variable | Purpose |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase client configuration |
+| `SUPABASE_URL` | Optional server-side Supabase URL, read before `NEXT_PUBLIC_SUPABASE_URL` (`src/lib/supabase/server.ts`); the Docker stack points it at the gateway |
 | `SUPABASE_SERVICE_ROLE_KEY` | Reserved for admin tasks such as seeding (technical spec); no code under `src/` reads it today |
 | `DATABASE_URL`, `DIRECT_URL` | Prisma pooled and direct connections (`prisma/schema.prisma`) |
+| `TEST_USER_EMAIL`, `TEST_USER_PASSWORD` | The primary test user, supplied at runtime from the git-ignored `.env.test`; NEVER committed |
 
 ## Architecture Constraints
 
@@ -165,8 +189,11 @@ Names and purposes (template: `.env.example`; CI supplies placeholders):
 - Layouts are modular and responsive, with separate mobile (touch) and desktop (mouse) designs; collapsible sections
   persist their state in localStorage.
 - Background work uses interval management with an exit condition: NEVER poll continuously.
-- File size follows `docs/rules/code-size.md`: a RED file needs a `split` or `accept` row in the register. Run
-  `scripts/audit-code-size.sh` before committing source changes.
+- File size follows `docs/rules/code-size.md`: a RED file needs a `split` or `accept` row in the register.
+- `npm run lint` enforces the size limits (`.eslintrc.json`): errors past 600 lines per file and 160 characters per
+  line (URLs and the generated `src/components/ui/` aside; this overrides the advisory line length in
+  `code-size.md`), warnings past 80 lines per function, nesting depth 4 and complexity 20. New code adds no warning. A
+  registered RED file disables `max-lines` in one comment that cites the register, deleted with the split.
 - Performance targets: initial load < 2 s, time to interactive < 3 s, Lighthouse > 90.
 
 ```typescript
@@ -181,6 +208,5 @@ const prompts = await db.prompt.findMany({
 
 ## Pre-commit
 
-1. `{{LINT_CMD}}`, `{{TYPECHECK_CMD}}`, `{{TEST_CMD}}`, `npm run build`: all pass.
-2. `bash scripts/audit-code-size.sh --summary` passes.
-3. Docs updated; commit with a prefix from `docs/rules/git.md`, or `test:` for test-only changes.
+1. Every gate listed under Project Variables passes; gitleaks runs in CI only.
+2. Docs updated; commit with a prefix from `docs/rules/git.md`, or `test:` for test-only changes.

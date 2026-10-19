@@ -1,1 +1,21 @@
-{"extends": "next/core-web-vitals"}
+{
+  "extends": "next/core-web-vitals",
+  "reportUnusedDisableDirectives": true,
+  "rules": {
+    "max-lines": ["error", { "max": 600 }],
+    "max-len": ["error", { "code": 160, "ignoreUrls": true }],
+    "max-lines-per-function": ["warn", { "max": 80, "skipBlankLines": true, "skipComments": true }],
+    "max-depth": ["warn", 4],
+    "complexity": ["warn", 20]
+  },
+  "overrides": [
+    {
+      "files": ["src/components/ui/**"],
+      "rules": { "max-len": "off" }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": { "max-lines-per-function": "off" }
+    }
+  ]
+}

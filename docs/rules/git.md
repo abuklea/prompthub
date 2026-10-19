@@ -1,49 +1,59 @@
 # Git Workflow
 
-## Branch Strategy
-- **`master`** - Default branch and production-ready stable code. It is the only long-lived branch, and changes normally reach it through pull requests.
-- **Work branches** - Short-lived, one per change, merged into `master` by pull request and then deleted. Use `feature/feature-name`, or the name the tool assigns (`claude/...`, `ccr-...`, `codex/...`).
+| `Title` | `Created` | `Last modified` |
+|---------|-----------|-----------------|
+| Git Workflow | 07/11/2025 12:46 GMT+10 | 19/10/2026 23:05 GMT+10 |
 
-## Development Commands
+## Table of Contents
+- [Branches](#branches)
+- [Commands](#commands)
+- [Before Committing](#before-committing)
+- [Commit Messages](#commit-messages)
+
+## Branches
+
+| Branch | Purpose |
+|---|---|
+| `main` | The default branch: releasable at every commit; changes reach it only by pull request |
+| `feature/<name>`, `fix/<name>`, `chore/<name>` | One unit of work, branched from `main` and merged back by pull request |
+
+- A project with an integration branch records it in `docs/rules/project.md`, which overrides this table.
+- Work on the branch your session or prompt names, and push only that branch.
+
+## Commands
 
 ```bash
-# Start new work
-git checkout master && git pull origin master
-git checkout -b feature/your-feature-name
-
-# Development workflow
-git add . && git commit -m "feat: {description}"
-git push -u origin feature/your-feature-name
-
-# Complete the work: open a pull request into master (`Closes #NN` or `Refs #NN`, per github-issues.md)
-
-# NEVER include Claude Code sign-off or signature in commit messages.
-# Use: [feat/remove/refactor/style/fix/chore/plan/docs/optimise] prefixes and other standards as appropriate
+git checkout main && git pull origin main
+git checkout -b feature/<name>
+git add <files> && git commit          # message per Commit Messages below
+git push -u origin feature/<name>
+# open a pull request into main; merging it is the developer's call
 ```
 
-### Task completion and source tracking (git)
-1. BEFORE task completion:
-- Run any required tests test suites, and fix any errors
-- Re-run the tests after each update/fix, and iterate to fix errors/issues
-- Verify test coverage of primary files, systems, and functions, meets 80%+
-- Make sure any fixes don't introduce new errors or unrelated issues, or break other tests for other fixes.
-- Run additional checks specific to primary files (linting, type checking, etc.)
+## Before Committing
 
-2. AFTER task completion, commit the completed task and any successful result/changes to git:
-- Stage all required unstaged changes to git for this commit
-- Develop a lean but detailed commit <message> that presents all changes in the commit as a list, e.g.:
-```
+- Run `{{TEST_CMD}}`, `{{TYPECHECK_CMD}}` and `{{LINT_CMD}}`. Fix every error, re-running after each fix until clean.
+- Coverage of the primary files, systems and functions is 80%+.
+- Fixes introduce no new errors and break no other tests.
+- Run any further checks specific to the changed files.
+
+## Commit Messages
+
+- Subject: `<prefix>: <summary>` on one line, then a blank line, then a lean but complete list of the changes.
+- Prefixes: `feat`, `fix`, `refactor`, `remove`, `style`, `chore`, `plan`, `docs`, `assets`, `samples`, `optimise`,
+  or another conventional prefix where none fits. Examples: `plan: a new feature for xyz`,
+  `remove: deleted superseded implementation`, `style: theme consistency`, `chore: reverting a mistake`.
+- Build the message from `git diff --staged`:
+
+```text
 fix: error from xyz fixed and feature online
+
   - This change
-    - Issues encountered, etc
+    - Issues encountered, etc.
   - That change
-    - Project effect, etc
-```  
-- **NEVER** add any author or sign-off into the commit message.
-- Use commit subject prefixes, `<prefix>: <log>` from [feat/remove/refactor/style/fix/chore/plan/assets/samples/docs/optimise]. EXAMPLES: "chore: reversing a silly mistake", "style: updating theme consistency", "plan: a new feature for xyz", "remove: deleted supersceded implementation", etc ...)
-- Generate a git commit <message> based on `git diff` and commit the staged changes:
+    - Project effect, etc.
 ```
-Bash(git add .)
-Bash(git diff --staged)
-Bash(git commit -m "<message>")
-```
+
+- NEVER add an author, sign-off, `Co-Authored-By` or Claude Code signature line.
+- Issue references in commits (`Refs #NN`, never a closing keyword) and in pull requests follow
+  `docs/rules/github-issues.md#titles-commits-and-pull-requests`.
