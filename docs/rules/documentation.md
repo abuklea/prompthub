@@ -4,7 +4,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| PROJECT DOCUMENTATION - RULES AND FORMATTING | 19/08/2025 10:00 GMT+10 | 22/08/2025 11:29 GMT+10 |
+| PROJECT DOCUMENTATION - RULES AND FORMATTING | 19/08/2025 10:00 GMT+10 | 19/10/2026 18:43 GMT+10 |
 
 ## Table of Contents
 - [Documentation Rules](#documentation-rules)
@@ -33,7 +33,8 @@ string example() {
 }
 ```
 - Use tables, visual charts and `mermaid` diagrams, and mcp tool, to improve communication clarity and effectiveness.
-- Refactor large files into more modular structures to **ALWAYS keep files under 500 lines.**
+- Refactor large files into more modular structures: **ALWAYS split a RED document by topic behind an index file**
+  (bands in `docs/rules/code-size.md`).
 - NEVER leak secrets or environment values.
 
 - **ALWAYS begin ALL SOURCECODE and DOCUMENTATION files with the EXACT header formatting below (BETWEEN the ```); with template variables {x}:**

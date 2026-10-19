@@ -1,8 +1,9 @@
-# Code Size and Agentability
+# PromptHub
+## Code Size and Agentability
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Code Size and Agentability | 19/10/2026 18:13 GMT+10 | 19/10/2026 18:13 GMT+10 |
+| Code Size and Agentability | 19/10/2026 18:13 GMT+10 | 19/10/2026 18:43 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -45,6 +46,10 @@ what that means for it.
 Advisory only: the audit reports long lines and does not fail on them. A table row, a URL or a command stays on one
 line. Semantic length matters more than physical: eleven positional arguments on a short line are harder to change
 than four clear lines.
+
+Tooling enforces none of these limits today: ESLint extends only `next/core-web-vitals` (no `max-len`, `max-lines`,
+`max-lines-per-function`, `max-depth` or `complexity` rule) and there is no Prettier config. Enabling one is a
+separate decision: measure its blast radius first (`--long-lines`).
 
 ## Functions and Modules
 

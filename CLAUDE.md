@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| CLAUDE.md - Project Instructions | 06/11/2025 00:00 GMT+10 | 19/10/2026 18:36 GMT+10 |
+| CLAUDE.md - Project Instructions | 06/11/2025 00:00 GMT+10 | 19/10/2026 18:43 GMT+10 |
 
 ---
 
@@ -153,11 +153,20 @@ Centralize and reuse common components. Apply SSOT (Single Source of Truth) prin
 ## Code Structure & Style
 
 ### File Structure Rules
-- **Max 500 lines per file** - Refactor when approaching limit
-- **Max 50 lines per function** - Single, clear responsibility
-- **Max 100 characters per line**
 - **Modular architecture** - Group by feature or responsibility
 - **All text files end with newline** (mandatory)
+
+**Code size (agentability bands, not a hard cap):**
+- A file's band is the worse of lines and estimated tokens (bytes / 4): GREEN <= 300 lines and <= 4,000
+  tokens (preferred); YELLOW to 600 lines and 8,000 tokens (acceptable; plan a split past ~500 when a file
+  holds more than one responsibility); RED beyond either (record a decision: `split` with an issue, or
+  `accept` with a reason)
+- Never split a coherent file just to satisfy a number; never grow a file into RED without deciding
+- Lines: prefer <= 120 chars; > 140 investigate; never add a line over 160
+- Functions: prefer <= 50 lines, review > 80. Nesting: prefer <= 3 levels, review > 4. One responsibility per module
+- Generated code, schemas, minified assets, static data, fixtures and lock files are exempt
+- `scripts/audit-code-size.sh` is the gate: it fails on a RED file with no row in
+  `docs/rules/code-size-register.md`. Run it before committing source changes. Full rules: `docs/rules/code-size.md`
 
 ### TypeScript/React Standards
 - Strict TypeScript mode enabled

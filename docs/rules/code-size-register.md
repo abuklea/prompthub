@@ -1,8 +1,9 @@
-# Code Size Register
+# PromptHub
+## Code Size Register
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Code Size Register | 19/10/2026 18:13 GMT+10 | 19/10/2026 18:13 GMT+10 |
+| Code Size Register | 19/10/2026 18:13 GMT+10 | 19/10/2026 18:43 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -20,6 +21,7 @@ its reason.
 
 | Lines | File | Area | Decision | Notes |
 |-------|------|------|----------|-------|
+| 697 | `src/features/prompts/actions.ts` | backend | split | Default from the code-size migration (source file: `split`). Tracked in #51: split at the prompt CRUD, search, tags and version-history seams. |
 
 ## Test Files
 

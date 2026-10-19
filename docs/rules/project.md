@@ -161,7 +161,8 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 - **UI Styling**: MUST use modular Shadcn Studio theme supported system (https://shadcnstudio.com/theme-generator) with CSS variables (NEVER hardcoded colors)
 - **Active States**: MUST provide universal and visual press/hover/interaction feedback on ALL interactive elements
 - **UI Section Management**: MUST use modular components and responsive grids and layouts that support mobile and desktop modes, with touch and mouse (each with expertly designed and well-considered UI/layout implementations for each specific mode), using collapsible patterns with localStorage persistence
-- **File Structure**: MUST keep all files under 500 lines, use modular architecture patterns to keep file sizes down and in check
+- **File Structure**: MUST follow the code-size bands in `docs/rules/code-size.md` (a RED file needs a `split` or
+  `accept` decision in the register); split only at clean seams, using modular architecture patterns
 
 ## Security & Performance
 
