@@ -44,3 +44,10 @@ next-env.d.ts
 
 # docker
 docker/postgres/data/
+
+# Claude Code (prp-project)
+logs/agent-actions.jsonl
+logs/agent-actions.jsonl.lock
+.claude/settings.local.json
+.claude/worktrees/
+*.prp-project.bak

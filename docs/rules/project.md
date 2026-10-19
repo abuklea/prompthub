@@ -4,6 +4,50 @@
 PromptHub is a centralized repository where users can efficiently store, organize, and manage their AI prompts, built with a modern, themeable, and responsive frontend.
 </brief>
 
+## Project Variables
+
+Rules files use these `{{VARIABLES}}`: resolve them here, never guess one. This file overrides the other rules
+files where they conflict. `[TODO: …]` marks a decision not made yet: ask, or leave it; never invent it.
+
+| Variable | Value |
+|---|---|
+| `{{PROJECT_NAME}}` | PromptHub |
+| `{{AUTHOR}}` | Allan James |
+| `{{TIMEZONE}}` | Australia/Brisbane (GMT+10) |
+| `{{REPO}}` | abuklea/prompthub |
+| `{{WORKSPACE_FOLDER}}` | /home/allan/projects/PromptHub |
+| `{{INSTALL_CMD}}` | npm ci |
+| `{{TEST_CMD}}` | npm test |
+| `{{TYPECHECK_CMD}}` | npx tsc --noEmit |
+| `{{LINT_CMD}}` | npm run lint |
+| `{{E2E_CMD}}` | [TODO: e2e command, or `none`] |
+| `{{ARCHON_PROJECT_NAME}}` | PromptHub |
+| `{{ARCHON_PROJECT_ID}}` | d449f266-1f36-47ad-bd2d-30f1a0f5e999 |
+| `{{SUPABASE_PROJECT_ID}}` | xmuysganwxygcsxwteil |
+| `{{SUPABASE_PROJECT_URL}}` | https://xmuysganwxygcsxwteil.supabase.co |
+
+`{{WORKSPACE_FOLDER}}` is the maintainer's local checkout path as recorded in `CLAUDE.md`; other environments differ.
+Lint, typecheck, test and build are the gates `.github/workflows/ci.yml` runs.
+
+- Design of record: `docs/project/` (MVP `PromptHub_01_MVP_01.md`, tech `PromptHub_05_TECH_01.md`, plan
+  `PromptHub_06_PLAN_01.md`). Where this file and the spec disagree, the spec wins and this file is fixed.
+
+### Layout
+
+```text
+src/            app/ routes, components/ (ui/ and layout/), features/<name>/ (actions, schemas, components, hooks),
+                lib/ (db, supabase clients, rate-limit), stores/ (Zustand), hooks/, types/, styles/, middleware.ts
+prisma/         schema.prisma and migrations/
+docs/           rules/ (agent rules), guides/, project/ (specs), review/, plans/
+PRPs/           PRP specs, templates/, reports/ (INITIAL and REPORT), docs/, complete/
+wip/            scratch, test and debug documents (`P#S#T#-…`)
+docker/         nginx gateway and Postgres init for the local Docker stack (see docker-compose.yml)
+scripts/        copy-monaco.js (postinstall), audit-code-size.sh
+supabase/       Supabase CLI link state (.temp/)
+.github/        workflows/ci.yml
+public/         static assets; public/monaco-editor is copied at install and gitignored
+```
+
 ## WEB PORTAL ARCHITECTURE
 
 **Frontend**: Next.js 14.2.35 (App Router) + React 18 + TypeScript + Tailwind CSS + Shadcn/UI + Framer Motion  
@@ -12,6 +56,9 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 **Deployment**: Vercel hosting for frontend with Next.js API routes for serverless functions, Supabase managed backend  
 **UI Components**: Shadcn components and custom additions  
 **Development**: Node.js + npm ecosystem
+**Tests**: Vitest (`src/**/*.test.ts`, node environment)
+**Build**: `npm run build` (`prisma generate && next build`)
+**Pinned versions**: `package.json` and `package-lock.json`. Never upgrade a dependency as a side effect of another task.
 
 ## Core Instructions, rules, and Requirements
 
