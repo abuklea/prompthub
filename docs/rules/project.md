@@ -69,7 +69,7 @@ public/         static assets; public/monaco-editor is copied at install and git
 
 ## Working Rules
 
-- Use subagents for complex tasks, and parallelize independent work.
+- ALWAYS use the most suitable agent or subagent (`.claude/agents/`) for each task, and parallelize independent work.
 - ALWAYS use forward slashes in paths. NEVER put a template variable into a command: substitute its value.
 - End every text file with a newline.
 - NEVER use mock, dummy or placeholder data outside test suites; no temporary workarounds or bypassed features.
