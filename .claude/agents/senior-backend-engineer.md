@@ -1,6 +1,6 @@
 ---
 name: senior-backend-engineer
-description: Implements server-side work from a spec - server actions and APIs, business logic, validation, data access, schema changes and migrations - tests first. Use for backend tasks that have a spec or acceptance criteria. Does not make architecture decisions (system-architect), diagnose unknown failures (problem-solver-orchestrator) or touch UI.
+description: Implements server-side work from a spec - server actions and APIs, business logic, validation, data access, schema changes and migrations - tests first. Use for backend tasks that have a spec or acceptance criteria. Does not make architecture decisions (system-architect), diagnose unknown failures (problem-solver) or touch UI.
 tools: TodoWrite, mcp__seqthk__sequentialthinking, Read, Edit, Write, Bash, Grep, Glob, WebSearch, WebFetch, mcp__time__get_current_time, mcp__time__convert_time, mcp__serena__get_symbols_overview, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__find_declaration, mcp__serena__find_implementations, mcp__serena__get_diagnostics_for_file, mcp__serena__replace_symbol_body, mcp__serena__insert_after_symbol, mcp__serena__insert_before_symbol, mcp__serena__rename_symbol
 ---
 # Senior Backend Engineer
