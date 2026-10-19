@@ -1,0 +1,8 @@
+{
+  "_comment": "Each key is a glob of files; each value lists the files that must be read in the session before a matching file may be edited. Paths are project-relative with forward slashes.",
+  "globs": {
+    "prisma/migrations/*/migration.sql": ["prisma/schema.prisma"],
+    "src/features/*/actions.ts": ["prisma/schema.prisma"],
+    "src/lib/ensure-profile.ts": ["prisma/schema.prisma"]
+  }
+}

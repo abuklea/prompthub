@@ -1,41 +1,19 @@
 ---
-description: Update the project './CLAUDE.md' with important new/modified rules and information.
+description: Update the project's agent rules (docs/rules/ and CLAUDE.md) with important new or modified rules and information.
 argument-hint: <request> (string)
 ---
-## Task 
+## Task
 _Given the provided context and request <request>:_
-**Use the `system-architect` agent**
-1. Read the file: './CLAUDE.md' and remove or modify any outdated/incorrect/inaccurate information
-2. Update the file: './CLAUDE.md' with any important new and/or modified rules.
-  - Identify any target/s of the request in <request>, and be sure the correct information is added, including any other RELATED significant/important rules.
-  - Keep ./CLAUDE.md entries to critical project-wide rules, fixes, decisions, or significant architecture information.
-  - Keep ./CLAUDE.md entries especially succinct and to the point - capture all details in compact statements.
+1. Read `./CLAUDE.md` and the rules files it imports. Remove or correct anything outdated, incorrect or inaccurate that the request touches.
+2. Put each new or changed rule in its home file, and nowhere else:
+   - project facts, stack, commands, variables, architecture, security and database rules: `docs/rules/project.md`
+   - issue tracking, labels, titles and pull requests: `docs/rules/github-issues.md`
+   - documentation format: `docs/rules/documentation.md` (PRP documents: `docs/rules/documentation-prp.md`)
+   - testing: `docs/rules/testing.md`; git: `docs/rules/git.md`; MCP tools: `docs/rules/tools.md`; file size: `docs/rules/code-size.md`
+3. Keep `./CLAUDE.md` to its H1, at most two lines of orientation, and the block between the `prp-project:begin` and `prp-project:end` markers. Never edit inside the markers: the prp-project skill owns that block. Add no rules, examples or file lists to `CLAUDE.md`.
+4. Write each rule as a terse imperative bullet. State a fact in one file and point to it from the others. Leave out praise, emphasis and history.
+5. Report the lines added or removed per file and the change in always-on tokens (the prp-project skill's `check` prints the total).
 
-##  **CRITICAL DETAILS** - ./CLAUDE.md Supremacy
-The contents of the CLAUDE.md are adhered to much more strictly than the user prompt.
+## Why CLAUDE.md stays small
 
-### **Adherence Hierarchy:**
-
-- ./CLAUDE.md instructions: Treated as immutable system rules that define operational boundaries
-- User prompts: Interpreted as flexible requests that must work within those established rules
-- Behavioral Differences:
-
-- Process execution: ./CLAUDE.md steps followed sequentially vs user prompts adapted and optimised
-- Persistence: ./CLAUDE.md context maintained throughout session vs user prompts contextual to the moment
-- Override behavior: User prompts rarely override ./CLAUDE.md directives vs ./CLAUDE.md consistently overrides user preferences
-
-**SOUND ADVICE**: Dexterously describe development processes in ./CLAUDE.md. **Tactically** flood the ./CLAUDE.md with as much **high-quality** context as possible relating to the correct steps to follow.
-
-### Modular ./CLAUDE.md design and length management
-
-Break ./CLAUDE.md into modules of functionality. To ensure maximum adherence, format the information in markdown ensuring Claude can see the boundaries between instructions and modules, it also helps prevent instruction bleed.
-
-As you add more workflow systems to ./CLAUDE.md, the growing ./CLAUDE.md size will start affecting performance. **ALWAYS** be mindful of our token budget and optimise token spend, while also assuring high-performance; a delicate balance. It can be more effective to front-load the context (including providing multiple examples and denoting which files can be read, and which files are forbidden to read, within the project workspace), in ./CLAUDE.md.
-
-### Mechanic Benefits
-
-Higher instruction adherence: ./CLAUDE.md content treated as authoritative system rules
-Consistent execution: Sequential process steps followed systematically
-Context persistence: Instructions maintained throughout entire session
-Reduced context pollution: Controlled file access prevents unwanted information contamination
-Modular organisation: Clear markdown separations between functional areas prevent instruction bleeding
+`CLAUDE.md` and every file it imports with `@` load into every session, so each line costs tokens on every task. The rules a task needs live in `docs/rules/`, and the files read only on demand are listed in the table inside the managed block.

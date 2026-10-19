@@ -1,24 +1,21 @@
 # Git Workflow
 
 ## Branch Strategy
-- **`master`** - Production-ready stable code
-- **`dev`** - Main development branch (current working branch) 
-- **`feature/feature-name`** - Individual feature development
+- **`master`** - Default branch and production-ready stable code. It is the only long-lived branch, and changes normally reach it through pull requests.
+- **Work branches** - Short-lived, one per change, merged into `master` by pull request and then deleted. Use `feature/feature-name`, or the name the tool assigns (`claude/...`, `ccr-...`, `codex/...`).
 
 ## Development Commands
 
 ```bash
-# Start new feature development
-git checkout dev && git pull origin dev
+# Start new work
+git checkout master && git pull origin master
 git checkout -b feature/your-feature-name
 
 # Development workflow
 git add . && git commit -m "feat: {description}"
 git push -u origin feature/your-feature-name
 
-# Complete feature (merge to dev)
-git checkout dev && git merge feature/your-feature-name
-git push origin dev && git branch -d feature/your-feature-name
+# Complete the work: open a pull request into master (`Closes #NN` or `Refs #NN`, per github-issues.md)
 
 # NEVER include Claude Code sign-off or signature in commit messages.
 # Use: [feat/remove/refactor/style/fix/chore/plan/docs/optimise] prefixes and other standards as appropriate

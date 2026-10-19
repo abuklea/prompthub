@@ -1,8 +1,9 @@
+# PromptHub
 ## PRP Document Footer Formatting Standards
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| PRP Document Footer Formatting Standards | 21/10/2025 14:16 GMT+10 | 19/10/2026 18:36 GMT+10 |
+| PRP Document Footer Formatting Standards | 21/10/2025 14:16 GMT+10 | 19/10/2026 20:00 GMT+10 |
 
 ## Table of Contents
 - [Overview](#overview)
@@ -16,7 +17,7 @@
 
 ## Overview
 
-This document defines the required footer/sign-off section formatting for all PRP (Product Requirements & Planning) documents in the WalkingTours project. Consistent formatting ensures:
+This document defines the required footer/sign-off section formatting for all PRP (Product Requirements & Planning) documents in the {{PROJECT_NAME}} project. Consistent formatting ensures:
 
 - Easy parsing and tracking of project status
 - Clear identification of dependencies and relationships
@@ -27,19 +28,19 @@ This document defines the required footer/sign-off section formatting for all PR
 
 ## Document Types
 
-The WalkingTours project uses four distinct PRP document types, each with specific footer requirements:
+The {{PROJECT_NAME}} project uses four distinct PRP document types, each with specific footer requirements:
 
 | Document Type | Location | Purpose | Filename Pattern |
 |--------------|----------|---------|------------------|
 | **PRP INITIAL** | `./PRPs/reports/` | Initial planning and task breakdown | `*-INITIAL.md` |
 | **PRP REPORT** | `./PRPs/reports/` | Completion summary and results | `*-REPORT.md` |
 | **PRP** | `./PRPs/` | Main implementation specification | `P#S#-*.md` |
-| **WIP** | `./wip/` | Work-in-progress documentation | `P#S#-*.md` |
+| **WIP** | `./wip/` | Work-in-progress documentation | `P#S#[T#]-*.md` |
 
 ## Common Fields
 
 These fields appear in **all** PRP document types:
-----
+
 | Field | Format | Required | Description |
 |-------|--------|----------|-------------|
 | **PRP Status** | Enum (see below) | Yes | Current status of the PRP |
@@ -68,7 +69,7 @@ Additional fields for initial planning documents:
 
 | Field | Format | Required | Description |
 |-------|--------|----------|-------------|
-| **Plan Status** | `REVIEW \| ACTIVE \| COMPLETE` | Yes | Planning phase status |
+| **Plan Status** | `READY \| REVIEW \| ACTIVE \| COMPLETE` | Yes | Planning phase status |
 | **Dependencies** | `P#S# (Status)` or `None` | Yes | Prerequisite PRPs |
 | **Implementation Status** | `NOT YET STARTED (P#S#)` | Yes | Code implementation status |
 | **Testing Status** | `NOT YET TESTED` | Yes | Testing progress |
@@ -126,7 +127,7 @@ Additional fields for work-in-progress documents:
 
 ### PRP Document
 - **Format**: Relative path from project root
-- **Example**: `PRPs/P2S8-implement-create-project-form.md`
+- **Example**: `PRPs/P2S8-implement-password-reset-form.md`
 
 ### PRP ID
 - **Format**: `P#S#` where # is a number
@@ -142,8 +143,8 @@ Additional fields for work-in-progress documents:
 ### Phase
 - **Format**: `Phase # - Description (Context)`
 - **Examples**:
-  - `Phase 1 - Research and planning (Report)`
-  - `Phase 2 - Multi-Project Management (Web Portal)`
+  - `Phase 1 - Project Initialization and Core Setup (Report)`
+  - `Phase 2 - Authentication & User Management (Web Portal)`
 
 ### Dependencies
 - **Format**: `P#S# (Status), P#S# (Status)` or `None`
@@ -178,23 +179,23 @@ Structured format with agents and notes:
 Agents:
 - `agent-name` (Task range or description)
 - `another-agent` (Task range or description)
-Notes:**
+**Notes:**
 - Important note about implementation
 - Critical warning or requirement
-- Unity-mcp availability check
+- Tool availability check (for example, the browser check needs the dev server)
 ```
 
 **Example**:
 ```markdown
 **Recommendations:**
 Agents:
-- `unity6-expert-developer` (Tasks 2-10, 12)
+- `senior-frontend-engineer` (Tasks 2-10, 12)
 - `senior-backend-engineer` (Task 1)
 - `qa-test-automation-engineer` (Task 11)
-Notes:**
-- T1 (API endpoints) with `senior-backend-engineer`
-- T2-10 (Unity scripts) with `unity6-expert-developer` in parallel
-- Use unity-mcp server; if not accessible, pause and report issue
+**Notes:**
+- T1 (server actions) with `senior-backend-engineer`
+- T2-10 (UI components) with `senior-frontend-engineer` in parallel
+- Use chrome-devtools for the browser check; if it is not accessible, report the UI as unverified
 ```
 
 ### Estimated Implementation Time (FTE)
@@ -232,50 +233,54 @@ Notes:**
 
 ## EXAMPLES
 
+The PRP IDs, titles, issue numbers and counts in these examples are illustrative. They do not refer to real PRPs.
+
 ### EXAMPLE: Complete PRP INITIAL Footer
 
 ```markdown
-----
+---
 **Plan Status**: READY
 **PRP Status**: TODO
 **PRP ID**: P2S9
 **Epic Issue**: #31
-**PRP Document**: PRPs/P2S9-unity-core-architecture-rebuild.md
+**PRP Document**: PRPs/P2S9-session-expiry-handling.md
 **Tasks**: 10 tasks (P2S9T1 - P2S9T10)
-**Phase**: Phase 2 - Multi-Project Management (Unity)
+**Phase**: Phase 2 - Authentication & User Management (Web Portal)
 **Dependencies**: P2S8 (Complete)
 **Implementation Status**: NOT YET STARTED (P2S9)
 **Testing Status**: NOT YET TESTED
-**Next PRP**: P2S10 - Content Synchronization System
+**Next PRP**: P2S10 - Email Change Confirmation
 **Documentation**:
-docs/guides/Unity6-ARFoundation.md
-docs/guides/Unity-OdinInspector.md
+- docs/project/PromptHub_05_TECH_01.md
+- docs/rules/project.md
 **Recommendations:**
 Agents:
-- `unity6-expert-developer` (Tasks 1-10)
-Notes:**
-- Use unity-mcp server; if not accessible, pause and report issue
-- Follow service-oriented architecture patterns
-- Implement comprehensive error handling
-**Estimated Implementation Time (FTE):** 25-30 hours (3-4 days)
+- `senior-backend-engineer` (Tasks 1-6)
+- `senior-frontend-engineer` (Tasks 7-9)
+- `qa-test-automation-engineer` (Task 10)
+**Notes:**
+- Use chrome-devtools for the browser check; if it is not accessible, report the UI as unverified
+- Follow the tenant-isolation rules in docs/rules/project.md
+- Implement error handling through the existing server action result type
+**Estimated Implementation Time (FTE):** 15-20 hours (2-3 days)
 ```
 
 ### EXAMPLE: Complete PRP REPORT Footer
 
 ```markdown
-----
+---
 **Report Status**: FINAL
 **PRP Status**: COMPLETE
 **PRP ID**: P2S8
 **Epic Issue**: #31
-**PRP Document**: PRPs/P2S8-implement-create-project-form.md
+**PRP Document**: PRPs/P2S8-implement-password-reset-form.md
 **Tasks**: 12 tasks (P2S8T1 - P2S8T12)
-**Phase**: Phase 2 - Multi-Project Management (Web Portal)
+**Phase**: Phase 2 - Authentication & User Management (Web Portal)
 **Dependencies**: P2S7 (Complete), P2S6 (Complete)
 **Implementation Status**: COMPLETE (P2S8)
 **Testing Status**: COMPLETE (12/12 tests passed)
-**Next PRP**: P2S9 - Unity Core Architecture Rebuild
-Notes:**
+**Next PRP**: P2S9 - Session Expiry Handling
+**Notes:**
 - All form validation working correctly
 - Server actions successfully integrated
 - Comprehensive error handling implemented
@@ -284,41 +289,41 @@ Notes:**
 ### EXAMPLE: Complete Main PRP Footer
 
 ```markdown
-----
+---
 **PRP Status**: COMPLETE
 **PRP ID**: P2S8
 **Epic Issue**: #31
 **Tasks**: 12 tasks (P2S8T1 - P2S8T12)
-**Phase**: Phase 2 - Multi-Project Management (Web Portal)
+**Phase**: Phase 2 - Authentication & User Management (Web Portal)
 **Dependencies**: P2S7 (Complete), P2S6 (Complete), P2S5 (Complete)
-**Next PRP**: P2S9 - Unity Core Architecture Rebuild
+**Next PRP**: P2S9 - Session Expiry Handling
 **Recommendations:**
 Agents:
 - `senior-frontend-engineer` (Tasks 1-8)
 - `senior-backend-engineer` (Tasks 9-10)
 - `qa-test-automation-engineer` (Tasks 11-12)
-Notes:**
+**Notes:**
 - T1-8 (Form components) with `senior-frontend-engineer`
 - T9-10 (Server actions) with `senior-backend-engineer` in parallel
-- Follow Next.js 15 server action patterns
+- Follow the existing server action patterns in `src/features/auth/actions.ts`
 **Estimated Implementation Time (FTE):** 15-20 hours (2-3 days)
 ```
 
 ### EXAMPLE: Complete WIP Footer
 
 ```markdown
-----
-**PRP Document**: PRPs/P2S9-unity-core-architecture-rebuild.md
+---
+**PRP Document**: PRPs/P2S9-session-expiry-handling.md
 **PRP Status**: IN PROGRESS
 **PRP ID**: P2S9
 **Tasks**: 10 tasks (P2S9T1 - P2S9T10)
-**Phase**: Phase 2 - Multi-Project Management (Unity)
+**Phase**: Phase 2 - Authentication & User Management (Web Portal)
 **Implementation Status**: IN PROGRESS - 7/10 tasks complete
 **Testing Status**: IN PROGRESS - 15/20 tests passing
-Notes:**
-- AuthenticationManager fully implemented and tested
-- ContentSyncManager implementation in progress
-- NetworkManager pending task start
+**Notes:**
+- Session refresh action fully implemented and tested
+- Expiry banner component implementation in progress
+- Sign-out cleanup pending task start
 ```
 
 ## Validation Checklist

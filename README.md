@@ -1,15 +1,15 @@
 # PromptHub
 
-PromptHub is a powerful, open-source application designed to be a centralized repository for developers, researchers, and content creators to efficiently store, organize, and manage their AI prompts. It features a modern, themeable, and responsive interface with a robust backend, providing a "GitHub for prompts" experience.
+PromptHub is a web application for storing, organizing and managing AI prompts, with nested folders, a Monaco editor, version history, tags and full-text search.
 
 ## Core Features
 
 -   **Nested Folder Organization:** Structure your prompts in a hierarchical folder system for easy navigation.
--   **Full-Text Search:** Quickly find any prompt using a powerful, indexed search.
+-   **Full-Text Search:** Search prompt titles and content through a GIN-indexed Postgres `tsvector` column (English configuration).
 -   **Rich Prompt Editor:** Create and edit prompts in a VS Code-like environment powered by the Monaco Editor.
--   **Git-Style Version Control:** Track every change to your prompts with a diff-based versioning system.
+-   **Version History:** Each save stores a snapshot (title and content) of the previous version, and a version can be restored.
 -   **Tagging System:** Organize and filter prompts using descriptive tags.
--   **Secure and Private:** User data is secured with Supabase Authentication and isolated with Row Level Security.
+-   **Authentication and Per-User Data:** Users sign in with Supabase Authentication, and server actions filter queries by the signed-in user. Row Level Security is optional defence-in-depth (step 6). Known gaps in input validation and ownership checks are tracked in [#41](https://github.com/abuklea/prompthub/issues/41).
 
 ## Technology Stack
 
@@ -33,14 +33,14 @@ Follow these instructions to set up and run the project locally.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/prompthub.git
+git clone https://github.com/abuklea/prompthub.git
 cd prompthub
 ```
 
 ### 2. Install Dependencies
 
 ```bash
-npm install
+npm ci
 ```
 
 ### 3. Set Up Environment Variables
