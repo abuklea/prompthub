@@ -33,7 +33,7 @@ files where they conflict. `[TODO: …]` marks a decision not made yet: ask, or 
 - `{{E2E_CMD}}` is `none`: no e2e runner is configured. Browser flows are verified by hand
   (`status: awaiting-verification`, `type: dev-review`).
 - Gates, as `.github/workflows/ci.yml` runs them: `npx prisma validate`, `{{LINT_CMD}}`, `{{TYPECHECK_CMD}}`,
-  `{{TEST_CMD}}`, `npm run build`, plus a gitleaks secret scan.
+  `{{TEST_CMD}}`, `bash scripts/audit-code-size.sh --summary`, `npm run build`, plus a gitleaks secret scan.
 - Design of record: `docs/project/` (MVP `PromptHub_01_MVP_01.md`, tech `PromptHub_05_TECH_01.md`, plan
   `PromptHub_06_PLAN_01.md`). Where this file and the spec disagree, the spec wins and this file is fixed.
 
@@ -103,6 +103,11 @@ public/         static assets; public/monaco-editor is copied at install and git
 | Schemas, types | `schemas.ts`, `types.ts` per feature | `features/editor/schemas.ts` |
 
 - Use `// Reason:` comments for non-obvious logic. Source headers follow `docs/rules/documentation.md`.
+- Timestamps (`dd/MM/yyyy HH:mm GMT+10`): no `time` server, so take them from
+  `TZ=Australia/Brisbane date '+%d/%m/%Y %H:%M GMT+10'`. This replaces the `mcp__time__get_current_time` source in
+  `documentation-prp.md`.
+- Diagrams: write `mermaid` code blocks; no render step and no PNG/SVG files. This replaces the `mermaid` tool
+  wording in `documentation.md`.
 
 ## Database, Auth and Tenancy
 
@@ -110,7 +115,8 @@ public/         static assets; public/monaco-editor is copied at install and git
   developer logs in manually when the CLI is not authenticated.
 - NEVER run `supabase start` or create a local Supabase instance; Supabase is cloud-only. The Docker stack under
   `docker/` is the local-development exception.
-- ALWAYS test migration up/down cycles before database commits.
+- Prisma Migrate has no down migrations: ship a rollback as a new forward migration. Before a database commit, apply
+  the migration from scratch to the local Docker Postgres (`docker-compose.yml`), never to the Supabase project.
 - **Auth**: Supabase JWT, validated server-side with `supabase.auth.getUser()`.
 - **Tenant isolation (authoritative)**: application code. Every server action authenticates the user and scopes
   every Prisma query with `where: { user_id: user.id }`. Prisma connects with a database role over `DATABASE_URL`,
@@ -161,5 +167,5 @@ const prompts = await db.prompt.findMany({
 ## Pre-commit
 
 1. `{{LINT_CMD}}`, `{{TYPECHECK_CMD}}`, `{{TEST_CMD}}`, `npm run build`: all pass.
-2. `scripts/audit-code-size.sh` passes.
+2. `bash scripts/audit-code-size.sh --summary` passes.
 3. Docs updated; commit with a prefix from `docs/rules/git.md`, or `test:` for test-only changes.

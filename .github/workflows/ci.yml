@@ -42,6 +42,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Code-size audit
+        run: bash scripts/audit-code-size.sh --summary
+
       - name: Build
         run: npm run build
 
