@@ -103,9 +103,6 @@ public/         static assets; public/monaco-editor is copied at install and git
 | Schemas, types | `schemas.ts`, `types.ts` per feature | `features/editor/schemas.ts` |
 
 - Use `// Reason:` comments for non-obvious logic. Source headers follow `docs/rules/documentation.md`.
-- Timestamps (`dd/MM/yyyy HH:mm GMT+10`): no `time` server, so take them from
-  `TZ=Australia/Brisbane date '+%d/%m/%Y %H:%M GMT+10'`. This replaces the `mcp__time__get_current_time` source in
-  `documentation-prp.md`.
 - Diagrams: write `mermaid` code blocks; no render step and no PNG/SVG files. This replaces the `mermaid` tool
   wording in `documentation.md`.
 

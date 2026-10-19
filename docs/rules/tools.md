@@ -1,7 +1,7 @@
 # MCP TOOL USAGE
 
 MCP servers are configured per developer: the repository has no `.mcp.json`. The servers this project uses are
-`serena` and `chrome-devtools`. When one is unavailable, say so and continue with built-in tools.
+`serena`, `chrome-devtools`, `seqthk` and `time`. When one is unavailable, say so and continue with built-in tools.
 
 1. ALWAYS track work in GitHub Issues per `github-issues.md`. `archon` is legacy and read-only: use it only to export
    tasks and records for the Archon import (#29).
@@ -10,4 +10,6 @@ MCP servers are configured per developer: the repository has no `.mcp.json`. The
 3. Use `chrome-devtools` to check UI changes in the running app (dev server on port 3010): snapshots, console and
    network inspection, scripted clicks and form fills. No e2e runner exists (`{{E2E_CMD}}` is `none`), so this is the
    browser check.
-4. No `time`, `mermaid`, `brave` or `seqthk` server: timestamps and diagrams follow `project.md`.
+4. Use `seqthk` for complex tasks that need research or planning first.
+5. Use `time` for the current date and time and timezone conversion; document timestamps use `{{TIMEZONE}}`.
+6. No `mermaid` or `brave` server: diagrams follow `project.md`.
