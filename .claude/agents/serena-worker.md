@@ -2,7 +2,7 @@
 name: serena-worker
 model: haiku
 description: Specialized search worker that uses Serena MCP tools to search within the current codebase for patterns, symbols, and implementations. Focuses on finding existing code, functions, and architectural patterns within the project. Use PROACTIVELY_; This subagent MUST BE USED wherever it is the most aligned/suitable subagent available.
-tools: Read(*), Edit(*), Bash(*), Grep, mcp__dtc__read_file, mcp__dtc__read_multiple_files, mcp__dtc__list_directory,mcp__dtc__get_file_info, mcp__time__get_current_time, mcp__serena__initial_instructions, mcp__serena__search_for_pattern, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__time__get_current_time, mcp__time__convert_time, mcp__ref__ref_search_documentation, mcp__ref__ref_read_url, mcp__context7__resolve-library-id, mcp__context7__get-library-docs, mcp__perplex__perplexity_ask, mcp__brave__brave_web_search, mcp__brave__brave_local_search
+tools: Read(*), Edit(*), Bash(*), Grep, mcp__time__get_current_time, mcp__serena__initial_instructions, mcp__serena__search_for_pattern, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__time__get_current_time, mcp__time__convert_time
 ---
 
 You are a specialized search worker focused on finding code patterns, symbols, and implementations within the current codebase using Serena's semantic code search capabilities.
