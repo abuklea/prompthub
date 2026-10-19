@@ -15,5 +15,5 @@ runtime via untracked env vars (e.g. `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` in
 
 - **Unit Tests**: Individual functions and components
 - **Integration Tests**: Component interactions and API integration
-- **Coverage Target**: 80%+ with focus on critical 3D rendering paths
+- **Coverage Target**: 80%+ on the code you change, focused on server actions, schemas, stores and shared utilities
 - **Test Commands**: `npm run test`, `npm run test:watch`, `npm run test:coverage`

@@ -32,7 +32,7 @@ string example() {
   return "hello";
 }
 ```
-- Use tables, visual charts and `mermaid` diagrams, and mcp tool, to improve communication clarity and effectiveness.
+- Use tables, visual charts and `mermaid` diagrams to improve communication clarity and effectiveness.
 - Refactor large files into more modular structures: **ALWAYS split a RED document by topic behind an index file**
   (bands in `docs/rules/code-size.md`).
 - NEVER leak secrets or environment values.

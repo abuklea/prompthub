@@ -48,7 +48,7 @@ docs/           rules/ (agent rules), guides/, project/ (specs), review/, plans/
 PRPs/           PRP specs, templates/, reports/ (INITIAL and REPORT), docs/, complete/
 wip/            scratch, test and debug documents (`P#S#T#-…`)
 docker/         nginx gateway and Postgres init for the local Docker stack (see docker-compose.yml)
-scripts/        copy-monaco.js (postinstall), audit-code-size.sh
+scripts/        copy-monaco.js (postinstall), audit-code-size.sh, find-old-size-rules.sh
 supabase/       Supabase CLI link state (.temp/)
 .github/        workflows/ci.yml, issue forms, labels.json, board scripts
 public/         static assets; public/monaco-editor is copied at install and gitignored
@@ -76,8 +76,7 @@ public/         static assets; public/monaco-editor is copied at install and git
 - NEVER keep backwards compatibility: remove the superseded pattern when upgrading.
 - NEVER assume a path, module name or API: verify it, and ask when uncertain.
 - Design: KISS, YAGNI, DRY (one source of truth), SOLID. Fail fast: check errors early.
-- Write the test first (`docs/rules/testing.md`); target 80%+ coverage on the code you change. Coverage focuses on
-  server actions, schemas, stores and shared utilities; ignore the 3D-rendering wording in `testing.md`.
+- Write the test first (`docs/rules/testing.md`); target 80%+ coverage on the code you change.
 - Prefer async/await. Cookie handling in the Supabase server client sits behind synchronous-looking signatures:
   check each call for a missing or misplaced `await`.
 - Debounce user-input handlers.
@@ -118,12 +117,11 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
 |---|---|---|
 | Components | PascalCase.tsx | `ResizablePanelsLayout.tsx` |
 | Hooks, stores | `use-*.ts` or `useX.ts`, matching the neighbouring files | `use-tab-store.ts` |
-| Server actions | `actions.ts` per feature | `features/auth/actions.ts` |
-| Schemas, types | `schemas.ts`, `types.ts` per feature | `features/editor/schemas.ts` |
+| Server actions | `actions.ts` per feature | `src/features/auth/actions.ts` |
+| Schemas, types | `schemas.ts`, `types.ts` per feature | `src/features/editor/schemas.ts` |
 
 - Use `// Reason:` comments for non-obvious logic. Source headers follow `docs/rules/documentation.md`.
-- Diagrams: write `mermaid` code blocks; no render step and no PNG/SVG files. This replaces the `mermaid` tool
-  wording in `documentation.md`.
+- Diagrams: write `mermaid` code blocks; there is no render step and no PNG/SVG output.
 
 ## Database, Auth and Tenancy
 
@@ -136,7 +134,8 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
 - **Auth**: Supabase JWT, validated server-side with `supabase.auth.getUser()`.
 - **Tenant isolation (authoritative)**: application code. Every server action authenticates the user and scopes
   every Prisma query with `where: { user_id: user.id }`. Prisma connects with a database role over `DATABASE_URL`,
-  so Postgres RLS does not constrain Prisma queries: the application filter is the enforced boundary.
+  so Postgres RLS does not constrain Prisma queries: the application filter is the enforced boundary. Some actions do
+  not comply yet; they are tracked under #39 (P7S2).
 - **RLS (optional defence-in-depth)**: policies live in `wip/P3S1-rls-policies.sql`, outside `prisma migrate`, and
   apply only to connections that carry the end-user JWT (the Supabase client). Treat them as a secondary layer.
 - NEVER create triggers on `auth.users` (not permitted on Supabase Cloud). Create `Profile` rows in application code
@@ -154,7 +153,7 @@ Names and purposes (template: `.env.example`; CI supplies placeholders):
 | Variable | Purpose |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase client configuration |
-| `SUPABASE_SERVICE_ROLE_KEY` | Privileged Supabase access, server only |
+| `SUPABASE_SERVICE_ROLE_KEY` | Reserved for admin tasks such as seeding (technical spec); no code under `src/` reads it today |
 | `DATABASE_URL`, `DIRECT_URL` | Prisma pooled and direct connections (`prisma/schema.prisma`) |
 
 ## Architecture Constraints
