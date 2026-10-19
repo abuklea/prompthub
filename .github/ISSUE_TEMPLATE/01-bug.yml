@@ -1,0 +1,58 @@
+# Bug report form. Label defaults must match labels.json.
+name: Bug report
+description: Something is broken or behaves incorrectly.
+title: "[bug] "
+labels: ["type: bug", "status: backlog", "flag: review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Add an `area:` and a `priority:` label after filing. The conventions document
+        (`docs/rules/github-issues.md`) has the label taxonomy.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happens
+      description: One or two sentences. Observed behaviour, not a guess at the cause.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen instead
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Where was this seen
+      multiple: true
+      options:
+        - Production (Vercel)
+        - Vercel preview deployment
+        - Local development (npm run dev)
+        - Local Docker stack (docker compose)
+        - Automated test suite
+        - Code review (not yet reproduced)
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Error output, screenshots, failing test names, measured numbers.
+  - type: textarea
+    id: ruled_out
+    attributes:
+      label: Anything already ruled out
+      description: What was checked, and by what measurement.

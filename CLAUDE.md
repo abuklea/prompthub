@@ -3,18 +3,19 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| CLAUDE.md - Project Instructions | 06/11/2025 00:00 GMT+10 | 06/11/2025 14:30 GMT+10 |
+| CLAUDE.md - Project Instructions | 06/11/2025 00:00 GMT+10 | 19/10/2026 18:36 GMT+10 |
 
 ---
 
-## CRITICAL: ARCHON-FIRST RULE
+## CRITICAL: TASK TRACKING IN GITHUB ISSUES
 
-**READ THIS FIRST - OVERRIDES ALL OTHER INSTRUCTIONS**
+GitHub Issues on `abuklea/prompthub` is the single tracker for all work: follow `docs/rules/github-issues.md`. A
+local todo list holds the steps within one issue and never replaces filing one.
 
-This project uses **Archon MCP server** for task management. Do NOT use TodoWrite.
+Archon is legacy and read-only until its tasks and records are imported (#29): NEVER create or update an Archon task.
 
 ```bash
-# Project Configuration
+# Project Configuration (ARCHON_* kept for the Archon import only)
 ARCHON_PROJECT_ID: d449f266-1f36-47ad-bd2d-30f1a0f5e999
 ARCHON_PROJECT_NAME: PromptHub
 WORKSPACE_FOLDER: /home/allan/projects/PromptHub
@@ -23,10 +24,10 @@ SUPABASE_PROJECT_URL: https://xmuysganwxygcsxwteil.supabase.co
 ```
 
 **Mandatory Workflow:**
-1. Check Archon for current tasks BEFORE any work
-2. Update task status to `doing` BEFORE implementation
-3. Update task to `review` BEFORE completion
-4. Task flow: `todo` → `doing` → `review` → `done`
+1. Find the issue BEFORE any work (`status: ready`, by priority), or file it first
+2. Set `status: in-progress` and assign yourself BEFORE implementation
+3. Set `status: in-review` with a comment (what was built, gates run, what is unverified) BEFORE completion
+4. Status flow: `backlog` → `ready` → `in-progress` → `in-review` → closed by the developer
 
 ---
 
@@ -61,13 +62,10 @@ SUPABASE_PROJECT_URL: https://xmuysganwxygcsxwteil.supabase.co
 
 ## Rule Imports
 
-@docs/rules/archon.md
-@docs/rules/project.md
-@docs/rules/documentation.md
+The managed block at the end of this file imports the rules. `docs/rules/archon.md` is legacy: read it only for the
+Archon import (#29).
+
 @docs/rules/documentation-prp.md
-@docs/rules/tools.md
-@docs/rules/testing.md
-@docs/rules/git.md
 
 ---
 
@@ -110,9 +108,9 @@ SUPABASE_PROJECT_URL: https://xmuysganwxygcsxwteil.supabase.co
 - Task size: 30 minutes - 4 hours
 - Split large tasks into discrete units
 - Check for duplicates before creating
-- Update Archon status BEFORE and AFTER work
-- Sync Archon tasks with PRP documents
-- Prefix task IDs: PXTXSX (e.g., P1T1S1)
+- Update the issue's `status:` label BEFORE and AFTER work
+- Keep PRP task lists and their issues in sync
+- Prefix PRP issue titles with their ID, `P#S#` or `P#S#T#` (e.g., `P7S1T1`), numbered per `docs/rules/github-issues.md`
 
 **Task Completion Criteria:**
 - ✅ Goals achieved
@@ -121,8 +119,8 @@ SUPABASE_PROJECT_URL: https://xmuysganwxygcsxwteil.supabase.co
 - ✅ Security addressed
 - ✅ Tests passing (80%+ coverage)
 - ✅ Documentation updated
-- ✅ Completion summary added to Archon
-- ✅ Task status set to `review`
+- ✅ Completion comment on the issue
+- ✅ Issue set to `status: in-review`
 
 ---
 
@@ -237,7 +235,7 @@ DIRECT_URL=""
 ## MCP Tool Usage
 
 ### Tool Priority Order
-1. **archon** - Task management (PRIMARY - never use TodoWrite)
+1. **GitHub Issues** (`gh`, GitHub MCP) - Task tracking (PRIMARY); **archon** is legacy, read-only, for the import only
 2. **serena** - Code analysis, intelligent editing, cross-references
 3. **brave** - Online research, debugging, solutions
 4. **seqthk** - Complex task planning and reasoning
@@ -329,17 +327,17 @@ test: Test additions/changes
 - ❌ Use `supabase start` (cloud Supabase only)
 - ❌ Create triggers on `auth.users` table
 - ❌ Use template variables in commands
-- ❌ Use TodoWrite (use Archon)
+- ❌ Track work outside GitHub Issues (a local todo list holds steps within one issue only)
 - ❌ Add marketing language to docs
 - ❌ Commit secrets or env values
 - ❌ Use placeholder/mock data in production code
 - ❌ Implement backwards compatibility
 
 **ALWAYS:**
-- ✅ Check Archon tasks before starting work
+- ✅ Check GitHub Issues before starting work
 - ✅ Use forward slashes in paths
 - ✅ Run lint/typecheck before commits
-- ✅ Update task status in Archon
+- ✅ Update the issue's `status:` label
 - ✅ Write tests (TDD approach)
 - ✅ Document complex logic
 - ✅ Use real, production-ready data

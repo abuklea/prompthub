@@ -1,0 +1,45 @@
+# Feature / task form. Label defaults must match labels.json.
+name: Feature or task
+description: A new capability, or a discrete unit of implementation work.
+title: "[task] "
+labels: ["type: task", "status: backlog", "flag: review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Add `area:`, `priority:` and `size:` labels after filing. Set the parent epic
+        in the Relationships section (or write `Part of #NN` below and let the sync link it).
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What this delivers, and why. One paragraph.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in, and explicitly what is out.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How we know it is done. Measurable statements. These boxes are ticked by the PR that delivers them.
+      placeholder: |
+        - [ ] ...
+        - [ ] Tests added and passing
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Likely files or systems touched
+  - type: textarea
+    id: relations
+    attributes:
+      label: Parent and dependencies
+      description: "`Part of #NN` for the epic. `Blocked by #NN` becomes a blocked-by relationship and sets flag: blocked while open."
+      placeholder: "Part of #12. Blocked by #34."

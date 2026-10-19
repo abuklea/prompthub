@@ -1,3 +1,8 @@
+> **LEGACY, READ-ONLY (19/10/2026).** GitHub Issues replaced Archon for all work: follow
+> `docs/rules/github-issues.md`. Everything below is superseded and does not apply. This file stays only until
+> Archon's tasks and records are imported (#29), then it is deleted (#30). NEVER create or update an Archon task;
+> read Archon only to export for that import.
+
 # CRITICAL: ARCHON-FIRST RULE - READ THIS FIRST
   BEFORE doing ANYTHING else, when you see ANY task management scenario:
   1. STOP and check if Archon MCP server is available

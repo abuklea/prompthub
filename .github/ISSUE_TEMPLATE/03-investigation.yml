@@ -1,0 +1,45 @@
+# Investigation form: reproduce and attribute before fixing.
+name: Investigation
+description: A reported defect that needs measurement and attribution before any fix.
+title: "[investigation] "
+labels: ["type: investigation", "status: backlog", "flag: review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reproduce and ATTRIBUTE before fixing. A defect survives several passes when
+        each pass measures a healthy property. State what was ruled out, and how.
+  - type: textarea
+    id: report
+    attributes:
+      label: Report
+      description: The observation in the reporter's own words.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Conditions and the shortest path to seeing it.
+    validations:
+      required: true
+  - type: textarea
+    id: measurement
+    attributes:
+      label: Measurement
+      description: The numbers, logs or captures. Not assertions that something exists.
+  - type: textarea
+    id: attribution
+    attributes:
+      label: Attribution
+      description: The actual cause, and what was ruled out on the way to it.
+  - type: textarea
+    id: fix
+    attributes:
+      label: Fix and verification
+      description: What changed, and the measurement that proves it.
+  - type: textarea
+    id: rule
+    attributes:
+      label: Rule to record
+      description: If this cost a full cycle, the one-line rule that stops it recurring (goes to the project's agent instructions).

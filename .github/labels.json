@@ -1,0 +1,304 @@
+{
+  "_doc": "THE label taxonomy. Format '<prefix>: <value>'. Edit this file, then run .github/scripts/sync-labels.sh. Board fields (Status/Priority/Size/Area) take their options from here via setup-project-board.sh. Naming rules: see the conventions document.",
+  "prefixes": {
+    "type": {
+      "cardinality": "one",
+      "required": true,
+      "field": null,
+      "meaning": "what kind of work"
+    },
+    "priority": {
+      "cardinality": "one",
+      "required": true,
+      "field": "Priority",
+      "meaning": "how urgent"
+    },
+    "status": {
+      "cardinality": "one",
+      "required": true,
+      "field": "Status",
+      "meaning": "which board column"
+    },
+    "size": {
+      "cardinality": "one",
+      "required": false,
+      "field": "Size",
+      "meaning": "rough effort"
+    },
+    "area": {
+      "cardinality": "many",
+      "required": true,
+      "field": "Area",
+      "meaning": "which subsystem (project-specific axis)"
+    },
+    "flag": {
+      "cardinality": "many",
+      "required": false,
+      "field": null,
+      "meaning": "a condition that sits beside the status"
+    }
+  },
+  "labels": [
+    {
+      "name": "type: epic",
+      "color": "3E1F92",
+      "description": "Container for a phase or large area; its children are sub-issues"
+    },
+    {
+      "name": "type: feature",
+      "color": "1D76DB",
+      "description": "New user-facing capability"
+    },
+    {
+      "name": "type: task",
+      "color": "5AA9E6",
+      "description": "A discrete unit of implementation work"
+    },
+    {
+      "name": "type: bug",
+      "color": "D73A4A",
+      "description": "Something is broken or behaves incorrectly"
+    },
+    {
+      "name": "type: investigation",
+      "color": "B60205",
+      "description": "Reproduce, measure and attribute before any fix"
+    },
+    {
+      "name": "type: refactor",
+      "color": "0E8A16",
+      "description": "Restructure without changing behaviour"
+    },
+    {
+      "name": "type: perf",
+      "color": "FBCA04",
+      "description": "Performance, memory or cost work"
+    },
+    {
+      "name": "type: test",
+      "color": "C2E0C6",
+      "description": "Test coverage or test infrastructure"
+    },
+    {
+      "name": "type: docs",
+      "color": "0075CA",
+      "description": "Documentation only"
+    },
+    {
+      "name": "type: chore",
+      "color": "CFD3D7",
+      "description": "Tooling, dependencies, housekeeping"
+    },
+    {
+      "name": "type: dev-review",
+      "color": "BFDADC",
+      "description": "A check only the developer can run (device, deploy, hands-on verification)"
+    },
+    {
+      "name": "type: spike",
+      "color": "8A63D2",
+      "description": "Time-boxed research; the output is a decision, not code"
+    },
+    {
+      "name": "priority: critical",
+      "color": "B60205",
+      "boardColor": "RED",
+      "description": "Blocks release or breaks the product"
+    },
+    {
+      "name": "priority: high",
+      "color": "D93F0B",
+      "boardColor": "ORANGE",
+      "description": "Do next"
+    },
+    {
+      "name": "priority: medium",
+      "color": "FBCA04",
+      "boardColor": "YELLOW",
+      "description": "Normal queue"
+    },
+    {
+      "name": "priority: low",
+      "color": "BFD4D8",
+      "boardColor": "GRAY",
+      "description": "Nice to have"
+    },
+    {
+      "name": "status: backlog",
+      "color": "BFBFBF",
+      "boardColor": "GRAY",
+      "column": "Backlog",
+      "description": "Board column: filed and classified, not scheduled"
+    },
+    {
+      "name": "status: ready",
+      "color": "1D76DB",
+      "boardColor": "BLUE",
+      "column": "Ready",
+      "description": "Board column: scoped, unblocked, next up"
+    },
+    {
+      "name": "status: in-progress",
+      "color": "FBCA04",
+      "boardColor": "YELLOW",
+      "column": "In progress",
+      "description": "Board column: being worked on now"
+    },
+    {
+      "name": "status: in-review",
+      "color": "D93F0B",
+      "boardColor": "ORANGE",
+      "column": "In review",
+      "description": "Board column: pull request open"
+    },
+    {
+      "name": "status: awaiting-verification",
+      "color": "E99695",
+      "boardColor": "PINK",
+      "column": "Awaiting verification",
+      "description": "Board column: merged, needs a human check outside CI before it closes"
+    },
+    {
+      "name": "status: done",
+      "color": "0E8A16",
+      "boardColor": "GREEN",
+      "column": "Done",
+      "description": "Board column: confirmed complete"
+    },
+    {
+      "name": "size: XS",
+      "color": "F2F2F2",
+      "boardColor": "GRAY",
+      "description": "Under an hour"
+    },
+    {
+      "name": "size: S",
+      "color": "E6E6E6",
+      "boardColor": "GRAY",
+      "description": "1-4 hours"
+    },
+    {
+      "name": "size: M",
+      "color": "D9D9D9",
+      "boardColor": "GRAY",
+      "description": "Half a day to a day"
+    },
+    {
+      "name": "size: L",
+      "color": "CCCCCC",
+      "boardColor": "GRAY",
+      "description": "2-4 days"
+    },
+    {
+      "name": "size: XL",
+      "color": "BFBFBF",
+      "boardColor": "GRAY",
+      "description": "Over a week; split into an epic"
+    },
+    {
+      "name": "flag: review",
+      "color": "EDEDED",
+      "description": "New, not yet reviewed (applied by the issue forms); remove once reviewed",
+      "aliases": [
+        "flag: needs-triage"
+      ]
+    },
+    {
+      "name": "flag: blocked",
+      "color": "5319E7",
+      "description": "Has an OPEN blocking issue; mirrored from the Relationships section by the sync"
+    },
+    {
+      "name": "flag: needs-info",
+      "color": "D876E3",
+      "description": "Needs clarification before work can start"
+    },
+    {
+      "name": "flag: duplicate",
+      "color": "CFD3D7",
+      "description": "Already tracked by another issue"
+    },
+    {
+      "name": "flag: wontfix",
+      "color": "FFFFFF",
+      "description": "Deliberately not being worked on"
+    },
+    {
+      "name": "flag: good-first-issue",
+      "color": "7057FF",
+      "description": "Small, well-scoped, safe for a newcomer"
+    },
+    {
+      "name": "area: editor",
+      "color": "006B75",
+      "boardColor": "GRAY",
+      "description": "Monaco editor, autosave, drafts, version save and restore (src/features/editor)"
+    },
+    {
+      "name": "area: workspace",
+      "color": "0B6E4F",
+      "boardColor": "GRAY",
+      "description": "Folders, document list, tabs, panels, client caches and stores"
+    },
+    {
+      "name": "area: backend",
+      "color": "1B7F5A",
+      "boardColor": "GRAY",
+      "description": "Server actions and server-side libraries (features/*/actions.ts, src/lib)"
+    },
+    {
+      "name": "area: auth",
+      "color": "2E8B57",
+      "boardColor": "GRAY",
+      "description": "Supabase Auth, sign-in/up/out, session handling, middleware"
+    },
+    {
+      "name": "area: database",
+      "color": "3D9970",
+      "boardColor": "GRAY",
+      "description": "Prisma schema, migrations, queries, RLS policies"
+    },
+    {
+      "name": "area: security",
+      "color": "4FA37A",
+      "boardColor": "GRAY",
+      "description": "Tenant isolation, headers/CSP, rate limiting, secrets"
+    },
+    {
+      "name": "area: ui",
+      "color": "5EAF8B",
+      "boardColor": "GRAY",
+      "description": "Shared components, styling and theming (components/ui, Tailwind)"
+    },
+    {
+      "name": "area: infra",
+      "color": "6ECFA0",
+      "boardColor": "GRAY",
+      "description": "Docker stack, Vercel deployment, environment configuration"
+    },
+    {
+      "name": "area: ci",
+      "color": "7FD8AE",
+      "boardColor": "GRAY",
+      "description": "GitHub Actions, repository tooling and scripts"
+    },
+    {
+      "name": "area: tests",
+      "color": "8FDDB8",
+      "boardColor": "GRAY",
+      "description": "Vitest unit/integration suites and end-to-end tests"
+    },
+    {
+      "name": "area: docs",
+      "color": "9FE2C2",
+      "boardColor": "GRAY",
+      "description": "Rules, PRPs, guides, README"
+    },
+    {
+      "name": "area: perf",
+      "color": "AFE7CC",
+      "boardColor": "GRAY",
+      "description": "Load time, payload size, query cost"
+    }
+  ]
+}

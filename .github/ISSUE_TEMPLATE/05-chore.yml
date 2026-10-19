@@ -1,0 +1,22 @@
+# Docs / chore form.
+name: Docs or chore
+description: Documentation, tooling, dependencies or housekeeping.
+title: "[chore] "
+labels: ["type: chore", "status: backlog", "flag: review"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs doing
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      placeholder: |
+        - [ ] ...
