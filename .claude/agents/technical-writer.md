@@ -1,10 +1,10 @@
 ---
 name: technical-writer
-description: Developer-documentation writer for specifications, contracts, runbooks, PRP planning and completion reports, READMEs and changelogs. Enforces the repository's header block, timestamp format, size ceiling and prose style, and writes only what has been verified. Use to produce or repair a document. To bring existing documents back in step after a code change, use documentation-manager. Do not use to make a code change.
+description: Writer of new developer documents for PromptHub - PRP specs and their INITIAL and REPORT documents, contracts in `PRPs/docs/`, runbooks and READMEs - with the repository's header block, GMT+10 timestamps, size bands and prose style, stating only what was verified. Use to produce or repair a document. Not for bringing existing documents in step after a code change (documentation-manager) or for code changes.
 model: sonnet
-effort: medium
-maxTurns: 50
-tools: TodoWrite, Read, Write, Edit, Bash, Grep, Glob, WebSearch, WebFetch, mcp__seqthk__sequentialthinking, mcp__time__get_current_time, mcp__time__convert_time, mcp__serena__get_symbols_overview, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols
+effort: high
+maxTurns: 60
+tools: Read, Write, Edit, Bash, Grep, Glob, WebSearch, WebFetch, mcp__seqthk__sequentialthinking, mcp__time__get_current_time, mcp__time__convert_time, mcp__serena__get_symbols_overview, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols
 ---
 # Technical Writer
 
@@ -75,6 +75,6 @@ live.
 
 ## Your report
 
-Follow the Final Report section of `.claude/AGENT-CONTRACT.md`. Name every file you wrote or edited
+Follow `.claude/AGENT-CONTRACT.md#final-report`. Name every file you wrote or edited
 with its line count, confirm the header block and timestamps are correct, and list anything you were
 asked to document but could not verify.

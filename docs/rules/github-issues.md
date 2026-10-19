@@ -2,7 +2,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| GitHub Issues and Task Tracking | 19/10/2026 18:13 GMT+10 | 19/10/2026 18:50 GMT+10 |
+| GitHub Issues and Task Tracking | 19/10/2026 18:13 GMT+10 | 19/10/2026 22:36 GMT+10 |
 
 ## Table of Contents
 - [The Rule](#the-rule)
@@ -86,7 +86,7 @@ relationship, mirrored by `flag: blocked`), owners (assignees).
 - A PRP issue's title starts with its ID (`P2S8: User invites`, `P2S8T3: Invite token store [P]`, where `[P]` marks
   a parallelizable task); any other starts with its type (`[bug] …`), then a verb phrase, with no trailing period.
 - PRP IDs continue from completed work; NEVER reuse one. Phases 1-6 follow `docs/project/PromptHub_06_PLAN_01.md`:
-  P5S6, P6S1 and P6S2 shipped without PRPs (commits dd48322, 3f3f08f, e8eed5b) and stay retired; P6S3 (#55) and
+  P5S6, P6S1 and P6S2 shipped without PRPs in dd48322 (fixed in 3f3f08f, e8eed5b) and stay retired; P6S3 (#55) and
   P6S4 (#58) are open. Post-plan work is Phase 7 (P7S1 #31, P7S2 #39, P7S3 #47). Mint the next unused step after
   searching titles (`gh issue list --state all --search "P7S in:title"`), and file its epic when the ID is minted.
 - A commit references issues in its body as `Refs #NN`, never with a closing keyword (`Closes`, `Fixes`,
