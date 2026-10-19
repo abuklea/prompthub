@@ -5,14 +5,14 @@
 # MIME: text/x-shellscript
 # Type: Bash script (bash 4+)
 #
-# Created: 19/10/2026 18:13 GMT+10
-# Last modified: 19/10/2026 18:13 GMT+10
+# Created: 19/10/2026 23:05 GMT+10
+# Last modified: 19/10/2026 23:05 GMT+10
 # ---------------
 # The code-size audit and gate for this repository (docs/rules/code-size.md). Installed by the
 # prp-project skill; the bands below are the methodology and are not tailored.
 #
 # Changelog:
-# 19/10/2026 18:13 GMT+10 | Installed by the prp-project skill; tailor only the PROJECT CONFIGURATION block
+# 19/10/2026 23:05 GMT+10 | Installed by the prp-project skill; tailor only the PROJECT CONFIGURATION block
 #
 # audit-code-size.sh - code-size audit against the agentability bands.
 #

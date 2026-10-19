@@ -1,9 +1,8 @@
-# PromptHub
-## Tools and MCP Servers
+# Tools and MCP Servers
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Tools and MCP Servers | 07/11/2025 12:46 GMT+10 | 19/10/2026 22:35 GMT+10 |
+| Tools and MCP Servers | 07/11/2025 12:46 GMT+10 | 19/10/2026 23:07 GMT+10 |
 
 ## Table of Contents
 - [MCP Servers](#mcp-servers)

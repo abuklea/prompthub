@@ -17,12 +17,11 @@ Before you write anything, read `.claude/AGENT-CONTRACT.md`, then `CLAUDE.md`, t
 documents carry this repository's required header block, timestamp format, file layout, size ceiling and
 prose style. They are binding and override everything below wherever they differ.
 
-Non-negotiables that catch people out: every file in a format that `docs/rules/documentation.md`
-defines a header for (Markdown, JavaScript and TypeScript, Python, HTML) starts with that header
-block, and editing a file updates its `Last modified` and adds a changelog line wherever the header
-has a Changelog section; any other format keeps the convention of the files around it, and you do not
-add a header it cannot carry;
-timestamps come from the `mcp__time__get_current_time` tool with timezone `Australia/Brisbane`,
+Non-negotiables that catch people out: every document starts with the block in
+`docs/rules/documentation.md#document-header` and every source file with the one in
+`docs/rules/documentation.md#source-file-headers`, except the files those sections exempt; editing a
+file updates its `Last modified` and adds a changelog line wherever the header has a Changelog
+section; timestamps follow `docs/rules/documentation.md#timestamps` in `Australia/Brisbane`,
 formatted `dd/MM/yyyy HH:mm GMT+10`, and are never guessed or copied from another file; every file
 sits inside the code-size bands of `docs/rules/code-size.md` (a RED document is split by topic
 behind an index file; wrap and split by judgement, never at a line number); every table

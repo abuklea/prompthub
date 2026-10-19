@@ -2,7 +2,7 @@ name: "Base PRP Template v2 - Context-Rich with Validation Loops"
 description: |
 
 ## Purpose
-Template optimised for AI agents to implement features with sufficient context and self-validation capabilities to achieve working code through iterative refinement.
+Template optimized for AI agents to implement features with sufficient context and self-validation capabilities to achieve working code through iterative refinement.
 
 ## Core Principles
 1. **Context is King**: Include ALL necessary documentation, examples, and caveats
@@ -10,6 +10,7 @@ Template optimised for AI agents to implement features with sufficient context a
 3. **Information Dense**: Use keywords and patterns from the codebase
 4. **Progressive Success**: Start simple, validate, then enhance
 5. **Global rules**: Be sure to follow all rules in CLAUDE.md
+6. **Project commands**: The code samples below are Python for illustration only; write the PRP in the project's language and use the `{{LINT_CMD}}`, `{{TYPECHECK_CMD}}` and `{{TEST_CMD}}` values from `docs/rules/project.md`
 
 ---
 
@@ -145,8 +146,8 @@ ROUTES:
 ### Level 1: Syntax & Style
 ```bash
 # Run these FIRST - fix any errors before proceeding
-ruff check src/new_feature.py --fix  # Auto-fix what's possible
-mypy src/new_feature.py              # Type checking
+{{LINT_CMD}}
+{{TYPECHECK_CMD}}
 
 # Expected: No errors. If errors, READ the error and fix.
 ```
@@ -174,7 +175,7 @@ def test_external_api_timeout():
 
 ```bash
 # Run and iterate until passing:
-uv run pytest test_new_feature.py -v
+{{TEST_CMD}}
 # If failing: Read error, understand root cause, fix code, re-run (never mock to pass)
 ```
 
@@ -193,9 +194,9 @@ curl -X POST http://localhost:8000/feature \
 ```
 
 ## Final validation Checklist
-- [ ] All tests pass: `uv run pytest tests/ -v`
-- [ ] No linting errors: `uv run ruff check src/`
-- [ ] No type errors: `uv run mypy src/`
+- [ ] All tests pass: `{{TEST_CMD}}`
+- [ ] No linting errors: `{{LINT_CMD}}`
+- [ ] No type errors: `{{TYPECHECK_CMD}}`
 - [ ] Manual test successful: [specific curl/command]
 - [ ] Error cases handled gracefully
 - [ ] Logs are informative but not verbose
@@ -204,9 +205,9 @@ curl -X POST http://localhost:8000/feature \
 ---
 
 ## Anti-Patterns to Avoid
-- ❌ Don't create new patterns when existing ones work
-- ❌ Don't skip validation because "it should work"  
-- ❌ Don't ignore failing tests - fix them
-- ❌ Don't use sync functions in async context
-- ❌ Don't hardcode values that should be config
-- ❌ Don't catch all exceptions - be specific
+- ❌ Do not create new patterns when existing ones work
+- ❌ Do not skip validation because "it should work"  
+- ❌ Do not ignore failing tests - fix them
+- ❌ Do not use sync functions in async context
+- ❌ Do not hardcode values that should be config
+- ❌ Do not catch all exceptions - be specific

@@ -157,14 +157,10 @@ are guarding something that matters, that is the next thing to add.
 
 ## Write your own without writing Python
 
-Use the `hooks-create` skill, where it is installed. Describe the guarantee in plain English and it picks the
-event, writes the script, wires `settings.json`, and tests it:
-
-```
-/hooks-create "never let the agent edit anything under db/migrations/"
-/hooks-create "run ruff on every python file the moment it's edited"
-/hooks-create "ping me on Slack when the agent needs my input"
-```
+Ask Claude Code for the guarantee in plain English, for example "never let the agent edit anything under
+db/migrations/" or "run ruff on every python file the moment it's edited". Have it pick the event, write the script
+beside these six (PEP 723, standard library only), wire it into `.claude/settings.json`, and prove it in both
+directions as [Prove they work](#prove-they-work) shows. A hook nobody has seen block and allow is not yet a hook.
 
 ## Portability
 

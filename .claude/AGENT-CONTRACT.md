@@ -1,9 +1,8 @@
-# PromptHub
-## Agent Contract
+# Agent Contract
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Agent Contract | 19/10/2026 18:13 GMT+10 | 19/10/2026 22:43 GMT+10 |
+| Agent Contract | 19/10/2026 18:13 GMT+10 | 19/10/2026 23:07 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -38,9 +37,9 @@ from then on they belong to the project, and `install --force` never overwrites 
 
 ## Rules for Every File
 
-- The header block from `docs/rules/documentation.md#documentation-rules` on every source and documentation file you
-  create, and a changelog line in it for every file you edit, except the files
-  `docs/rules/project.md#files-and-documents` exempts.
+- The header block from `docs/rules/documentation.md#document-header` (source files:
+  `docs/rules/documentation.md#source-file-headers`) on every file you create, and a changelog line in it for every
+  file you edit, except the files those sections and `docs/rules/project.md#files-and-documents` exempt.
 - Timestamps from the `time` tool in `{{TIMEZONE}}`, read just before you write each one: never estimated, carried
   forward from an earlier reading, or copied from another file. Without the `time` server, use the command in
   `docs/rules/tools.md#cloud-sessions`.

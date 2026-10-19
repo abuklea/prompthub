@@ -78,6 +78,9 @@ def summarize(data: dict) -> dict:
         "tool_name": tool_name,
         "summary": _clip(target),
         "cwd": data.get("cwd", ""),
+        # Inside a subagent the input carries agent_type: the trail then shows which agent did what, and how many
+        # tool calls each spent of its budget.
+        "agent": data.get("agent_type", ""),
     }
 
 

@@ -1,374 +1,135 @@
-# PromptHub
-## PRP Document Footer Formatting Standards
+# PRP Document Footers
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| PRP Document Footer Formatting Standards | 21/10/2025 14:16 GMT+10 | 19/10/2026 20:00 GMT+10 |
+| PRP Document Footers | 21/10/2025 14:16 GMT+10 | 19/10/2026 23:05 GMT+10 |
 
 ## Table of Contents
-- [Overview](#overview)
 - [Document Types](#document-types)
-- [Common Fields](#common-fields)
-- [Document-Specific Fields](#document-specific-fields)
-- [Field Definitions](#field-definitions)
+- [Field Order](#field-order)
+- [Field Formats](#field-formats)
 - [Formatting Rules](#formatting-rules)
-- [Examples](#examples)
-- [Validation Checklist](#validation-checklist)
-
-## Overview
-
-This document defines the required footer/sign-off section formatting for all PRP (Product Requirements & Planning) documents in the {{PROJECT_NAME}} project. Consistent formatting ensures:
-
-- Easy parsing and tracking of project status
-- Clear identification of dependencies and relationships
-- Accurate time and resource estimation
-- Proper task assignment and agent recommendations
-
-**FTE Definition**: Full-Time Employee (FTE) refers to the predicted/expected output from a single full-time developer working on the task.
+- [Example](#example)
+- [Checklist](#checklist)
 
 ## Document Types
 
-The {{PROJECT_NAME}} project uses four distinct PRP document types, each with specific footer requirements:
+Every PRP (Product Requirements & Planning) document ends with a footer in exactly this shape, so status,
+dependencies and assignments can be parsed and tracked. FTE means the output of one full-time developer.
 
-| Document Type | Location | Purpose | Filename Pattern |
-|--------------|----------|---------|------------------|
-| **PRP INITIAL** | `./PRPs/reports/` | Initial planning and task breakdown | `*-INITIAL.md` |
-| **PRP REPORT** | `./PRPs/reports/` | Completion summary and results | `*-REPORT.md` |
-| **PRP** | `./PRPs/` | Main implementation specification | `P#S#-*.md` |
-| **WIP** | `./wip/` | Work-in-progress documentation | `P#S#[T#]-*.md` |
+| Type | Location | Filename |
+|---|---|---|
+| PRP | `PRPs/` (`PRPs/complete/` once complete) | `P#S#-feature-name.md` |
+| INITIAL (plan before execution) | `PRPs/reports/` | `P#S#-feature-name-INITIAL.md` |
+| REPORT (completion summary) | `PRPs/reports/` | `P#S#-feature-name-REPORT.md` |
+| WIP | `wip/` | `P#S#-description.md`, or `P#S#T#-description.md` for one task |
 
-## Common Fields
+A footer is a snapshot taken when the document is written. Live task state is on the GitHub issues
+(`github-issues.md`): where a footer and an issue disagree, the issue is right, and the footer is corrected the next
+time the document is edited.
 
-These fields appear in **all** PRP document types:
+## Field Order
 
-| Field | Format | Required | Description |
-|-------|--------|----------|-------------|
-| **PRP Status** | Enum (see below) | Yes | Current status of the PRP |
-| **PRP ID** | `P#S#` | Yes | Phase-Step identifier |
-| **Epic Issue** | `#NN` | Yes | GitHub `type: epic` issue tracking this PRP |
-| **PRP Document** | `PRPs/P#S#-*.md` | Yes | Path to main PRP document |
-| **Tasks** | `# tasks (P#S#T#-P#S#T#)` | Yes | Task count and range |
-| **Phase** | `Phase # - Description` | Yes | Project phase context |
-| **Notes** | Markdown list | No | Important notes and context |
+Fields appear in exactly this order; a number is the field's position, `-` means not used, `opt` means optional.
 
-### PRP Status Values
+| Field | PRP | INITIAL | REPORT | WIP |
+|---|---|---|---|---|
+| Plan Status | - | 1 | - | - |
+| Report Status | - | - | 1 | - |
+| PRP Status | 1 | 2 | 2 | 1 |
+| PRP ID | 2 | 3 | 3 | 2 |
+| GitHub Issues | - | 4 | 4 | - |
+| PRP Document | 3 | 5 | 5 | 3 |
+| Tasks | 4 | 6 | 6 | 4 |
+| Phase | 5 | 7 | 7 | 5 |
+| Dependencies | 6 | 8 | 8 | - |
+| Implementation Status | - | 9 | 9 | 6 |
+| Testing Status | - | 10 | 10 | 7 |
+| Next PRP | 7 | 11 | 11 | - |
+| Documentation | - | 12 opt | - | - |
+| Recommendations | 8 | 13 | - | - |
+| Notes | - | - | 12 opt | 8 opt |
+| Estimated Implementation Time (FTE) | 9 | 14 | - | - |
+| Completed | - | - | 13 | - |
 
-| Status | Meaning | Used In |
-|--------|---------|---------|
-| `TODO` | Not yet started | INITIAL |
-| `IN PROGRESS` | Currently being implemented | INITIAL, WIP |
-| `REVIEW` | Awaiting review | INITIAL, WIP |
-| `COMPLETE` | Fully implemented and tested | REPORT, PRP |
-| `BLOCKED` | Blocked by dependencies | Any |
+## Field Formats
 
-## Document-Specific Fields
+| Field | Format | Example |
+|---|---|---|
+| Plan Status | `REVIEW` \| `ACTIVE` \| `COMPLETE` | `ACTIVE` |
+| Report Status | `DRAFT` \| `FINAL` \| `ACTIVE` | `FINAL` |
+| PRP Status | `TODO` \| `IN PROGRESS` \| `REVIEW` \| `COMPLETE` \| `BLOCKED` | `TODO` |
+| PRP ID | `P#S#` (Phase-Step) | `P2S8` |
+| GitHub Issues | the epic, the tasks with their IDs, then any `type: dev-review` issues; a REPORT adds their end state | `#41 (PRP); tasks #42-#47 (P2S8T1-P2S8T6); dev-review #48` |
+| PRP Document | filename only, no folder; `.md` optional | `P2S8-user-invites` |
+| Tasks | `# tasks (P#S#T# - P#S#T#)`, each a `type: task` issue titled `P#S#T#: …`; a REPORT says `# of # complete` | `6 tasks (P2S8T1 - P2S8T6)` |
+| Phase | `Phase # - Description (Context)` | `Phase 2 - Accounts (API)` |
+| Dependencies | `P#S# (Status), ...` or `None`; an incomplete one is also `Blocked by #NN` (its epic) in this PRP's epic | `P2S1 (Complete), P2S7 (Review)` |
+| Implementation Status | INITIAL `NOT YET STARTED (P#S#)`, REPORT `COMPLETE (P#S#)`, WIP descriptive | `IN PROGRESS - 3/5 tasks complete` |
+| Testing Status | INITIAL `NOT YET TESTED`, REPORT `COMPLETE (#/# tests passed)`, WIP descriptive | `COMPLETE (18/18 tests passed)` |
+| Next PRP | `P#S# - Description` | `P2S9 - Billing` |
+| Documentation | one project-relative path per line | `- PRPs/docs/P2S8-invite-contracts.md` |
+| Recommendations | an `Agents:` list (`agent-name` (Tasks)), then a `Notes:` list | see the example |
+| Notes | `-` list of results, decisions and open items | |
+| Estimated Implementation Time (FTE) | `#-# hours` or `#-# days`, optional context | `25-30 hours (3-4 days)` |
+| Completed | timestamp per `documentation.md` | `04/09/2026 21:25 GMT+10` |
 
-### PRP INITIAL Reports
-
-Additional fields for initial planning documents:
-
-| Field | Format | Required | Description |
-|-------|--------|----------|-------------|
-| **Plan Status** | `READY \| REVIEW \| ACTIVE \| COMPLETE` | Yes | Planning phase status |
-| **Dependencies** | `P#S# (Status)` or `None` | Yes | Prerequisite PRPs |
-| **Implementation Status** | `NOT YET STARTED (P#S#)` | Yes | Code implementation status |
-| **Testing Status** | `NOT YET TESTED` | Yes | Testing progress |
-| **Next PRP** | `P#S# - Description` | Yes | Subsequent PRP reference |
-| **Documentation** | Markdown list of paths | No | Related documentation files |
-| **Recommendations** | Structured (see format) | Yes | Agent assignments and notes |
-| **Estimated Implementation Time (FTE)** | `#-# hours` or `#-# days` | Yes | Time estimate for single FTE |
-
-### PRP Completion REPORTS
-
-Additional fields for completion summaries:
-
-| Field | Format | Required | Description |
-|-------|--------|----------|-------------|
-| **Report Status** | `DRAFT \| FINAL \| ACTIVE` | Yes | Report completion status |
-| **Dependencies** | `P#S# (Status)` or `None` | Yes | Prerequisite PRPs |
-| **Implementation Status** | `COMPLETE (P#S#)` | Yes | Code implementation status |
-| **Testing Status** | `COMPLETE (#/# tests passed)` | Yes | Testing results |
-| **Next PRP** | `P#S# - Description` | Yes | Subsequent PRP reference |
-
-### Main PRP Documents
-
-Additional fields for main specification documents:
-
-| Field | Format | Required | Description |
-|-------|--------|----------|-------------|
-| **Dependencies** | `P#S# (Status), ...` | Yes | Prerequisite PRPs (comma-separated) |
-| **Next PRP** | `P#S# - Description` | Yes | Subsequent PRP reference |
-| **Recommendations** | Structured (see format) | Yes | Agent assignments and notes |
-| **Estimated Implementation Time (FTE)** | `#-# hours` or `#-# days` | Yes | Time estimate for single FTE |
-
-### WIP Documents
-
-Additional fields for work-in-progress documents:
-
-| Field | Format | Required | Description |
-|-------|--------|----------|-------------|
-| **Implementation Status** | Status description | Yes | Current implementation state |
-| **Testing Status** | Status description | Yes | Current testing state |
-
-## Field Definitions
-
-### Created / Last Modified
-- **Format**: `dd/MM/yyyy HH:mm GMT+10`
-- **Timezone**: Always GMT+10 (Australia/Brisbane)
-- **Source**: Use `mcp__time__get_current_time` tool
-- **Example**: `21/10/2025 14:16 GMT+10`
-
-### Epic Issue
-- **Format**: `#NN`
-- **Example**: `#31`
-- **Source**: the PRP's `type: epic` issue (`docs/rules/github-issues.md`)
-- **Legacy**: PRPs written before Phase 7 carry `**Archon Project**: ProjectName (project-id)` instead; leave them
-  as they are
-
-### PRP Document
-- **Format**: Relative path from project root
-- **Example**: `PRPs/P2S8-implement-password-reset-form.md`
-
-### PRP ID
-- **Format**: `P#S#` where # is a number
-- **Pattern**: Phase-Step identifier
-- **Example**: `P2S8`, `P1S1`, `P3S15`
-
-### Tasks
-- **Format**: `# tasks (P#S#T#-P#S#T#)` or `# tasks (P#S#T# - P#S#T#)`
-- **Examples**:
-  - `5 tasks (P1S1T1 - P1S1T5)`
-  - `12 tasks (P2S8T1 - P2S8T12)`
-
-### Phase
-- **Format**: `Phase # - Description (Context)`
-- **Examples**:
-  - `Phase 1 - Project Initialization and Core Setup (Report)`
-  - `Phase 2 - Authentication & User Management (Web Portal)`
-
-### Dependencies
-- **Format**: `P#S# (Status), P#S# (Status)` or `None`
-- **Examples**:
-  - `None`
-  - `P2S1 (Complete)`
-  - `P2S7 (Complete), P2S6 (Complete), P2S5 (Complete)`
-
-### Implementation Status
-- **INITIAL Format**: `NOT YET STARTED (P#S#)`
-- **REPORT Format**: `COMPLETE (P#S#)`
-- **WIP Format**: Descriptive status
-- **Examples**:
-  - `NOT YET STARTED (P1S1)`
-  - `COMPLETE (P2S8)`
-  - `IN PROGRESS - 3/5 tasks complete`
-
-### Testing Status
-- **INITIAL Format**: `NOT YET TESTED`
-- **REPORT Format**: `COMPLETE (#/# tests passed)`
-- **WIP Format**: Descriptive status
-- **Examples**:
-  - `NOT YET TESTED`
-  - `COMPLETE (10/10 tests passed)`
-  - `IN PROGRESS - 7/10 tests passing`
-
-### Recommendations
-Structured format with agents and notes:
-
-```markdown
-**Recommendations:**
-Agents:
-- `agent-name` (Task range or description)
-- `another-agent` (Task range or description)
-**Notes:**
-- Important note about implementation
-- Critical warning or requirement
-- Tool availability check (for example, the browser check needs the dev server)
-```
-
-**Example**:
-```markdown
-**Recommendations:**
-Agents:
-- `senior-frontend-engineer` (Tasks 2-10, 12)
-- `senior-backend-engineer` (Task 1)
-- `qa-test-automation-engineer` (Task 11)
-**Notes:**
-- T1 (server actions) with `senior-backend-engineer`
-- T2-10 (UI components) with `senior-frontend-engineer` in parallel
-- Use chrome-devtools for the browser check; if it is not accessible, report the UI as unverified
-```
-
-### Estimated Implementation Time (FTE)
-- **Format**: `#-# hours` or `#-# days` with optional context
-- **Examples**:
-  - `2-5 hours`
-  - `25-30 hours (3-4 days)`
-  - `1-2 days`
+- PRP Status follows the PRP's epic issue: `TODO` (epic `status: backlog` or `ready`; INITIAL), `IN PROGRESS`
+  (`status: in-progress`; INITIAL, WIP), `REVIEW` (`status: in-review`; INITIAL, WIP), `COMPLETE` (epic closed;
+  REPORT, PRP), `BLOCKED` (`flag: blocked`; any).
+- Name a PRP by its filename, never its folder path: PRPs move to `PRPs/complete/`, so paths go stale, and a bare
+  `P#S#` is ambiguous.
 
 ## Formatting Rules
 
-### General Rules
-1. **Separator**: Always use `---` (three hyphens) before footer section
-2. **Bold Labels**: All field names must be in bold (`**Field Name**:`)
-3. **Spacing**: Single space after colon before value
-4. **Line Breaks**: No blank lines between fields
-5. **Ordering**: Fields must appear in the order defined in this document
-6. **Accuracy**: All timestamps must be in GMT+10 timezone
-7. **Consistency**: Use exact field names and formats as specified
+- A line of four hyphens, `----`, separates the footer from the body.
+- Each field is `**Field**: value`: bold label, colon, one space. No blank lines between fields.
+- Use the exact field names, the exact (case-sensitive) enum values, and the `P#S#` / `P#S#T#` patterns.
+- Timestamps follow `documentation.md`. Paths are project-relative with forward slashes.
+- Agent names go in backticks, and each must exist in `.claude/agents/`.
+- Lists use `-` with two-space indentation. No links are needed. The file ends with a single newline.
 
-### Field Value Rules
-1. **Enums**: Use exact values from defined enums (case-sensitive)
-2. **Paths**: Use forward slashes (`/`), relative to project root
-3. **IDs**: Follow `P#S#` and `P#S#T#` patterns exactly
-4. **Timestamps**: Always use `dd/MM/yyyy HH:mm GMT+10` format
-5. **Lists**: Use markdown list syntax with proper indentation
-6. **References**: Always include full PRP ID in cross-references
+## Example
 
-### Markdown Rules
-1. **Code Formatting**: Agent names in backticks (`` `agent-name` ``)
-2. **Emphasis**: Use bold for field labels, regular text for values
-3. **Lists**: Use `-` for bullet points with 2-space indentation
-4. **Links**: Not required in footer sections
-5. **Newlines**: End file with single newline character
-
-## EXAMPLES
-
-The PRP IDs, titles, issue numbers and counts in these examples are illustrative. They do not refer to real PRPs.
-
-### EXAMPLE: Complete PRP INITIAL Footer
+An INITIAL footer:
 
 ```markdown
----
-**Plan Status**: READY
+----
+**Plan Status**: ACTIVE
 **PRP Status**: TODO
-**PRP ID**: P2S9
-**Epic Issue**: #31
-**PRP Document**: PRPs/P2S9-session-expiry-handling.md
-**Tasks**: 10 tasks (P2S9T1 - P2S9T10)
-**Phase**: Phase 2 - Authentication & User Management (Web Portal)
-**Dependencies**: P2S8 (Complete)
-**Implementation Status**: NOT YET STARTED (P2S9)
+**PRP ID**: P2S8
+**GitHub Issues**: #41 (PRP); tasks #42-#47 (P2S8T1-P2S8T6); dev-review #48
+**PRP Document**: P2S8-user-invites
+**Tasks**: 6 tasks (P2S8T1 - P2S8T6)
+**Phase**: Phase 2 - Accounts (API)
+**Dependencies**: P2S1 (Complete), P2S7 (Complete)
+**Implementation Status**: NOT YET STARTED (P2S8)
 **Testing Status**: NOT YET TESTED
-**Next PRP**: P2S10 - Email Change Confirmation
+**Next PRP**: P2S9 - Billing
 **Documentation**:
-- docs/project/PromptHub_05_TECH_01.md
-- docs/rules/project.md
-**Recommendations:**
+- PRPs/docs/P2S8-invite-contracts.md
+**Recommendations**:
 Agents:
-- `senior-backend-engineer` (Tasks 1-6)
-- `senior-frontend-engineer` (Tasks 7-9)
-- `qa-test-automation-engineer` (Task 10)
-**Notes:**
-- Use chrome-devtools for the browser check; if it is not accessible, report the UI as unverified
-- Follow the tenant-isolation rules in docs/rules/project.md
-- Implement error handling through the existing server action result type
-**Estimated Implementation Time (FTE):** 15-20 hours (2-3 days)
+- `senior-backend-engineer` (Tasks 1-4)
+- `qa-test-automation-engineer` (Tasks 5-6)
+Notes:
+- Invite tokens are single-use; T3 tests the replay case
+**Estimated Implementation Time (FTE)**: 10-14 hours (2 days)
 ```
 
-### EXAMPLE: Complete PRP REPORT Footer
+## Checklist
 
-```markdown
----
-**Report Status**: FINAL
-**PRP Status**: COMPLETE
-**PRP ID**: P2S8
-**Epic Issue**: #31
-**PRP Document**: PRPs/P2S8-implement-password-reset-form.md
-**Tasks**: 12 tasks (P2S8T1 - P2S8T12)
-**Phase**: Phase 2 - Authentication & User Management (Web Portal)
-**Dependencies**: P2S7 (Complete), P2S6 (Complete)
-**Implementation Status**: COMPLETE (P2S8)
-**Testing Status**: COMPLETE (12/12 tests passed)
-**Next PRP**: P2S9 - Session Expiry Handling
-**Notes:**
-- All form validation working correctly
-- Server actions successfully integrated
-- Comprehensive error handling implemented
-```
-
-### EXAMPLE: Complete Main PRP Footer
-
-```markdown
----
-**PRP Status**: COMPLETE
-**PRP ID**: P2S8
-**Epic Issue**: #31
-**Tasks**: 12 tasks (P2S8T1 - P2S8T12)
-**Phase**: Phase 2 - Authentication & User Management (Web Portal)
-**Dependencies**: P2S7 (Complete), P2S6 (Complete), P2S5 (Complete)
-**Next PRP**: P2S9 - Session Expiry Handling
-**Recommendations:**
-Agents:
-- `senior-frontend-engineer` (Tasks 1-8)
-- `senior-backend-engineer` (Tasks 9-10)
-- `qa-test-automation-engineer` (Tasks 11-12)
-**Notes:**
-- T1-8 (Form components) with `senior-frontend-engineer`
-- T9-10 (Server actions) with `senior-backend-engineer` in parallel
-- Follow the existing server action patterns in `src/features/auth/actions.ts`
-**Estimated Implementation Time (FTE):** 15-20 hours (2-3 days)
-```
-
-### EXAMPLE: Complete WIP Footer
-
-```markdown
----
-**PRP Document**: PRPs/P2S9-session-expiry-handling.md
-**PRP Status**: IN PROGRESS
-**PRP ID**: P2S9
-**Tasks**: 10 tasks (P2S9T1 - P2S9T10)
-**Phase**: Phase 2 - Authentication & User Management (Web Portal)
-**Implementation Status**: IN PROGRESS - 7/10 tasks complete
-**Testing Status**: IN PROGRESS - 15/20 tests passing
-**Notes:**
-- Session refresh action fully implemented and tested
-- Expiry banner component implementation in progress
-- Sign-out cleanup pending task start
-```
-
-## Validation Checklist
-
-### Before Finalizing Any PRP Document
-
-- [ ] Footer separator (`---`) present
-- [ ] All required fields included for document type
-- [ ] Field names exactly match specification (bold, correct spelling)
-- [ ] Field order matches specification
-- [ ] Timestamps in GMT+10 timezone
-- [ ] Timestamp format: `dd/MM/yyyy HH:mm GMT+10`
-- [ ] PRP ID follows `P#S#` pattern
-- [ ] Task range follows `P#S#T#-P#S#T#` pattern
-- [ ] Dependencies list complete (or explicitly `None`)
-- [ ] Status values match defined enums
-- [ ] Agent names in backticks
-- [ ] Recommendations section properly formatted
-- [ ] File ends with single newline character
-- [ ] No blank lines between fields
-- [ ] All paths use forward slashes
-- [ ] Epic Issue names the PRP's `type: epic` issue
-
-### Document Type-Specific Checks
-
-#### PRP INITIAL
-- [ ] Plan Status present and valid
-- [ ] Implementation Status = `NOT YET STARTED (P#S#)`
-- [ ] Testing Status = `NOT YET TESTED`
-- [ ] Estimated Implementation Time included
-- [ ] Next PRP referenced
-
-#### PRP REPORT
-- [ ] Report Status present and valid
-- [ ] Implementation Status = `COMPLETE (P#S#)`
-- [ ] Testing Status shows pass/fail counts
-- [ ] Results documented in notes section
-
-#### Main PRP
-- [ ] Estimated Implementation Time included
-- [ ] Recommendations section complete
-- [ ] Dependencies explicitly listed
-
-#### WIP
-- [ ] Implementation Status descriptive
-- [ ] Testing Status descriptive
-- [ ] Notes explain current work state
-
+- [ ] `----` separator; every required field for the type, in order, with exact names
+- [ ] Enum values exact; IDs match `P#S#` and `P#S#T#`; Dependencies listed or `None`
+- [ ] GitHub Issues names every issue the PRP owns, and agrees with the issues' titles and states
+- [ ] Timestamps in the `documentation.md` format
+- [ ] Agent names in backticks and present in `.claude/agents/`
+- [ ] INITIAL: Implementation `NOT YET STARTED (P#S#)`, Testing `NOT YET TESTED`, Next PRP and estimate present
+- [ ] INITIAL: the PRP's drift register (`docs/rules/documentation.md#drift-review`) is current and its fixes are a task
+- [ ] REPORT: Implementation `COMPLETE (P#S#)`, real test counts, each issue's end state, results in Notes, a
+  Completed timestamp
+- [ ] REPORT: every drift-register item fixed or filed, every document the PRP touched or made stale swept, and the
+  PRP's `wip/` files reconciled or deleted
+- [ ] PRP: Recommendations and estimate present
+- [ ] WIP: descriptive statuses, and Notes that explain the current state
+- [ ] No blank lines between fields; a single trailing newline

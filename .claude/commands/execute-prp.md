@@ -1,92 +1,61 @@
 # Execute BASE PRP
 
-Implement a feature using using the PRP file.
+Implement a feature using the PRP file.
 
 ## PRP File: $ARGUMENTS
+
+Where the `prp-workflow` skill is available, run its execute stage on this PRP: it carries the full procedure,
+and the Mandatory Rules below still bind. Otherwise follow the process below.
 
 ## Execution Process
 
 1. **Load PRP**
-   - Read the specified PRP file
-   - Understand all context and requirements
-   - Follow all instructions in the PRP and extend the research if needed
-   - Ensure you have all needed context to implement the PRP fully
-   - Do more web searches and codebase exploration as needed
+   - Read the PRP file and understand all its context and requirements.
+   - Follow every instruction in it, and extend the research (web search, codebase exploration) until you have all
+     the context needed to implement it fully.
 
 2. **ULTRATHINK**
-   - Think hard before you execute the plan. Create a comprehensive plan addressing all requirements.
-   - Break down complex tasks into smaller, manageable steps using your todos tools.
-   - Use the TodoWrite tool to create and track your implementation plan.
-   - Identify implementation patterns from existing code to follow.
+   - Think hard before executing, and plan for every requirement.
+   - Break complex work into small, manageable steps, tracked in the session's task list where it has one.
+   - Identify the existing implementation patterns to follow.
 
-3. **Execute the plan**
-   - Execute the PRP
-   - Implement all the code
+3. **Execute the plan**: dispatch each task to its agent and integrate the results.
 
-4. **Validate**
-   - Run each validation command
-   - Fix any failures
-   - Re-run until all pass
+4. **Validate**: run each validation command, fix any failure, and re-run until all pass. When validation fails,
+   use the error patterns in the PRP.
 
-5. **Complete**
-   - Ensure all checklist items done
-   - Run final validation suite
-   - Report completion status
-   - Read the PRP again to ensure you have implemented everything
+5. **Complete**: confirm every checklist item, run the final validation suite, re-read the PRP to confirm everything
+   is implemented, and report the completion status.
 
-6. **Reference the PRP**
-   - You can always reference the PRP again if needed
-
-Note: If validation fails, use error patterns in PRP to fix and retry.
+Reference the PRP again whenever needed.
 
 ## Imports
-@docs/rules/project.md
-@docs/rules/github-issues.md
-@docs/rules/documentation.md
 @docs/rules/documentation-prp.md
 
-### Important Notes
+## Mandatory Rules
 
-- **FIRST STEP**: Ensure the PRP start report has been created and is accurate and current. If it does not exist, create it
-- **CRITICAL**: Track every task in GitHub Issues per `docs/rules/github-issues.md`. Archon is legacy and read-only: never create or update an Archon task
-- Status flow: `status: ready` → `status: in-progress` → `status: in-review`; closing is the developer's decision
-- Priority is the `priority:` label and effort the `size:` label
-- Tasks should be 30 min - 4 hours of work
-- Split tasks or related collections of tasks, and factor into smallest discrete self-contained tasks (where possible and optimal)
-- **Parallelize tasks** where possible using subagents and the Task tool
-- **ALWAYS** use the most aligned/suitable subagent available for any discrete task or collection of related tasks.
-- Create the PRP's issues at its INITIAL stage (a `type: epic`, a `type: task` per task, a `type: dev-review` per check only the developer can run), and set each issue to `status: in-progress` before beginning implementation
-- Move each issue to `status: in-review` with a comment (what was built, gates run, what is unverified) before completion; never close an issue
-- Keep issues in sync with the PRP document: titles start with the PRP task ID (`P7S1T1: …`), and the epic lists its children as `- [ ] #NN P#S#T# — short title`
-- Use subagents or _subagent teams_, to assign tasks to the best/optimal, most-suitable, and most-qualified agent/s.
-- Spawn agents in parallel using the Task tool, and when tasks have been marked as parallelizable [P]
-- Share comprehensive and detailed information between agent/caller to guarantee robust results and context integrity and relevance.
-- NEVER create duplicate issues - ALWAYS search existing issues first to ensure new issues are unique and not duplicating task (or subtask) entries. Update existing issues where suitable.
-- For each task issue, identify discrete tasks or collections of related tasks (and sequences of tasks) that are suitable for parallelization, and mark each task with `[P]` (this will be used to schedule and run multiple subagents simultaneously using the Task tool).
-- Name the most-suitable/most-aligned agent for each task in its issue body and the PRP (GitHub assignees are people, not agents).
-- Provide a lean but complete foundation for the task within the task description:
-- A clear task goal and success criteria, with error handling and fallback guidance
-- Extensive relevant details and context to complete the task
-- Indicate any task dependencies or pre-requisite resources, configurations, or prior-work
-- Suggest if suitable for parallelization (mark task title with `[P]`) , and any particular task sequence requirements
-- Specify intended task sequence, scope, and code-base influence
-- Include references to any required/useful project documents, or external sources
-- Instruct agents to share markdown files if necessary, written to folder `wip/` - clearly named, also with agent name and datetime
-
-### CORE INSTRUCTIONS
-
-  ✅ Use the **Task tool** to spawn multiple subagents to work in _parallel_.
-  ✅ **NO mock/dummy data** - Only real, validated data.
-  ✅ **NO placeholder components, systems, code, or data to be used EVER!** - Real and actual data/implementations only.
-  ✅ **NO backwards compatibility** - Clean, modern implementation.
-  ✅ **Real database operations ALWAYS** - No bypassed or disabled features.
-  ✅ **Production-ready code ONLY** - No temporary workarounds EVER!
-  ✅ **NEVER ASSUME, PRESUME, OR GUESS** - When in doubt, ask for clarification.
-  ✅ **ALWAYS require a full and complete implementation AND integration of every feature into the platform** - All subtasks, and task implementations/solutions/outputs MUST be fully complete, robust, and integrated and tested successfully, AND the feature/solution working correctly broadly within the platfom, BEFORE a task is to be considered completed or the task status is set to `review`.
-  ✅ **NEVER assume task completeness** - or over-estimate progress or completion status until the developer has reviewed and tested the implementation.  
-  ✅ **Always VERIFY file paths and module names** before use.
-  ✅ **Keep CLAUDE.md updated** when adding new patterns or dependencies.
-  ✅ **TEST your code** - No feature is complete without passing tests.
-  ✅ **DOCUMENT your decisions** - for the dev team, and for future developers and contributors.
-  ✅ **NEVER "WORK AROUND" anything!** - Real, correct, and targeted solutions only are permitted!
-  ✅ **REMINDER: NEVER USE OR ADD PLACEHOLDER COMPONENTS/SYSTEMS/CODE/DATA**
+- FIRST: confirm the PRP's INITIAL report (`PRPs/reports/*-INITIAL.md`) exists, is accurate and is current; create
+  it if it does not.
+- Track every task as a GitHub issue per `docs/rules/github-issues.md`, with the titles, labels and states it defines:
+  `status: in-progress` before starting, `status: in-review` when built and the gates pass. Use `gh`, or the GitHub
+  MCP tools where `gh` is not authenticated. Keep the issues in step with the PRP. Never create a duplicate: search
+  first.
+- Size tasks at 30 minutes to 4 hours, and so one agent can finish one within its turn budget; factor larger work into
+  the smallest self-contained tasks.
+- Mark parallelizable tasks `[P]` and run them as concurrent subagents.
+- Assign every task to the most suitable agent in `.claude/agents/`, with a lean but complete brief: the goal and
+  success criteria, with error-handling and fallback guidance; the context, files and patterns; dependencies and
+  prerequisite work; sequence, scope and codebase influence; references to project documents and external sources;
+  an instruction to read `.claude/AGENT-CONTRACT.md`; and an instruction to share notes as markdown in `wip/`.
+- Before dispatching a worktree agent, commit the work it builds on and name that commit in its brief: uncommitted
+  work never reaches a worktree, and without `worktree.baseRef: head` in `.claude/settings.json` the harness branches
+  it from the remote default branch.
+- After merging an agent's work, re-run every gate on the merged tree, and take test counts from the suite's totals,
+  never from the agent's report.
+- No mock or dummy data. No placeholder components, systems, code or data, ever. No backwards-compatibility shims,
+  bypassed or disabled features, or temporary workarounds: real data, real operations, production-ready code only.
+- Never assume, presume or guess: ask when in doubt. Verify file paths and module names before use.
+- A task is complete only when it is fully implemented, integrated, tested and working within the platform. Never
+  overstate progress: the developer decides when work is done.
+- Keep `CLAUDE.md` and `docs/rules/project.md` current when adding patterns or dependencies.
+- Test your code, and document your decisions for the team and future contributors.

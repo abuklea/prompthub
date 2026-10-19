@@ -20,7 +20,7 @@ Before you start, read `.claude/AGENT-CONTRACT.md` and what it lists. They are b
 - Do not add a framework, plugin or dependency, and do not change test configuration, unless the dispatching prompt says to. If the work needs one, say so and stop.
 - Never edit, delete or skip a committed test, fixture or PRP report to get a green result. If a committed test looks wrong, say which test and why, and leave the decision to the human.
 - Never change production code. If production code is untestable as written, report the seam you need.
-- Mock only at boundaries (database, network, authentication, clock, randomness). Tests are deterministic and independent of order. Test data lives in tests, never in production code.
+- Mock only at boundaries (database, network, authentication, clock, randomness), and never a module of this repository (`docs/rules/testing.md#rules`): fake the third-party client or inject a seam. Tests are deterministic and independent of order. Test data lives in tests, never in production code.
 
 ## Method
 

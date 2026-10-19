@@ -2,72 +2,53 @@
 
 ## Feature file: $ARGUMENTS
 
-Generate a complete PRP for general feature implementation with thorough research. Ensure context is passed to the AI agent to enable self-validation and iterative refinement. Read the feature file first to understand what needs to be created, how the examples provided help, and any other considerations.
+Where the `prp-workflow` skill is available, run its research and generate stages on this feature file: it
+carries the full procedure, and the Quality Checklist below still applies. Otherwise follow the process below.
 
-The AI agent only gets the context you are appending to the PRP and training data. Assuma the AI agent has access to the codebase and the same knowledge cutoff as you, so its important that your research findings are included or referenced in the PRP. The Agent has Websearch capabilities, so pass urls to documentation and examples.
+Generate a complete PRP for the feature, with thorough research. Read the feature file first: what must be built,
+how its examples help, and any other considerations. The executing agent gets only the PRP and its training data,
+with the same codebase access and knowledge cutoff as you, so every research finding must be included in the PRP or
+referenced from it. It can search the web, so pass documentation and example URLs.
 
 ## Research Process
 
-1. **Codebase Analysis**
-   - Search for similar features/patterns in the codebase
-   - Identify files to reference in PRP
-   - Note existing conventions to follow
-   - Check test patterns for validation approach
-
-2. **External Research**
-   - Search for similar features/patterns online
-   - Library documentation (include specific URLs)
-   - Implementation examples (GitHub/StackOverflow/blogs)
-   - Best practices and common pitfalls
-
-3. **User Clarification** (if needed)
-   - Specific patterns to mirror and where to find them?
-   - Integration requirements and where to find them?
+1. **Codebase analysis**: find similar features and patterns with the code-intelligence tools in
+   `docs/rules/tools.md`. Identify the files to reference, the conventions to follow, and the existing test patterns
+   to validate against. Verify every path and line you will cite.
+2. **External research**: library and API documentation (with section URLs), implementation examples, best
+   practices, recent fixes and common pitfalls, using the research tools in `docs/rules/tools.md`.
+3. **Drift**: where `docs/rules/documentation.md` requires a drift register, write it for the feature's area.
 
 ## Imports
-@docs/rules/documentation.md
 @docs/rules/documentation-prp.md
 
 ## PRP Generation
 
-Using PRPs/templates/prp_base.md as template:
+Use `PRPs/templates/prp_base.md` as the template, and include:
 
-### Critical Context to Include and pass to the AI agent as part of the PRP
-- **Documentation**: URLs with specific sections
-- **Code Examples**: Real snippets from codebase
-- **Gotchas**: Library quirks, version issues
-- **Patterns**: Existing approaches to follow
+- **Documentation**: URLs with the specific sections.
+- **Code examples**: real snippets from the codebase.
+- **Gotchas**: library quirks and version issues.
+- **Patterns**: the existing approaches to follow.
+- **Implementation blueprint**: pseudocode for the approach, real files as patterns, the error-handling strategy,
+  and the tasks in the order they must be completed, each assigned to an agent that exists in `.claude/agents/`.
+- **Validation gates the agent can execute**: `{{LINT_CMD}}`, `{{TYPECHECK_CMD}}` and `{{TEST_CMD}}` (values in
+  `docs/rules/project.md`), plus the checks specific to the feature.
 
-### Implementation Blueprint
-- Start with pseudocode showing approach
-- Reference real files for patterns
-- Include error handling strategy
-- list tasks to be completed to fullfill the PRP in the order they should be completed
-
-### Validation Gates (Must be Executable) eg for python
-```bash
-# Syntax/Style
-ruff check --fix && mypy .
-
-# Unit Tests
-uv run pytest tests/ -v
-
-```
-
-*** CRITICAL AFTER YOU ARE DONE RESEARCHING AND EXPLORING THE CODEBASE BEFORE YOU START WRITING THE PRP ***
-
-*** ULTRATHINK ABOUT THE PRP AND PLAN YOUR APPROACH THEN START WRITING THE PRP ***
+CRITICAL: after researching and exploring the codebase, and before writing, ULTRATHINK about the PRP and plan the
+approach. Then write it.
 
 ## Output
-Save as: `PRPs/{feature-name}.md`
+
+Save as `PRPs/P#S#-feature-name.md`, using the next `P#S#` that is unused in both `PRPs/` and `PRPs/complete/`.
 
 ## Quality Checklist
 - [ ] All necessary context included
-- [ ] Validation gates are executable by AI
+- [ ] Validation gates executable by the agent
 - [ ] References existing patterns
 - [ ] Clear implementation path
 - [ ] Error handling documented
+- [ ] Every assigned agent exists in `.claude/agents/`
 
-Score the PRP on a scale of 1-10 (confidence level to succeed in one-pass implementation using claude codes)
-
-Remember: The goal is one-pass implementation success through comprehensive context.
+Score the PRP from 1 to 10 for confidence of one-pass implementation success. The goal is one-pass success through
+comprehensive context.

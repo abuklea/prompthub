@@ -20,8 +20,8 @@ Everything else is allowed (exit 0). The hook FAILS OPEN: any unexpected error
 exits 0, so a bug in this script can never brick your session.
 
 MAKE IT YOURS: the two `is_*` functions below are the entire policy. Add your own
-(protected paths, prod config, lockfiles, migrations), or run the `hooks-create`
-skill and describe the guarantee you want in plain English.
+(protected paths, prod config, lockfiles, migrations), then prove the hook in both
+directions as `.claude/hooks/README.md#prove-they-work` shows.
 
 COVERAGE, HONESTLY: the hook is GUARANTEED to run. What it CATCHES is only as
 good as the checks below. Three known gaps, all documented in hooks/README.md:

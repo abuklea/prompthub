@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Project Rules | 07/11/2025 12:46 GMT+10 | 19/10/2026 22:43 GMT+10 |
+| Project Rules | 07/11/2025 12:46 GMT+10 | 19/10/2026 23:07 GMT+10 |
 
 ## Table of Contents
 - [Project Variables](#project-variables)
@@ -95,6 +95,7 @@ public/         static assets; public/monaco-editor is copied at install and git
   check each call for a missing or misplaced `await`.
 - Debounce user-input handlers.
 - Done means: goal met, gates pass, docs updated, completion comment on the issue, issue at `status: in-review`.
+- Git: `master` is the default and only long-lived branch; read it wherever `git.md` says `main`.
 
 ### Servers
 
@@ -139,7 +140,10 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
   `documentation.md`.
 - Agent, command and skill files under `.claude/` carry no header block: Claude Code loads them as prompts, some
   behind YAML frontmatter. This overrides `documentation.md`.
-- Diagrams: write `mermaid` code blocks; there is no render step and no PNG/SVG output.
+- Diagrams: write `mermaid` code blocks; there is no render step and no PNG/SVG output, so report rendering as not
+  checked. This overrides `documentation.md`.
+- PRP footers: Plan Status also takes `READY` (planned, not started), as the PRPs already use. This overrides
+  `documentation-prp.md`.
 
 ## Database, Auth and Tenancy
 
@@ -174,6 +178,7 @@ Names and purposes (template: `.env.example`; CI supplies placeholders):
 | `SUPABASE_URL` | Optional server-side Supabase URL, read before `NEXT_PUBLIC_SUPABASE_URL` (`src/lib/supabase/server.ts`); the Docker stack points it at the gateway |
 | `SUPABASE_SERVICE_ROLE_KEY` | Reserved for admin tasks such as seeding (technical spec); no code under `src/` reads it today |
 | `DATABASE_URL`, `DIRECT_URL` | Prisma pooled and direct connections (`prisma/schema.prisma`) |
+| `TEST_USER_EMAIL`, `TEST_USER_PASSWORD` | The primary test user, supplied at runtime from the git-ignored `.env.test`; NEVER committed |
 
 ## Architecture Constraints
 
@@ -184,7 +189,8 @@ Names and purposes (template: `.env.example`; CI supplies placeholders):
 - Layouts are modular and responsive, with separate mobile (touch) and desktop (mouse) designs; collapsible sections
   persist their state in localStorage.
 - Background work uses interval management with an exit condition: NEVER poll continuously.
-- File size follows `docs/rules/code-size.md`: a RED file needs a `split` or `accept` row in the register.
+- File size follows `docs/rules/code-size.md`: a RED file needs a `split` or `accept` row in the register. No tool
+  enforces its limits (ESLint extends only `next/core-web-vitals`; no Prettier config): adding one is its own decision.
 - Performance targets: initial load < 2 s, time to interactive < 3 s, Lighthouse > 90.
 
 ```typescript
