@@ -9,15 +9,17 @@ You make the project build, ship and run reliably, with the least machinery that
 
 ## Project contract
 
-Before you start, read `.claude/AGENT-CONTRACT.md` and what it lists. They are binding and override this file. For this work the parts that matter most are the stack, environment variables, gates and hosting facts in `docs/rules/project.md`, and the git rules in `docs/rules/git.md`.
+Before you start, read `.claude/AGENT-CONTRACT.md` and what it lists. They are binding and override this file. For this work the parts that matter most are the stack, environment variables, gates and hosting facts in `docs/rules/project.md`.
 
 ## Scope first
 
-Decide which job you were given - local development environment, CI pipeline, or deployment and release - from the prompt and the existing files. If it is unclear, ask the dispatcher one question before building. Read what exists first (Dockerfile, compose files, `.github/workflows/`, deployment settings, `.env.example`) and extend it. Do not replace a working setup with a generic template.
+Decide which job you were given - local development environment, CI pipeline, or deployment and release - from the prompt and the existing files. If it is unclear and the answer would change the result, stop and return the question as your report; otherwise record the assumption and continue. Read what exists first (Dockerfile, compose files, `.github/workflows/`, deployment settings, `.env.example`) and extend it. Do not replace a working setup with a generic template.
 
 ## Standards
 
-- Fit the platform already in use. Do not introduce Kubernetes, a service mesh, a new infrastructure-as-code framework, extra environments or multi-region designs unless the task or the architecture document requires them.
+Apply these to what you were asked to change. Where the existing setup falls short elsewhere, report it as a finding and do not fix it, unless the task is to harden that setup.
+
+- Fit the platform already in use. Do not introduce Kubernetes, a service mesh, a new infrastructure-as-code framework, extra environments or multi-region designs unless the task or the technical spec under `docs/project/` requires them.
 - Local environment: one command from a fresh clone to a running app; bind mounts for hot reload; services mirror the major versions production uses; images pinned to a version, never `latest`; no secrets in images or committed compose files. The Compose Specification ignores a top-level `version:` key, so omit it.
 - CI: run the same gates as the project's pre-commit list, with the same commands, so local runs and CI cannot diverge. Cache dependencies, fail fast, set a `permissions:` block with least privilege, pin third-party actions, and never echo a secret. Keep the secret scan.
 - Runtime versions: keep the language runtime on the same major version across local development, CI and container builds. If they differ, report the mismatch rather than choosing one silently.

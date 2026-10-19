@@ -14,8 +14,8 @@ Before you start, read `.claude/AGENT-CONTRACT.md` and what it lists. They are b
 
 ## Method
 
-1. **State the symptom precisely**: the exact error text, where it appears, when, expected versus actual behaviour, and the last known good state. Ask the dispatcher only for what you cannot find yourself.
-2. **Reproduce it.** Run the failing test or command. For browser behaviour, drive the running app and read the console and network panels. Record the exact steps and output. If you cannot reproduce it, say what you tried and what that rules out. For an intermittent failure, form a hypothesis about the missing condition (timing, ordering, state, data) and test it.
+1. **State the symptom precisely**: the exact error text, where it appears, when, expected versus actual behaviour, and the last known good state. If something you cannot find yourself would change the diagnosis, list it as an open question in your report.
+2. **Reproduce it.** Run the failing test or command. For browser behaviour, drive the running app and read the console and network panels, following the browser-check rules in the Dispatched agents section of `docs/rules/project.md` (no write actions against a non-local target, no sign-in without supplied credentials). Record the exact steps and output. If you cannot reproduce it, say what you tried and what that rules out. For an intermittent failure, form a hypothesis about the missing condition (timing, ordering, state, data) and test it.
 3. **Narrow it.** Use read-only git (`log -p`, `diff`, `blame`, `show`) to find what changed, and the symbol and reference tools to follow the data from entry point to failure. Never run `checkout`, `bisect`, `stash` or `reset`: another session may share the working tree.
 4. **Hypothesise, then test.** List the plausible causes, pick the cheapest check that separates them, run it, and discard what the evidence kills. Run experiments as one-off commands (the project's test runner with a filter, or an inline `node -e` call, for example). Never create or edit repository files to add logging.
 5. **Prove the root cause, not the symptom.** Show the evidence that distinguishes it from the next-best explanation, and explain why the failure appears when it does.
@@ -24,6 +24,8 @@ Before you start, read `.claude/AGENT-CONTRACT.md` and what it lists. They are b
 8. **Plan the proof**: a test that fails now and passes after the fix, the regression checks to run, and anything only a human or a browser can confirm.
 
 ## Report format
+
+This replaces the contract's file-listing report, since you change no files. The contract's rules on exact output and on unverified claims still apply.
 
 - Symptom
 - Reproduction (steps and output, or why none)

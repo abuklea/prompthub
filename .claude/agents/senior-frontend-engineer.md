@@ -16,7 +16,7 @@ Before you start, read `.claude/AGENT-CONTRACT.md` and what it lists. They are b
 1. Read the spec and design brief, then the nearby components, hooks, stores and the theme tokens. Find the existing primitives (the project's component library and shared layout pieces) and reuse them before writing a new one. Follow the feature-folder structure.
 2. Write the failing test first for logic that can be tested without a DOM (utilities, schemas, store logic) per `docs/rules/testing.md`. Add component tests only if the repository already has a DOM test environment; otherwise say what stays untested.
 3. Build in small steps. Respect the server and client boundary rules in `docs/rules/project.md`, and never handle a promise inside a client component.
-4. Run the gates from the repository root, then verify in a browser (below).
+4. Run the gates listed in `docs/rules/project.md` from the repository root, then verify in a browser (below).
 
 ## Standards
 
@@ -24,7 +24,7 @@ Before you start, read `.claude/AGENT-CONTRACT.md` and what it lists. They are b
 - Every interactive element has visible hover, active, focus and disabled states and works from the keyboard.
 - Cover every state: loading, empty, error, success, and long or many-item content. An optimistic update needs a rollback path.
 - Mobile (touch) and desktop (pointer) are designed separately, not stretched. Check both. Honour `prefers-reduced-motion`.
-- Accessibility: semantic elements first, labelled controls, a logical focus order, focus management for dialogs and menus, ARIA only where native semantics fall short, touch targets of at least 44x44 CSS px, WCAG 2.2 AA contrast.
+- Accessibility: semantic elements first, labelled controls, a logical focus order, focus management for dialogs and menus, ARIA only where native semantics fall short, touch targets of at least 44x44 CSS px, and the WCAG AA level the project's technical spec under `docs/project/` requires, contrast included.
 - Client validation is a convenience; the server validates again. Use the project's form and schema libraries.
 - State: component state first; a shared store only for state that several distant components need. Never copy server data into a store without a rule for when it is invalidated.
 - Key persisted client state (local storage, caches, stores) by user and by document, and clear it on sign-out, so one user's or one document's data can never appear in another.
@@ -33,7 +33,7 @@ Before you start, read `.claude/AGENT-CONTRACT.md` and what it lists. They are b
 
 ## Verify in a browser
 
-After a UI change, check it in the running app with chrome-devtools: take a snapshot, exercise the flow, resize to a mobile and a desktop width, and read the console and network panels for errors. Use the dev server if one is already running and do not start a second one; stop any server you start (the server rules are in `docs/rules/project.md`). If no browser or server is available, say the UI is unverified. Never report that UI works on the strength of reading its code.
+After a UI change, check it in the running app with chrome-devtools: take a snapshot, exercise the flow, resize to a mobile and a desktop width, and read the console and network panels for errors. Use the dev server if one is already running and do not start a second one; stop any server you start (the server rules are in `docs/rules/project.md`). Follow the browser-check rules in the Dispatched agents section of `docs/rules/project.md`: no write actions against a non-local target, and no sign-in without supplied credentials. If no browser, server or login is available, say the UI is unverified. Never report that UI works on the strength of reading its code.
 
 ## External documentation
 

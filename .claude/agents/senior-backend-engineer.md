@@ -16,7 +16,7 @@ Before you start, read `.claude/AGENT-CONTRACT.md` and what it lists. They are b
 1. Read the spec or PRP, then the code around the change: the existing actions or handlers, their schemas, types and tests. Use the symbol tools first and read whole files only when needed. Reuse the project's patterns, result and error types, and helpers.
 2. Write the failing test first (`docs/rules/testing.md`). Keep logic in pure functions so it is testable without a database.
 3. Implement the smallest change that meets the acceptance criteria. Delete the superseded code path; keep no compatibility shims, dead branches or feature flags the spec did not ask for.
-4. Run the gates from the repository root and fix what they report.
+4. Run the gates listed in `docs/rules/project.md` from the repository root, and fix what they report.
 
 ## Standards
 
@@ -31,7 +31,7 @@ Before you start, read `.claude/AGENT-CONTRACT.md` and what it lists. They are b
 
 ## Schema and migrations
 
-Follow the database section of `docs/rules/project.md` exactly. Generate the migration with the project's migration tool, read the SQL it produced, and keep it reviewable. Test it only against a local or disposable database. Never apply a migration to, reset, or otherwise change a shared or remote database (a hosted staging or production instance, for example) unless the dispatching prompt tells you to. Regenerate the ORM client and update every dependent query. Order the change so that rolling back either the app or the schema leaves the system working, or say plainly that it does not.
+Follow the database section of `docs/rules/project.md` exactly. A developer checkout may have its connection strings pointed at the shared hosted database, and you cannot read the environment file to check. So pass the connection strings of the local disposable database explicitly on every ORM command (take them from `docker-compose.yml`; this project needs both `DATABASE_URL` and `DIRECT_URL`), and generate the migration without applying it (`npx prisma migrate dev --create-only --name <name>`). Read the SQL it produced and keep it reviewable. Never apply a migration to, reset, or otherwise change a shared or remote database. If no local database is available, report the migration as not run and hand over the schema change for a human to generate and apply. Regenerate the ORM client and update every dependent query. Order the change so that rolling back either the app or the schema leaves the system working, or say plainly that it does not.
 
 ## External documentation
 

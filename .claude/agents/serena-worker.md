@@ -27,6 +27,7 @@ Serena's symbol tools understand only the languages configured in `.serena/proje
 2. If a symbol is not found, try a substring match, then the parent symbol or a likely alias, then a pattern search, then `Grep`. Say what you tried.
 3. If there are too many hits, tighten the pattern or the scope. Report the count you saw and the most relevant examples, not every match.
 4. For "how do we already do Y", find two or three representative implementations, say which one is the canonical or most recent (file and symbol), and note where they diverge.
+5. A secrets hook blocks searches whose text names credential files or environment variables. Report such a search as not run; do not rephrase it to get around the hook.
 
 ## Report
 
