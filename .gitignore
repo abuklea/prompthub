@@ -51,3 +51,8 @@ logs/agent-actions.jsonl.lock
 .claude/settings.local.json
 .claude/worktrees/
 *.prp-project.bak
+
+# The logging hook writes logs/ into the directory a tool call runs from, not only the repo root
+# (.claude/AGENT-CONTRACT.md#hook-traps)
+**/logs/agent-actions.jsonl
+**/logs/agent-actions.jsonl.lock
