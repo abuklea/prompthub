@@ -32,11 +32,15 @@ import { draftKey, hashContent, saveStatus } from "./P7S1-draft-spike"
 import { clearDocumentCache, getCachedDocument, useDocumentLoader } from "./P7S1-loader-spike"
 import {
   AUTOSAVE_DELAY_MS,
+  FLUSH_FAILED_TOAST,
+  NEEDS_TITLE_TOAST,
   useAutoSave,
   useDocumentPersistence,
   useVersionRestore,
   useVersionSave,
+  withActionTimeout,
 } from "./P7S1-persistence-spike"
+import { REQUEST_TIMED_OUT, REQUEST_TIMEOUT_MS } from "./P7S1-draft-spike"
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), info: vi.fn(), warning: vi.fn(), success: vi.fn() } }))
 
@@ -67,22 +71,23 @@ function makeEnv(rows) {
   const state = { requests: [], versions: [], nextVersionId: 1, holds: new Map(), failures: new Map() }
 
   const hold = (name) => {
-    let release
-    const promise = new Promise((resolve) => {
-      release = resolve
-    })
-    state.holds.set(name, promise)
-    return () => {
+    const waiting = []
+    state.holds.set(name, waiting)
+    const releaseAll = () => {
       state.holds.delete(name)
-      release()
+      waiting.splice(0).forEach((resolve) => resolve())
     }
+    return Object.assign(releaseAll, { releaseOne: () => waiting.shift()?.() })
+  }
+  const passGate = async (name) => {
+    const waiting = state.holds.get(name)
+    if (waiting) await new Promise((resolve) => waiting.push(resolve))
   }
   const failNext = (name, mode = "result") => state.failures.set(name, mode)
 
   async function begin(name, input) {
     state.requests.push({ name, input })
-    const gate = state.holds.get(name)
-    if (gate) await gate
+    await passGate(name)
     const mode = state.failures.get(name)
     if (!mode) return null
     state.failures.delete(name)
@@ -129,8 +134,7 @@ function makeEnv(rows) {
   const io = {
     getUserId: () => Promise.resolve("user-1"),
     fetchPrompt: async (id) => {
-      const gate = state.holds.get("fetch")
-      if (gate) await gate
+      await passGate("fetch")
       if (!rowsMap.has(id)) return { success: false, error: "Prompt not found" }
       return {
         success: true,
@@ -173,17 +177,17 @@ const settle = async () => {
   for (let i = 0; i < 3; i++) await tick(0)
 }
 
-async function open(env, { promptId = A, tabId = "tab-A", ...options } = {}) {
+async function open(env, { promptId = A, tabId = "tab-A", actions = env.actions, ...options } = {}) {
   const hook = renderHook((props) => useSession(props), {
-    initialProps: { promptId, tabId, io: env.io, actions: env.actions },
+    initialProps: { promptId, tabId, io: env.io, actions },
     ...options,
   })
   await settle()
   return hook
 }
 
-async function goTo(hook, env, promptId, tabId) {
-  hook.rerender({ promptId, tabId, io: env.io, actions: env.actions })
+async function goTo(hook, env, promptId, tabId, actions = env.actions) {
+  hook.rerender({ promptId, tabId, io: env.io, actions })
   await settle()
 }
 
@@ -200,9 +204,9 @@ const setTitle = (hook, title) =>
     loaderOf(hook).setTitle(title)
   })
 
-const pressCtrlS = () =>
+const pressCtrlS = (modifiers = { ctrlKey: true }) =>
   act(() => {
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true, cancelable: true }))
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "s", cancelable: true, ...modifiers }))
   })
 
 const tabOf = (id) => useTabStore.getState().tabs.find((t) => t.id === id)
@@ -419,6 +423,52 @@ describe("autosave through the persistence hook", () => {
     expect(env.names()).toEqual([])
   })
 
+  it("autoSaving stays true until every overlapping request has finished", async () => {
+    const hook = await open(env)
+    const gate = env.hold("autosave")
+    type(hook, "one")
+    await tick(AUTOSAVE_DELAY_MS)
+    type(hook, "one two")
+    await tick(AUTOSAVE_DELAY_MS)
+    expect(env.names()).toEqual(["autosave", "autosave"])
+    expect(persistenceOf(hook).autoSaving).toBe(true)
+
+    gate.releaseOne()
+    await settle()
+    expect(persistenceOf(hook).autoSaving).toBe(true)
+    gate.releaseOne()
+    await settle()
+    expect(persistenceOf(hook).autoSaving).toBe(false)
+  })
+
+  it("a successful autosave updates the title in the document list", async () => {
+    useUiStore.setState({ prompts: [{ id: A, title: "Old list title" }] })
+    const hook = await open(env)
+    setTitle(hook, "Renamed")
+    await tick(AUTOSAVE_DELAY_MS)
+    await settle()
+    expect(useUiStore.getState().prompts.find((p) => p.id === A).title).toBe("Renamed")
+  })
+
+  it("a request that never settles is abandoned after the timeout: the flag resets and the next edit is saved", async () => {
+    const actions = withActionTimeout(env.actions)
+    const gate = env.hold("autosave")
+    const hook = await open(env, { actions })
+    type(hook, "stuck")
+    await tick(AUTOSAVE_DELAY_MS)
+    expect(persistenceOf(hook).autoSaving).toBe(true)
+
+    await tick(REQUEST_TIMEOUT_MS)
+    await settle()
+    expect(persistenceOf(hook).autoSaving).toBe(false)
+
+    gate()
+    type(hook, "stuck, then saved")
+    await tick(AUTOSAVE_DELAY_MS)
+    await settle()
+    expect(env.rows.get(A).content).toBe("stuck, then saved")
+  })
+
   it("works under React Strict Mode: one request, draft cleared", async () => {
     const hook = await open(env, { wrapper: StrictMode })
     type(hook, "typed")
@@ -593,6 +643,37 @@ describe("manual save", () => {
     expect(env.rows.get(A).content).toBe("v2")
   })
 
+  it("Cmd+S (the Meta key) saves too", async () => {
+    const hook = await open(env)
+    type(hook, "v2")
+    pressCtrlS({ metaKey: true })
+    await settle()
+    expect(env.names()).toEqual(["save"])
+    expect(persistenceOf(hook).saving).toBe(false)
+  })
+
+  it("a save that never settles is abandoned after the timeout: an error, the flag resets and Ctrl+S works again", async () => {
+    const gate = env.hold("save")
+    const hook = await open(env, { actions: withActionTimeout(env.actions) })
+    type(hook, "v2")
+    pressCtrlS()
+    await settle()
+    expect(persistenceOf(hook).saving).toBe(true)
+    pressCtrlS()
+    expect(env.names()).toEqual(["save"])
+
+    await tick(REQUEST_TIMEOUT_MS)
+    await settle()
+    expect(persistenceOf(hook).saving).toBe(false)
+    expect(toast.error).toHaveBeenCalledWith("The version could not be saved", { duration: 6000 })
+    expect(loaderOf(hook).synced.content).toBe("server")
+
+    gate()
+    pressCtrlS()
+    await settle()
+    expect(loaderOf(hook).synced.content).toBe("v2")
+  })
+
   it("the Ctrl+S handler uses the latest title", async () => {
     const hook = await open(env)
     setTitle(hook, "First")
@@ -680,6 +761,7 @@ describe("restore", () => {
   })
 
   it("applies the restored row: working copy, baseline, promptData, cache, tab and list; autosave then continues from it", async () => {
+    useUiStore.setState({ prompts: [{ id: A, title: "Title" }] })
     const hook = await open(env)
     let result
     await act(async () => {
@@ -696,6 +778,7 @@ describe("restore", () => {
     expect(tabOf("tab-A")).toMatchObject({ title: "Old title", isDirty: false })
     expect(toast.success).toHaveBeenCalledWith("Version restored")
     expect(useUiStore.getState().promptRefetchTrigger).toBe(1)
+    expect(useUiStore.getState().prompts.find((p) => p.id === A).title).toBe("Old title")
     expect(persistenceOf(hook).restoring).toBe(false)
 
     type(hook, "old text!")
@@ -761,6 +844,80 @@ describe("restore", () => {
     expect(draftOf(env).content).toBe("unsaved edit")
     expect(toast.error).toHaveBeenCalled()
     expect(persistenceOf(hook).restoring).toBe(false)
+  })
+
+  it("a blank title with unsaved edits refuses the restore and keeps the edits", async () => {
+    const hook = await open(env)
+    setTitle(hook, "")
+    type(hook, "typed under a blank title")
+    let result
+    await act(async () => {
+      result = await persistenceOf(hook).handleRestore(1)
+    })
+    expect(result).toBe(false)
+    expect(env.names()).toEqual([])
+    expect(toast.error).toHaveBeenCalledWith(NEEDS_TITLE_TOAST)
+    expect(loaderOf(hook).content).toBe("typed under a blank title")
+    expect(draftOf(env).content).toBe("typed under a blank title")
+    expect(persistenceOf(hook).restoring).toBe(false)
+  })
+
+  it("a document with a blank title and no edits can be restored: there is nothing to lose", async () => {
+    env = makeEnv({ [A]: { title: null, content: "" } })
+    env.state.versions.push({ id: 1, promptId: A, title: "Old title", content: "old text" })
+    env.state.nextVersionId = 2
+    const hook = await open(env)
+    let result
+    await act(async () => {
+      result = await persistenceOf(hook).handleRestore(1)
+    })
+    expect(result).toBe(true)
+    expect(loaderOf(hook)).toMatchObject({ title: "Old title", content: "old text" })
+  })
+
+  it("a second restore while one runs is refused and sends nothing", async () => {
+    const hook = await open(env)
+    const release = env.hold("restore")
+    let first
+    act(() => {
+      first = persistenceOf(hook).handleRestore(1)
+    })
+    await settle()
+    let second
+    await act(async () => {
+      second = await persistenceOf(hook).handleRestore(1)
+    })
+    expect(second).toBe(false)
+    expect(env.names()).toEqual(["restore"])
+
+    release()
+    let firstResult
+    await act(async () => {
+      firstResult = await first
+    })
+    expect(firstResult).toBe(true)
+    expect(persistenceOf(hook).restoring).toBe(false)
+  })
+
+  it("a restore that never settles is abandoned after the timeout and the editor stays usable", async () => {
+    const gate = env.hold("restore")
+    const hook = await open(env, { actions: withActionTimeout(env.actions) })
+    let pending
+    act(() => {
+      pending = persistenceOf(hook).handleRestore(1)
+    })
+    await settle()
+    expect(persistenceOf(hook).restoring).toBe(true)
+
+    await tick(REQUEST_TIMEOUT_MS)
+    let result
+    await act(async () => {
+      result = await pending
+    })
+    expect(result).toBe(false)
+    expect(persistenceOf(hook).restoring).toBe(false)
+    expect(loaderOf(hook).content).toBe("current")
+    gate()
   })
 
   it("a failed restore keeps the working copy and resumes autosave", async () => {
@@ -860,6 +1017,26 @@ describe("restore", () => {
     expect(getCachedDocument("user-1", A).synced).toEqual({ promptId: A, title: "Old title", content: "old text" })
     expect(tabOf("tab-A").title).toBe("Old title")
     expect(tabOf("tab-B").title).toBe("B title")
+  })
+
+  it("a restore that completes after a switch clears the dirty flag of the tab it belongs to", async () => {
+    const hook = await open(env)
+    type(hook, "unsaved edit")
+    expect(tabOf("tab-A").isDirty).toBe(true)
+    const release = env.hold("restore")
+    let pending
+    act(() => {
+      pending = persistenceOf(hook).handleRestore(1)
+    })
+    await settle()
+    await goTo(hook, env, B, "tab-B")
+    release()
+    await act(async () => {
+      await pending
+    })
+    await settle()
+    expect(tabOf("tab-A").isDirty).toBe(false)
+    expect(tabOf("tab-A").title).toBe("Old title")
   })
 
   it("a restore that completes after the editor unmounted still replaces the cache entry, so a later open shows it", async () => {

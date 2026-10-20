@@ -67,6 +67,32 @@ export function saveStatus(s: { autoSaving: boolean; working: DocFields; synced:
   return s.synced !== null && sameFields(s.working, s.synced) ? "saved" : "unsaved"
 }
 
+// ---- request-timeout.ts (T4) ----
+
+export const REQUEST_TIMEOUT_MS = 30_000
+export const REQUEST_TIMED_OUT = "The request timed out"
+
+/**
+ * Rejects when `promise` has not settled within `ms`. Next 14 orphans a server action that was queued behind another
+ * when the router navigates (action-queue.js:121-135), so its promise never settles; without this the busy flag of the
+ * handler awaiting it would stay set. The request itself is not cancelled: a late result is ignored.
+ */
+export function withTimeout<T>(promise: Promise<T>, ms: number = REQUEST_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(REQUEST_TIMED_OUT)), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        clearTimeout(timer)
+        reject(error)
+      }
+    )
+  })
+}
+
 // ---- draft.ts (T4) ----
 
 export interface DraftStorage {

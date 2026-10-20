@@ -106,20 +106,9 @@ export function updateDocumentCacheEntry(
   documentCache.set(cacheKey(userId, promptId), { ...existing, ...(typeof patch === "function" ? patch(existing) : patch) })
 }
 
-let knownUserId: string | null = null
-
-/** The signed-in user's id, looked up once per page load so a remount does not repeat a network call (S15). */
-export async function resolveUserId(lookup: () => Promise<string>): Promise<string> {
-  if (knownUserId !== null) return knownUserId
-  const id = await lookup()
-  if (id !== ANONYMOUS) knownUserId = id
-  return id
-}
-
-/** Drops every cached document and the remembered user id; called on sign-out. */
+/** Drops every cached document; called on sign-out. */
 export function clearDocumentCache(): void {
   documentCache.clear()
-  knownUserId = null
 }
 
 // ---- state ----
@@ -127,8 +116,8 @@ export function clearDocumentCache(): void {
 export interface DocumentLoaderIo {
   fetchPrompt(promptId: string): Promise<ActionResult>
   getUserId(): Promise<string>
-  /** T6: required in production; optional here so the T5 tests, which have no draft, run unchanged. */
-  getStorage?(): DraftStorage | null
+  /** Where drafts live. In T5 only the kept raw-draft branch reads it; T6 replaces that branch. */
+  getStorage(): DraftStorage | null
 }
 
 interface DocumentFields {
@@ -245,6 +234,8 @@ interface LoadContext {
   signal: AbortSignal
   dispatch: Dispatch<Action>
   monacoPromptIdRef: MutableRefObject<string | null>
+  /** Toasts whose action this run owns; the effect's cleanup dismisses them so a dead action is never offered. */
+  toastIds: Array<string | number>
 }
 
 function commit(ctx: LoadContext, doc: DocumentFields): void {
@@ -254,11 +245,12 @@ function commit(ctx: LoadContext, doc: DocumentFields): void {
 
 /**
  * T6. A draft that lost to the server is never deleted silently: its text is kept in the storage and offered by the
- * toast's action, which puts it back into the editor while the same document is open.
+ * toast's action, which puts it back into the editor while the same document is open. The toast is dismissed when the
+ * document is left or the editor unmounts, because its action would then dispatch into state nobody renders.
  */
 function warnConflict(ctx: LoadContext, storage: DraftStorage | null, content: string): void {
   stashConflict(storage, ctx.promptId, content)
-  toast.warning(CONFLICT_TOAST, {
+  const id = toast.warning(CONFLICT_TOAST, {
     duration: CONFLICT_TOAST_MS,
     action: {
       label: CONFLICT_ACTION,
@@ -267,6 +259,7 @@ function warnConflict(ctx: LoadContext, storage: DraftStorage | null, content: s
       },
     },
   })
+  ctx.toastIds.push(id)
 }
 
 /**
@@ -275,7 +268,7 @@ function warnConflict(ctx: LoadContext, storage: DraftStorage | null, content: s
  * rewritten by useDraftSync in the same commit, and an applied legacy value is migrated to v1 first, then removed.
  */
 function restoreDraft(ctx: LoadContext, server: DocFields): string {
-  const storage = ctx.io.getStorage?.() ?? null
+  const storage = ctx.io.getStorage()
   const read = readDraft(storage, ctx.promptId)
   const decision = resolveDraft(server, read?.draft ?? null)
   if (read && decision.kind === "apply" && read.legacy) {
@@ -375,8 +368,12 @@ export function useDocumentLoader({ promptId, io }: { promptId: string; io: Docu
 
   useEffect(() => {
     const controller = new AbortController()
-    void runLoad({ promptId, userId, io: ioRef.current, signal: controller.signal, dispatch, monacoPromptIdRef })
-    return () => controller.abort()
+    const toastIds: Array<string | number> = []
+    void runLoad({ promptId, userId, io: ioRef.current, signal: controller.signal, dispatch, monacoPromptIdRef, toastIds })
+    return () => {
+      controller.abort()
+      toastIds.forEach((id) => toast.dismiss(id))
+    }
   }, [promptId, userId, ioRef])
 
   const setters = useMemo(

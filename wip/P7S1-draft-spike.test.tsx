@@ -42,8 +42,11 @@ import {
   sameFields,
   saveStatus,
   stashConflict,
+  REQUEST_TIMED_OUT,
+  REQUEST_TIMEOUT_MS,
   useDraftSync,
   viewState,
+  withTimeout,
   writeDraft,
 } from "./P7S1-draft-spike"
 import {
@@ -55,7 +58,9 @@ import {
   useDocumentLoader,
 } from "./P7S1-loader-spike"
 
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), info: vi.fn(), warning: vi.fn(), success: vi.fn() } }))
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), info: vi.fn(), warning: vi.fn(() => "conflict-toast"), success: vi.fn(), dismiss: vi.fn() },
+}))
 
 const A = "11111111-1111-4111-8111-111111111111"
 const B = "22222222-2222-4222-8222-222222222222"
@@ -400,6 +405,50 @@ describe("sameFields, needsAutoSave, viewState and saveStatus", () => {
   })
 })
 
+describe("withTimeout", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("resolves with the value and leaves no timer behind", async () => {
+    vi.useFakeTimers()
+    await expect(withTimeout(Promise.resolve("ok"), 1000)).resolves.toBe("ok")
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("passes a rejection through and leaves no timer behind", async () => {
+    vi.useFakeTimers()
+    await expect(withTimeout(Promise.reject(new Error("boom")), 1000)).rejects.toThrow("boom")
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("rejects when the promise has not settled within the limit, and ignores a late result", async () => {
+    vi.useFakeTimers()
+    let settle = (_value: string) => {}
+    const slow = new Promise<string>((resolve) => {
+      settle = resolve
+    })
+    const limited = withTimeout(slow, 1000)
+    const outcome = expect(limited).rejects.toThrow(REQUEST_TIMED_OUT)
+    await vi.advanceTimersByTimeAsync(999)
+    await vi.advanceTimersByTimeAsync(1)
+    await outcome
+    settle("late")
+    await Promise.resolve()
+  })
+
+  it("defaults to 30 seconds", async () => {
+    vi.useFakeTimers()
+    const limited = withTimeout(new Promise(() => {}))
+    const outcome = expect(limited).rejects.toThrow(REQUEST_TIMED_OUT)
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS - 1)
+    expect(vi.getTimerCount()).toBe(1)
+    await vi.advanceTimersByTimeAsync(1)
+    await outcome
+    expect(REQUEST_TIMEOUT_MS).toBe(30000)
+  })
+})
+
 describe("draft protocol scenarios", () => {
   let world
 
@@ -561,6 +610,24 @@ describe("draft protocol scenarios", () => {
     act(() => options.action.onClick())
     expect(hook.result.current.content).toBe("B server")
     expect(stored(world, B)).toBeNull()
+  })
+
+  it("S-8d: the conflict toast is dismissed when the document is left and when the editor unmounts", async () => {
+    world = makeWorld({ [A]: { title: "A", content: "A server" }, [B]: { title: "B", content: "B server" } })
+    world.storage.map.set(draftKey(A), v1(hashContent("older"), "stale local"))
+    const hook = await open(world, A)
+    expect(toast.dismiss).not.toHaveBeenCalled()
+
+    hook.rerender({ promptId: B, io: world.io })
+    await settle()
+    expect(toast.dismiss).toHaveBeenCalledWith("conflict-toast")
+
+    vi.mocked(toast.dismiss).mockClear()
+    world.storage.map.set(draftKey(B), v1(hashContent("older"), "stale B"))
+    hook.unmount()
+    const again = await open(world, B)
+    again.unmount()
+    expect(toast.dismiss).toHaveBeenCalledWith("conflict-toast")
   })
 
   it("S-9: a draft equal to the server content is removed without a toast, in v1 and in legacy form", async () => {

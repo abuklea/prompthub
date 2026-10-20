@@ -29,7 +29,6 @@ import {
   getCachedDocument,
   IDENTITY_TIMEOUT_MS,
   LOAD_FAILED,
-  resolveUserId,
   setDocumentCacheEntry,
   useDocumentLoader,
 } from "./P7S1-loader-spike"
@@ -69,6 +68,7 @@ function makeIo() {
   const calls = []
   const io = {
     getUserId: () => user.promise,
+    getStorage: () => null,
     fetchPrompt: (promptId) => {
       const d = defer()
       calls.push({ promptId, d })
@@ -370,6 +370,20 @@ describe("loader protocol spike", () => {
     expect(entry.content).toBe("A content")
   })
 
+  it("monacoPromptIdRef names the document only while it is applied: null while another one loads", async () => {
+    const t = makeIo()
+    const { result, rerender } = mount(t.io)
+    expect(result.current.monacoPromptIdRef.current).toBeNull()
+    await t.resolveUser()
+    await t.resolveFetch(A, serverRow(A, "A title", "A content"))
+    expect(result.current.monacoPromptIdRef.current).toBe(A)
+
+    rerender({ promptId: B, io: t.io })
+    expect(result.current.monacoPromptIdRef.current).toBeNull()
+    await t.resolveFetch(B, serverRow(B, "B title", "B content"))
+    expect(result.current.monacoPromptIdRef.current).toBe(B)
+  })
+
   it("the first render with a promptId is already loading", () => {
     const t = makeIo()
     const states = []
@@ -456,30 +470,17 @@ describe("loader protocol spike", () => {
   })
 })
 
-describe("document cache and remembered identity", () => {
+describe("document cache", () => {
+  it("clearDocumentCache drops every entry", () => {
+    setDocumentCacheEntry("user-1", A, cacheEntryFor(A, "T", "text"))
+    clearDocumentCache()
+    expect(getCachedDocument("user-1", A)).toBeNull()
+  })
+
   it("getCachedDocument drops and never returns an entry written for another user", () => {
     // Reason: the key is `${userId}-${promptId}`; these two pairs build the same key, so only the stored userId tells them apart.
     setDocumentCacheEntry("a-b", "c", cacheEntryFor("c", "T", "text"))
     expect(getCachedDocument("a", "b-c")).toBeNull()
     expect(getCachedDocument("a-b", "c")).toBeNull()
-  })
-
-  it("resolveUserId looks the id up once, never remembers anonymous, and forgets on clearDocumentCache", async () => {
-    let lookups = 0
-    const lookup = (id) => () => {
-      lookups += 1
-      return Promise.resolve(id)
-    }
-    expect(await resolveUserId(lookup("anonymous"))).toBe("anonymous")
-    expect(await resolveUserId(lookup("anonymous"))).toBe("anonymous")
-    expect(lookups).toBe(2)
-
-    expect(await resolveUserId(lookup("user-1"))).toBe("user-1")
-    expect(await resolveUserId(lookup("user-2"))).toBe("user-1")
-    expect(lookups).toBe(3)
-
-    clearDocumentCache()
-    expect(await resolveUserId(lookup("user-2"))).toBe("user-2")
-    expect(lookups).toBe(4)
   })
 })

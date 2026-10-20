@@ -28,7 +28,7 @@ import { titleValidationSchema } from "@/features/prompts/schemas"
 import { getDisplayTitle } from "@/features/prompts/utils"
 import { useTabStore } from "@/stores/use-tab-store"
 import { useUiStore } from "@/stores/use-ui-store"
-import { needsAutoSave, useDraftSync, type DraftStorage, type SyncedState } from "./P7S1-draft-spike"
+import { needsAutoSave, sameFields, useDraftSync, withTimeout, type DraftStorage, type SyncedState } from "./P7S1-draft-spike"
 import { setDocumentCacheEntry, useLatest, type DocumentLoader } from "./P7S1-loader-spike"
 
 export const AUTOSAVE_DELAY_MS = 500
@@ -40,6 +40,15 @@ export interface DocumentActions {
     promptId: string
     versionId: number
   }): Promise<ActionResult<{ title: string | null; content: string }>>
+}
+
+/** EditorPane's module-level `documentActions`: the real actions, each limited to the request timeout. */
+export function withActionTimeout(actions: DocumentActions, ms?: number): DocumentActions {
+  return {
+    saveNewVersion: (input) => withTimeout(actions.saveNewVersion(input), ms),
+    autoSavePrompt: (input) => withTimeout(actions.autoSavePrompt(input), ms),
+    restorePromptVersion: (input) => withTimeout(actions.restorePromptVersion(input), ms),
+  }
 }
 
 // ---- hooks/useAutoSave.ts (T6) ----
@@ -214,13 +223,23 @@ export interface UseVersionRestoreArgs {
   actions: DocumentActions
 }
 
-/** Saves the working copy of a titled document so the restore snapshots it. False aborts the restore. */
+export const NEEDS_TITLE_TOAST = "Give the document a title first, so your changes are saved before a version is restored"
+export const FLUSH_FAILED_TOAST = "Your current changes could not be saved, so nothing was restored"
+
+/**
+ * Saves the unsaved edits of the working copy so the restore snapshots them. False aborts the restore and keeps them:
+ * a blank title cannot be autosaved, so the edits would exist only in the editor and a restore would replace them.
+ */
 async function flushUnsaved(id: string, loader: DocumentLoader, actions: DocumentActions): Promise<boolean> {
   const { title, content, synced } = loader
-  if (!needsAutoSave(id, { title, content }, synced)) return true
-  const saved = await actions.autoSavePrompt({ promptId: id, title: title ?? "", content })
+  if (synced === null || sameFields({ title, content }, synced)) return true
+  if (!title?.trim()) {
+    toast.error(NEEDS_TITLE_TOAST)
+    return false
+  }
+  const saved = await actions.autoSavePrompt({ promptId: id, title, content })
   if (!saved.success) {
-    toast.error("Your current changes could not be saved, so nothing was restored")
+    toast.error(FLUSH_FAILED_TOAST)
     return false
   }
   loader.markSynced({ promptId: id, title, content })
