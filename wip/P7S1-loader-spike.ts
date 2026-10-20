@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript React hook (research spike, not imported by the application)
 
 Created: 20/10/2026 12:34 GMT+10
-Last modified: 20/10/2026 13:21 GMT+10
+Last modified: 20/10/2026 13:27 GMT+10
 ---------------
 P7S1 research spike. A standalone version of useDocumentLoader that implements the loader protocol decided in
 PRPs/docs/P7S1-editor-persistence-contracts.md: an identity gate with `loading` true while the identity is pending, the
@@ -20,6 +20,7 @@ current raw-draft restore of useDocumentLoader.ts in its place. It exists to pro
 wip/P7S1-loader-spike.test.tsx and wip/P7S1-draft-spike.test.tsx before the production hook is rewritten in P7S1T5.
 
 Changelog:
+20/10/2026 13:27 GMT+10 | Removed setPromptData, which no caller uses after T6
 20/10/2026 13:21 GMT+10 | A conflict is kept and offered; identity remembered per page load; a rejected fetch is handled; useLatest exported
 20/10/2026 13:03 GMT+10 | Decomposed (reducer, runLoad, small hooks); markSynced and applyServerState take the document id; identity timeout; no loaded mark
 20/10/2026 12:40 GMT+10 | Corrected the header timestamps to the filesystem record
@@ -150,7 +151,6 @@ type Action =
   | { type: "loading" }
   | { type: "apply"; doc: DocumentFields }
   | { type: "fail"; message: string }
-  | { type: "promptData"; value: SetStateAction<PromptWithFolder | null> }
   | { type: "title"; value: SetStateAction<string | null> }
   | { type: "content"; value: SetStateAction<string> }
   | { type: "synced"; next: SyncedState; version: boolean; now: Date }
@@ -178,8 +178,6 @@ function reducer(state: LoaderState, action: Action): LoaderState {
       return { ...state, ...action.doc, error: "", loading: false }
     case "fail":
       return { ...state, error: action.message, loading: false }
-    case "promptData":
-      return { ...state, promptData: resolve(action.value, state.promptData) }
     case "title":
       return { ...state, title: resolve(action.value, state.title) }
     case "content":
@@ -355,7 +353,6 @@ export interface DocumentLoader extends LoaderState {
   ready: boolean
   monacoPromptIdRef: MutableRefObject<string | null>
   promptIdRef: MutableRefObject<string | null>
-  setPromptData: Dispatch<SetStateAction<PromptWithFolder | null>>
   setTitle: Dispatch<SetStateAction<string | null>>
   setContent: Dispatch<SetStateAction<string>>
   /**
@@ -384,7 +381,6 @@ export function useDocumentLoader({ promptId, io }: { promptId: string; io: Docu
 
   const setters = useMemo(
     () => ({
-      setPromptData: (value: SetStateAction<PromptWithFolder | null>) => dispatch({ type: "promptData", value }),
       setTitle: (value: SetStateAction<string | null>) => dispatch({ type: "title", value }),
       setContent: (value: SetStateAction<string>) => dispatch({ type: "content", value }),
     }),

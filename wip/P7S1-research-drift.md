@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Research Drift Register | 20/10/2026 11:58 GMT+10 | 20/10/2026 12:40 GMT+10 |
+| P7S1 Research Drift Register | 20/10/2026 11:58 GMT+10 | 20/10/2026 13:31 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -47,17 +47,21 @@ confirms each row fixed or filed. Every citation was opened at its line during r
 Historical records are not edited: the PRPs and reports under `PRPs/` (for example the P5S5 documents that name
 `useLocalStorage`), `docs/review/platform-technical-review-20260708.md:63`, and the earlier steps of
 `docs/project/PromptHub_06_PLAN_01.md` (Steps 3, 3b and 5 describe what was planned at the time). Issue #44 says
-drafts live under `prompt-<id>`; that stays true because the key is unchanged and only the stored value changes.
+drafts live under `prompt-<id>` and its acceptance names `prompt-*` drafts; after P7S1 they live under `prompt-v1-<id>` and
+`prompt-v1-<id>:conflict` (the legacy `prompt-<id>` is read once and removed), and a `prompt-` prefix purge covers all three,
+so the main session comments on #44 and nothing is edited.
 
 ## Findings that are defects, not drift
 
 | ID | Finding | Evidence | Disposition |
 |---|---|---|---|
 | F-1 | A fresh mount of `EditorPane` can end with an empty editor, or wipe a loaded document, depending on whether the user-id lookup or the fetch finishes first | `wip/P7S1-loader-race-diagnostic.test.tsx`: user id first, fetch first and Strict Mode all end empty; switching documents on a mounted instance loads | New bug issue under #31 filed with the INITIAL report; fixed by T5, T6 and T7 |
-| F-2 | The footer showed "Unsaved" for a freshly loaded, unmodified document because the database load path never set `lastSaved` | `useDocumentLoader.ts:212-233` | Fixed in T5 (`lastSaved` from `updated_at`) |
+| F-2 | The footer showed "Unsaved" for a freshly loaded, unmodified document because the database load path never set `lastSaved` | `useDocumentLoader.ts:212-233` | Fixed in T5 (`lastSaved` from `updated_at`, and the footer derived from the baseline so a restored draft reads "Unsaved changes") |
 | F-3 | A failed autosave is logged to the console only; there is no retry and the footer keeps showing the last success | `EditorPane.tsx:106` | Follow-up issue, medium, after the REPORT |
 | F-4 | A rename from the document list updates only the list store, so the open editor keeps the old title and its next autosave writes it back | `DocumentToolbar.tsx:158-172`; `useDocumentLoader.ts` holds the title in state | Follow-up issue, medium, after the REPORT |
 | F-5 | Untitled documents are never autosaved, so their text lives only in the browser draft and the cache until the first manual save | `useAutoSave.ts:64` | Product question for the developer; follow-up issue |
+| F-6 | `Prompt.folder_id` and `folder` are nullable, but `PromptWithFolder` has a non-null `folder` and the cache effect reads `promptData.folder.id`, which throws for an unfiled prompt | `prisma/schema.prisma:44-45`; `EditorPane.tsx:154` | Pre-existing and out of scope; follow-up issue |
+| F-7 | A save or autosave that completes after a switch to another document is applied to the open one, and a rejected action leaves its busy flag set | `EditorPane.tsx:103`, `190` (unconditional state updates), `98-109`, `173-204` (no `finally`) | Found by review, reproduced by reading only; fixed by T7 and T8 with the tests in `wip/P7S1-persistence-spike.test.tsx` as reference |
 
 ----
 **PRP Status**: TODO
@@ -68,5 +72,5 @@ drafts live under `prompt-<id>`; that stays true because the key is unchanged an
 **Implementation Status**: RESEARCH COMPLETE - 18 drift rows open, fixed by T1, T3, T5 and T6 and their documentation syncs, and verified by T9
 **Testing Status**: NOT YET TESTED - the probes and the loader spike in wip/P7S1-*.test.tsx run under wip/P7S1-vitest.diag.config.ts only
 **Notes**:
-- Rows DR-17 and F-3 to F-5 are handled by the main session, not by a task
-- The probe and spike files are reconciled or deleted by T9
+- Rows DR-17 and F-3 to F-6 are handled by the main session, not by a task
+- The probe and spike files (three spikes, their tests, two probes and the diag config) are deleted by T9
