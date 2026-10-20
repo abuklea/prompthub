@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 20/10/2026 14:54 GMT+10 |
+| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 20/10/2026 15:45 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -25,26 +25,21 @@ here once. The task briefs are in [P7S1-task-briefs.md](P7S1-task-briefs.md) and
 today, the code is right; where they disagree about what to build, this document is right. The server half (the action
 shells and the two transactions) is the [Server Contract](P7S1-task-briefs.md#server-contract) of the shared briefs.
 
-The client half is specified by four working reference implementations with 195 passing tests, over shared typed fakes.
-`wip/P7S1-mutation-check.py` applies 77 deliberate defects to them, one at a time, and every one is killed by at least
-one test (about 5 minutes; `--list` names the mutations). The commands are in
+The client half is specified by four working reference implementations with 204 passing tests, over the typed fakes of
+`wip/P7S1-test-fakes.ts`: `P7S1-draft-spike.ts` (92 tests: `sync.ts`, `request-timeout.ts`, `draft.ts`, `useDraftSync`),
+`P7S1-loader-spike.ts` (27: `document-cache.ts`, the reducer, `runLoad`, `useDocumentLoader`),
+`P7S1-persistence-spike.ts` (59: the six hooks from `useAutoSave` to `useDocumentPersistence`, `withActionTimeout`) and
+`P7S1-dialog-spike.tsx` (26: `VersionHistoryDialog`, alone and beside the real hooks). `wip/P7S1-mutation-check.py`
+applies 83 deliberate defects to them, one at a time, and every one is killed by at least one test (about 5 minutes;
+`--list` names the mutations). The commands are in
 [Level 2](../P7S1-editor-data-integrity.md#level-2-unit-and-postgres-backed-tests) of the PRP's validation loop.
-
-| Spike | Tests | Proves |
-|---|---|---|
-| `wip/P7S1-draft-spike.ts` | 90 | `sync.ts`, `request-timeout.ts`, `draft.ts`, `useDraftSync` |
-| `wip/P7S1-loader-spike.ts` | 24 | `document-cache.ts`, the reducer, `runLoad`, `useDocumentLoader` |
-| `wip/P7S1-persistence-spike.ts` | 56 | the six hooks from `useAutoSave` to `useDocumentPersistence`, and `withActionTimeout` |
-| `wip/P7S1-dialog-spike.tsx` | 25 | `VersionHistoryDialog`, alone and beside the real hooks |
-| `wip/P7S1-test-fakes.ts` | | the typed fakes the four suites share |
 
 Adapt a spike, do not rewrite it from this text. Split its code into the modules of the Module Map, replace its
 `./P7S1-*-spike` imports with the real modules and its fake seams with the ones the brief names, and keep the behaviour.
 The spike tests become the production tests: split them by `describe` block into files of at most 450 lines and move the
-fakes of `wip/P7S1-test-fakes.ts` into `src/test/` (storage in T4, the loader world in T5, the editor environment in
-T7). They are type-clean with the test packages installed; the `// @ts-nocheck` line exists only because CI installs
-without them until T1, so remove it. A spike test that fails after the adaptation is a regression in the adaptation,
-never a reason to edit the test.
+fakes into `src/test/` (storage in T4, the loader world in T5, the editor environment in T7). They are type-clean with
+the test packages installed; the `// @ts-nocheck` line exists only because CI installs without them until T1, so remove
+it. A spike test that fails after the adaptation is a regression in the adaptation, never a reason to edit the test.
 
 ## Module Map
 
@@ -65,17 +60,17 @@ is under `src/features/editor/`.
 | `src/test/storage-fake.ts` | T4 | `FakeStorage`, `makeStorage`, `makeBrokenStorage` | 60 |
 | `src/hooks/use-latest.ts` | T5 | `useLatest`: the latest value in a ref, written in a passive effect | 20 |
 | `src/test/loader-world.ts` | T5 | the shared ids, `promptRow`, `serverRow`, `makeWorld`, `defer`, `makeDeferredIo` | 140 |
-| `src/features/editor/loader-state.ts` | T5 | loader state, actions and the reducer | 110 |
-| `src/features/editor/loader-protocol.ts` | T5, T6 | `runLoad` (paths P0 to P7), `fetchDocument`, `commit`; T6 adds `restoreDraft`, `warnConflict` | 200 |
-| `hooks/useDocumentLoader.ts` | T5 | the hook, `useIdentity`, `DocumentLoader`, `DocumentLoaderIo` | 180 |
-| `hooks/useAutoSave.ts` | T6 | debounce with a baseline | 60 |
+| `src/features/editor/loader-state.ts` | T5 | `LoaderState`, `LoaderAction` (the spike's `Action`) and the reducer | 110 |
+| `src/features/editor/loader-protocol.ts` | T5, T6 | `DocumentLoaderIo`, `LoadContext`, `runLoad` (paths P0 to P7), `fetchDocument`, `commit`, `LOAD_FAILED`; T6 adds `restoreDraft`, `secure`, `warnConflict`, `RESTORED_TOAST`, `CONFLICT_*` | 220 |
+| `hooks/useDocumentLoader.ts` | T5 | the hook, `useIdentity`, `IDENTITY_TIMEOUT_MS`, `DocumentLoader`; re-exports the `DocumentLoaderIo` type, so `loader-protocol.ts` never imports the hook | 160 |
+| `hooks/useAutoSave.ts` | T6 | debounce with a baseline, `AUTOSAVE_DELAY_MS` | 60 |
 | `hooks/useDraftSync.ts` | T6 | the only draft writer | 90 |
 | `document-actions.ts` | T7 | `DocumentActions` and `withActionTimeout` | 40 |
-| `src/test/editor-env.ts` | T7 | `makeEnv`: the fake server with holds, one-shot failures and a request log | 180 |
+| `src/test/editor-env.ts` | T7 | `makeEnv` (the fake server with holds, one-shot failures and a request log) and the render helpers the persistence suites share (`open`, `goTo`, `type`, `settle`, `tick`, `pressCtrlS`, `useSession`) | 260 |
 | `hooks/useDocumentCacheSync.ts` | T7 | cache entry and tab metadata | 60 |
 | `hooks/useVersionSave.ts` | T7 | manual save, title dialog state, Ctrl+S | 150 |
 | `hooks/useServerAutoSave.ts` | T7 | the autosave handler | 90 |
-| `hooks/useVersionRestore.ts` | T8 | restore, with the flush of unsaved edits | 110 |
+| `hooks/useVersionRestore.ts` | T8 | restore, with the flush of unsaved edits; `NEEDS_TITLE_TOAST`, `FLUSH_FAILED_TOAST` | 110 |
 | `hooks/useDocumentPersistence.ts` | T7, T8 | composition of the hooks above | 70 |
 | `components/EditorPane.tsx` | T5 to T8 | composition and JSX; ends shorter than 329 lines | under 329 |
 | `components/VersionHistoryDialog.tsx` | T8 | reads its list in an effect; takes `loadHistory` and `onRestore`; single-flight | 180 |
@@ -150,7 +145,7 @@ export function updateDocumentCacheEntry(
 ): void
 export function clearDocumentCache(): void   // empties the cache; sign-out calls it. No user id is remembered anywhere
 
-// src/features/editor/hooks/useDocumentLoader.ts
+// src/features/editor/loader-protocol.ts (the hook re-exports the type)
 export interface DocumentLoaderIo {
   // real: (promptId) => withTimeout(getPromptDetails({ promptId }))
   fetchPrompt(promptId: string): Promise<ActionResult>
@@ -159,12 +154,13 @@ export interface DocumentLoaderIo {
   // required from T5 (the kept raw-draft branch reads it); real: getBrowserStorage; called inside effects only
   getStorage(): DraftStorage | null
 }
-export interface DocumentLoader {   // LoaderState plus:
+// src/features/editor/hooks/useDocumentLoader.ts
+export interface DocumentLoader {   // LoaderState (loader-state.ts: loading, error and the document fields) plus:
   promptData: PromptWithFolder | null; title: string | null; content: string; lastSaved: Date | null
   synced: SyncedState | null; loading: boolean; error: string; currentUserId: string
   ready: boolean                                         // synced !== null && synced.promptId === promptId
   monacoPromptIdRef: MutableRefObject<string | null>     // the Monaco onChange guard (P5S5 data destruction fix); kept
-  promptIdRef: MutableRefObject<string | null>
+  promptIdRef: MutableRefObject<string | null>           // the open document; null after unmount. Read in handlers only
   setTitle: Dispatch<SetStateAction<string | null>>
   setContent: Dispatch<SetStateAction<string>>
   markSynced(next: SyncedState, options?: { version?: boolean }): boolean
@@ -241,12 +237,14 @@ promotes a preview tab; `useDocumentCacheSync` computes it as `EditorPane.tsx:13
 Identity is resolved once per mount by `useIdentity`; the first answer wins. A rejected lookup, or none within 10
 seconds, settles as `ANONYMOUS`, and a late answer is ignored, so the identity never changes on a mounted editor. The id
 is looked up on every mount (one `getUser()` round trip): a remembered id would outlive a change of session, and the
-next user would read the previous user's cache entries; `clearDocumentCache()` empties the cache on sign-out. The state
-is one reducer. The document and its baseline arrive in
-a single action, so `synced.promptId === promptId` is true only in renders whose title, content and `promptData` belong
-to `promptId`. That token is `ready`; it replaces `isTransitioning`, `contentPromptIdRef` and `titlePromptIdRef`, and
-the spike's every-render test fails if the comparison is dropped. The first render with a `promptId` already has
-`loading` true.
+next user would read the previous user's cache entries; `clearDocumentCache()` empties the cache on sign-out. The
+anonymous identity gets no cache entry at all, because every unresolved lookup would share it
+(`setDocumentCacheEntry` ignores it). The state is one reducer. The document and its baseline arrive in a single action,
+so `synced.promptId === promptId` is true only in renders whose title, content and `promptData` belong to `promptId`.
+That token is `ready`; it replaces the ownership ref flags and the transition effect of the current hook, and the
+spike's every-render test fails if the comparison is dropped. The first render with a `promptId` already has `loading`
+true. `promptIdRef`, the open-document marker behind `markSynced` and `applyServerState`, is null once the editor has
+unmounted, so a completion that arrives later changes the cache entry only and reports false.
 
 | Path | Trigger | `loading` | Document and `synced` | `monacoPromptIdRef` | Other |
 |---|---|---|---|---|---|
@@ -291,48 +289,26 @@ empty raw value is no draft, and the v1 envelope wins when both exist. `resolveD
 
 The loader owns reading and consuming. On `apply` it uses the draft as the working content and toasts "Restored unsaved
 changes from browser storage"; `synced` stays the server's fields, so the working copy differs from the baseline and the
-autosave writes it. A legacy `apply` first writes the v1 envelope, then removes the legacy value. On `none` and on
-`conflict` it removes the value it read with a compare-and-delete, so nothing else has to. A `conflict` never deletes
-text: the loader stashes it under `prompt-v1-<id>:conflict` (one slot per document), and shows a warning toast, "Local
-unsaved changes were not restored because the document changed on the server", for 20 seconds with the action "Restore
-my text", which puts the stashed text into the editor while the same document is still open (the writer and the autosave
-then treat it as an edit). The loader dismisses the toast when the document is left or the editor unmounts, because its
-action would then dispatch into state nobody renders. Rejected: carrying the hash of every unconfirmed save in the
-envelope to prevent a false conflict after a lost response; it needs a channel from three save paths into the writer
-for a rare event that the action already recovers from.
+autosave writes it. A stored value is removed (with a compare-and-delete, so nothing else has to) only after its text is
+safe elsewhere: it equals the server's content, or it is a legacy value whose v1 envelope was written, or it is a
+conflicting draft that was stashed. A refused write leaves the stored value in place for the next load. A `conflict`
+never deletes text: the loader stashes it under `prompt-v1-<id>:conflict` (one slot per document) and shows a warning
+toast, "Local unsaved changes were not restored: they differ from the saved document", for 20 seconds with the action
+"Restore my text", which puts the stashed text into the editor while the same document is still open (the writer and the
+autosave then treat it as an edit, and the autosave replaces the server's text without recording a version). The toast
+is the only offer: nothing re-offers the stash afterwards. The loader dismisses the toast when the document is left or
+the editor unmounts, because its action would then dispatch into state nobody renders.
 
 `useDraftSync` is the only draft writer. While the document is `ready` it writes `{content, base}` whenever the working
 content differs from `synced.content` and removes the draft when they are equal. It owns only the values it wrote, kept
 per document in a map that survives a document switch: it removes a value only by compare-and-delete against its own
 last write, never one it merely read, and it keeps ownership of an older draft when a newer write is refused (quota).
 `localStorage` has no atomic compare-and-delete, so two tabs can still race inside that window; the loss is bounded to
-the draft of one tab.
+the draft of one tab. The write is not debounced, on purpose: the draft is the safety net for a tab that closes or
+crashes, one synchronous `setItem` of a short string is cheap, and the hook it replaces wrote on every change too.
 
-| Scenario | Expected |
-|---|---|
-| S-1 type in a titled document, autosave succeeds | draft gone from storage (`getItem` is null) |
-| S-2 type, autosave fails, reload | draft applied with the toast; autosave then writes it |
-| S-3 clear to empty, autosave succeeds, reload | empty document, no toast, no draft |
-| S-4 clear to empty, autosave fails, reload | the empty content is applied (empty is a valid draft) |
-| S-5 untitled document, type, reload | content restored; nothing was autosaved |
-| S-6 untitled document, type, rename from the list, reload | content restored, title from the server |
-| S-7a legacy raw draft, document never saved | applied, rewritten as v1, legacy value removed |
-| S-7b legacy raw draft differs, document saved | not applied, warning toast, text stashed, legacy value removed |
-| S-7c legacy raw draft equals the server | removed, no toast |
-| S-7d both keys exist | the v1 envelope wins |
-| S-8 v1 draft whose base differs from the server's hash | server wins, warning toast with the action, text stashed under the conflict key, draft removed |
-| S-8b the action is used | the stashed text is in the editor and a v1 draft is written against the server content |
-| S-8c the action is used after another document opened | nothing changes |
-| S-8d the document is left, or the editor unmounts, while the toast is shown | the toast is dismissed |
-| S-9 draft equals the server content | no toast, draft removed |
-| S-10 autosave committed but its response was lost, reload | no toast (contents equal), draft removed |
-| S-10b the same, with more typing after the lost response | conflict: the extra text is stashed and offered (accepted limitation) |
-| S-11 two tabs, tab 1's autosave succeeds while tab 2 holds a newer draft | tab 2's draft stays |
-| S-11b a tab opens a document from its cache while another tab holds a draft for it | that draft stays |
-| S-12 restore | draft removed; working copy and `synced` equal the restored row |
-| S-13 storage throws on read, write or remove, or is null | the editor works without drafts |
-| S-14 a value under the v1 key that is not a v1 envelope | left in place, never applied |
-| S-14b envelope-looking text under the legacy key | it is only text |
+The scenarios S-1 to S-14b that the draft spike proves are in
+[the client briefs](P7S1-task-briefs-client.md#draft-scenarios).
 
 ## Async Completions and Failures
 
@@ -348,10 +324,13 @@ for an autosave, no retry (follow-up issue F-3 owns that). The loader maps a rej
 `useServerAutoSave` counts requests in flight, so `autoSaving` is true while any is pending. A server action or fetch
 that never settles is abandoned after `REQUEST_TIMEOUT_MS` (30 seconds): `withActionTimeout` wraps the four actions and
 `loaderIo.fetchPrompt` wraps the fetch, so the promise rejects and the handler takes the path of a rejected action. The
-request is not cancelled; its late result is ignored.
+limit includes the time a request waits in Next's queue behind other server actions. The request is not cancelled; its
+late result is ignored.
 
 A manual save is single-flight: Ctrl+S while one runs is ignored, and so is a save during a restore, because Next queues
-the actions in call order and a save queued behind a restore would overwrite the restored row. `handleSetTitle(title)`
+the actions in call order and a save queued behind a restore would overwrite the restored row. A save and a restore also
+require that the loader holds the baseline of the callback's own document (`loader.synced.promptId === promptId`), so a
+callback left over from another document sends nothing. `handleSetTitle(title)`
 makes the confirmed title the working title and passes it to the save, so nothing waits on state. `handleRestore` first
 saves unsaved edits of a titled document through `autoSavePrompt` and aborts, keeping the edits, if that fails; the
 restore then snapshots the row, so the replaced text is in history. With a blank title and unsaved edits it refuses: it
@@ -376,30 +355,31 @@ depends on a value that changes every render (an effect that calls `updateTab` h
 check, because a failed load is neither loading nor ready; `loading` or not `ready` shows "Loading prompt..."; only a
 ready document mounts the editor. Monaco's mount handler applies the `value` of its first render, so the editor must
 never mount with another document's text, which the old `loading`-only check allowed in the render where `promptId` had
-just changed. The Monaco `onChange` guard becomes `loader.ready && monacoPromptIdRef.current === promptId`.
+just changed. For the same reason `Editor.tsx`'s `handleMount` reads `value` through `useLatest`: `@monaco-editor/react`
+4.6.0 keeps the first render's `onMount`, so a "Restore my text" click while Monaco starts would be overwritten by the
+older value without an `onChange` (a dev-review #38 flow; Monaco does not run in jsdom). The Monaco `onChange` guard
+becomes `loader.ready && monacoPromptIdRef.current === promptId`.
 
 The footer comes from `saveStatus`: "Saving..." while `autoSaving`; "Unsaved changes" while the working copy differs
-from the baseline (a restored draft, an untitled document); otherwise "Saved <time>" from `lastSaved`, which the loader
-now sets from `updated_at`. `Header.tsx:23` imports `clearDocumentCache` from `EditorPane`, which pulls the lazily
-loaded editor into the layout; it imports from `document-cache` instead, and `EditorPane` no longer re-exports it (the
-re-export's comment was false and `hydrateDocumentCache` has no caller). `EditorPane` builds two module-level constants:
-`loaderIo` (its `fetchPrompt` runs under `withTimeout`) and `documentActions` (the four actions under
-`withActionTimeout`). It passes `documentActions.getPromptVersionHistory` to the dialog as `loadHistory` and
-`persistence.handleRestore` as `onRestore`.
+from the baseline (a restored draft, an untitled document); otherwise "Saved <time>" from `lastSaved` (just "Saved"
+when it is null), which the loader now sets from `updated_at`. The Save button is disabled while `saving` or
+`restoring`. `Header.tsx` imports `clearDocumentCache` from `document-cache`, and `EditorPane` no longer re-exports it.
+`EditorPane` builds two module-level constants: `loaderIo` (its `fetchPrompt` runs under `withTimeout`) and
+`documentActions` (the four actions under `withActionTimeout`). It passes `documentActions.getPromptVersionHistory` to
+the dialog as `loadHistory` and `persistence.handleRestore` as `onRestore`. The composition is sketched in
+[the task context](P7S1-task-context.md#current-and-desired-trees).
 
 ## Write Ordering and Pausing
 
-Verified in the pinned Next 14.2.35: `node_modules/next/dist/shared/lib/router/action-queue.js:112-143` appends any
-non-navigation action to a queue and starts it only after the previous one finishes, so within one tab server actions
-run one at a time in call order and complete in call order. `markSynced` therefore needs no ordering guard, only the
-same-document check. A router navigation discards the pending action's state update (`action-queue.js:121-135`) and
-orphans the actions queued behind it: `handleResult` returns before `runRemainingActions`, so their promises never
-settle. Navigation does happen while the editor is mounted: `Header` renders `<Link>`s (`Header.tsx:47` and `:55`),
-signing out redirects, and back and forward navigate. Hence the 30-second limit on every request: an orphaned request
-rejects, its handler resets its busy flag, and a write whose response is lost leaves the server ahead of the client,
-which S-10 and S-10b cover. If a later Next version runs actions concurrently, an out-of-order completion can leave
-`synced` briefly stale and cost one redundant autosave. Two browser tabs or devices are not ordered and stay
-last-writer-wins.
+Verified in the pinned Next 14.2.35 (the lines of `action-queue.js` are in
+[the task context](P7S1-task-context.md#known-gotchas)): within one tab server actions run one at a time in call order
+and complete in call order, so `markSynced` needs no ordering guard, only the same-document check. A router navigation
+marks the pending action discarded and the actions queued behind it never settle. Navigation does happen while the
+editor is mounted: `Header` renders `<Link>`s (`Header.tsx:47` and `:55`), signing out redirects, and back and forward
+navigate. Hence the 30-second limit on every request: an orphaned request rejects, its handler resets its busy flag, and
+a write whose response is lost leaves the server ahead of the client, which S-10 and S-10b cover. If a later Next
+version runs actions concurrently, an out-of-order completion can leave `synced` briefly stale and cost one redundant
+autosave. Two browser tabs or devices are not ordered and stay last-writer-wins.
 
 `useServerAutoSave` passes `promptId: null` to `useAutoSave` while `busy` (a save or a restore runs), which cancels a
 pending write; otherwise the debounce timer could fire during a restore and queue an autosave of the pre-restore working
@@ -408,17 +388,20 @@ copy behind it. When the busy state ends the effect re-evaluates: after a succes
 
 ## Budgets and Coverage Scope
 
-Lint baseline on 20/10/2026 (`npm run lint`): 18 `max-lines-per-function` warnings, among them `EditorPane` (234
-lines) and three in `useDocumentLoader.ts` (144, 89 and 82). The change adds no warning, and the loader file ends with
-none: in the spikes the largest functions, counted as the lint rule counts them, are `useDocumentLoader` (65 lines),
-`useVersionSave` (64), `VersionHistoryDialog` (49) and the reducer (34). `EditorPane` ends no longer than its baseline.
+Lint baseline on 20/10/2026 (`npm run lint`): 18 `max-lines-per-function` warnings, among them `EditorPane` (234 lines)
+and three in `useDocumentLoader.ts` (144, 89 and 82). The change adds none, and the loader file ends with none: counted
+as the rule counts them, the spikes' largest functions are `useDocumentLoader` (65 lines), `useVersionSave` (64),
+`VersionHistoryDialog` (49) and the reducer (34).
 
-Files held to 80% line, function, branch and statement coverage by the per-file command: every non-test file of the
-module map except the exemptions below (`service.ts` needs a database), the guard functions of `src/test/db.ts`, and
-`VersionHistoryDialog.tsx`, which its suite renders with Testing Library once T1 adds the DOM environment and the JSX
-transform. Exempt, with the reason recorded in the REPORT: the action files (shells; how every action is tested is
-issue #45), `EditorPane.tsx` (composition and JSX; covered by the hook and dialog suites, `viewState`, `saveStatus`
-and dev-review #38), and the `src/test/db.ts` helpers that need a database.
+Files held to 80% line, function, branch and statement coverage by the per-file command: `sync.ts`,
+`request-timeout.ts`, `draft.ts`, `document-cache.ts`, `use-latest.ts`, `loader-state.ts`, `loader-protocol.ts`,
+`useDocumentLoader.ts`, `useAutoSave.ts`, `useDraftSync.ts`, `document-actions.ts`, `useDocumentCacheSync.ts`,
+`useVersionSave.ts`, `useServerAutoSave.ts`, `useVersionRestore.ts`, `useDocumentPersistence.ts`,
+`VersionHistoryDialog.tsx` (rendered with Testing Library once T1 adds the DOM environment and the JSX transform),
+`service.ts` (it needs `TEST_DATABASE_URL`) and `src/test/db.ts`. The `src/test/` fakes are not measured. Exempt, with
+the reason recorded in the REPORT: the action files (shells; how every action is tested is issue #45), `EditorPane.tsx`
+(composition and JSX; covered by the hook and dialog suites, `viewState`, `saveStatus` and dev-review #38), and the
+functions of `src/test/db.ts` that need a database when none is available.
 
 Tests never import `@/lib/db`, an action file, or `@/lib/supabase/*`: the Prisma singleton could connect to a
 developer's real `DATABASE_URL`, so they build their own client from `TEST_DATABASE_URL` through `src/test/db.ts`. They

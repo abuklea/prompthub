@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript React hook and helpers (research spike, not imported by the application)
 
 Created: 20/10/2026 12:48 GMT+10
-Last modified: 20/10/2026 14:23 GMT+10
+Last modified: 20/10/2026 15:45 GMT+10
 ---------------
 P7S1 research spike. A standalone version of the sync helpers (sync.ts), the request timeout (request-timeout.ts), the
 draft store (draft.ts) and the draft writer (hooks/useDraftSync.ts) decided in
@@ -16,6 +16,7 @@ this file), before P7S1T4 writes sync.ts, request-timeout.ts and draft.ts and P7
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-draft-spike.test.tsx
 
 Changelog:
+20/10/2026 15:45 GMT+10 | stashConflict reports whether it stored the text; the comment no longer names the removed hook
 20/10/2026 13:56 GMT+10 | withTimeout and the 30 second request timeout, for server actions that a navigation orphans
 20/10/2026 13:20 GMT+10 | Key prompt-v1-<id>, legacy key read once, conflicts kept and offered, needsAutoSave takes the document, viewState, saveStatus
 20/10/2026 13:03 GMT+10 | useDraftSync owns only what it wrote (a map per document); resolveDraft takes the document and a legacy rule
@@ -103,7 +104,7 @@ export interface DraftStorage {
   removeItem(key: string): void
 }
 
-/** `base` is null for a raw value left by the removed useLocalStorage hook. */
+/** `base` is null for a raw value left by the removed draft hook. */
 export interface StoredDraft {
   content: string
   base: string | null
@@ -219,13 +220,18 @@ export function clearDraft(storage: DraftStorage | null, promptId: string, owned
   removeIfUnchanged(storage, draftKey(promptId), ownedRaw)
 }
 
-/** Keeps the text of a draft that lost to the server. One slot per document; a later conflict replaces it. */
-export function stashConflict(storage: DraftStorage | null, promptId: string, content: string): void {
-  if (!storage) return
+/**
+ * Keeps the text of a draft that lost to the server. One slot per document; a later conflict replaces it. Returns false
+ * when the storage refused it, and the caller then leaves the draft where it is.
+ */
+export function stashConflict(storage: DraftStorage | null, promptId: string, content: string): boolean {
+  if (!storage) return false
   try {
     storage.setItem(conflictKey(promptId), content)
+    return true
   } catch {
     // A full or blocked storage cannot keep it; the toast action still holds the text in memory.
+    return false
   }
 }
 

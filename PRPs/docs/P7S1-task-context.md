@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Task Context | 20/10/2026 14:41 GMT+10 | 20/10/2026 14:41 GMT+10 |
+| P7S1 Task Context | 20/10/2026 14:41 GMT+10 | 20/10/2026 15:45 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -78,8 +78,8 @@ path and line against the code before using it.
 
 - file: wip/P7S1-draft-spike.ts, wip/P7S1-loader-spike.ts, wip/P7S1-persistence-spike.ts, wip/P7S1-dialog-spike.tsx,
     their .test.tsx files and wip/P7S1-test-fakes.ts
-  why: the reference implementations of T4 to T8 and the typed fakes they share, 195 tests. See Purpose of the contract
-    for how to adapt them. The mutation check wip/P7S1-mutation-check.py proves the tests notice 77 deliberate defects;
+  why: the reference implementations of T4 to T8 and the typed fakes they share, 204 tests. See Purpose of the contract
+    for how to adapt them. The mutation check wip/P7S1-mutation-check.py proves the tests notice 83 deliberate defects;
     the main session runs it, an agent does not need to.
 
 - file: wip/P7S1-loader-race-diagnostic.test.tsx and wip/P7S1-autosave-timers-probe.test.tsx
@@ -146,6 +146,53 @@ vitest.config.ts (include *.test.ts)               document-actions.ts, hooks/us
                                                    vitest.config.ts: *.test.{ts,tsx}, esbuild.jsx automatic (T1)
 ```
 
+EditorPane has no reference implementation and no test of its own. This is the composition it ends with after T8: the
+names, props and the order of the checks are binding, the markup (classes, Title, Editor and Footer sections) is the
+current markup. It is about 175 lines, with the single pre-existing function-length warning.
+
+```tsx
+const loaderIo: DocumentLoaderIo = {   // module level
+  fetchPrompt: (promptId) => withTimeout(getPromptDetails({ promptId })),
+  getUserId: async () => {
+    try { return (await createClient().auth.getUser()).data.user?.id ?? ANONYMOUS } catch { return ANONYMOUS }
+  },
+  getStorage: getBrowserStorage,
+}
+const documentActions = withActionTimeout({
+  saveNewVersion, autoSavePrompt, restorePromptVersion, getPromptVersionHistory,
+})
+
+export function EditorPane({ promptId, tabId }: EditorPaneProps) {
+  const loader = useDocumentLoader({ promptId, io: loaderIo })
+  const persistence = useDocumentPersistence({
+    promptId, tabId, loader, actions: documentActions, getStorage: getBrowserStorage,
+  })
+  const [historyOpen, setHistoryOpen] = useState(false)
+
+  const view = viewState({ promptId, error: loader.error, loading: loader.loading, ready: loader.ready })
+  if (view === "empty") return /* the "Select a prompt to edit or create a new one" placeholder */
+  if (view === "error") return /* the text-destructive placeholder with loader.error */
+  if (view === "loading") return /* the "Loading prompt..." placeholder */
+
+  const status = saveStatus({ autoSaving: persistence.autoSaving, working: loader, synced: loader.synced })
+  // footer: "saving" -> "Saving...", "unsaved" -> "Unsaved changes",
+  //         "saved"  -> loader.lastSaved ? `Saved ${loader.lastSaved.toLocaleTimeString()}` : "Saved"
+  // title Input: value={loader.title || ""}, onChange -> loader.setTitle(e.target.value)
+  // <Editor key={promptId} value={loader.content} language="markdown" height="100%"
+  //   onChange={(value) => {
+  //     if (loader.ready && loader.monacoPromptIdRef.current === promptId) loader.setContent(value || "")
+  //   }} />
+  // History button: onClick={() => setHistoryOpen(true)} disabled={!loader.ready}
+  // Save button: onClick={persistence.handleSave}
+  //   disabled={persistence.saving || persistence.restoring || !loader.ready}
+  // <SetTitleDialog open={persistence.showSetTitleDialog} onOpenChange={persistence.setShowSetTitleDialog}
+  //   onConfirm={persistence.handleSetTitle} currentTitle={loader.title} />
+  // <VersionHistoryDialog promptId={promptId} open={historyOpen} onOpenChange={setHistoryOpen}
+  //   loadHistory={(id) => documentActions.getPromptVersionHistory({ promptId: id })}
+  //   onRestore={persistence.handleRestore} />
+}
+```
+
 ## Known Gotchas
 
 ```typescript
@@ -160,8 +207,8 @@ vitest.config.ts (include *.test.ts)               document-actions.ts, hooks/us
 // - The eight migrations apply from scratch to an empty Postgres 16 (prisma migrate deploy).
 
 // VERIFIED: server actions in one tab run one at a time in call order
-// (next/dist/shared/lib/router/action-queue.js:112-143). A router navigation discards the pending action's state
-// update and orphans the queued ones: handleResult returns before runRemainingActions (121-135), so their promises
+// (next/dist/shared/lib/router/action-queue.js:82-143). A router navigation marks the pending action discarded
+// (:118-135) and orphans the queued ones: handleResult returns before runRemainingActions (:60-71), so their promises
 // never settle. Header renders <Link>s (Header.tsx:47, 55), so navigation happens while the editor is mounted: every
 // action and the document fetch runs under withTimeout (30 s).
 
@@ -181,11 +228,12 @@ vitest.config.ts (include *.test.ts)               document-actions.ts, hooks/us
 // red stop. Finish every task with the suite green; DB-backed suites must skip, not fail, without TEST_DATABASE_URL.
 
 // Gotcha: write files only with Write and Edit; never cd in Bash (the logging hook writes logs/ into the cwd); never
-// put .env, process.env or printenv in a Bash or Grep command (the secrets hook blocks it). A dispatched agent deletes
-// nothing and never commits: the main session removes files with git rm (rm -rf is blocked).
+// put .env, process.env or printenv in a Bash or Grep command (the secrets hook blocks it). A dispatched agent never
+// commits and deletes a file only when its brief says so (T6 removes useLocalStorage.ts with rm; rm -rf is blocked);
+// the main session removes the wip files with git rm.
 
 // Gotcha: .test.tsx files run under node unless they carry `// @vitest-environment jsdom` (the spikes use line 1).
-// tsconfig.json sets "jsx": "preserve", which leaves JSX in the output that Vitest cannot run: T1 adds
+// tsconfig.json sets "jsx": "preserve", so a JSX test fails with `ReferenceError: React is not defined`: T1 adds
 // `esbuild: { jsx: "automatic" }` to vitest.config.ts, after which a test may use JSX (the dialog suite does).
 // vitest.config.ts sets no `globals`, so Testing Library's automatic cleanup is never registered: every DOM test file
 // calls afterEach(cleanup) and afterEach(() => vi.useRealTimers()), and resets the zustand stores, jsdom localStorage
@@ -207,17 +255,24 @@ vitest.config.ts (include *.test.ts)               document-actions.ts, hooks/us
 T2, T3 and the smoke test of T1 need a Postgres reachable on a loopback host, with a database whose name contains
 "test" and the project migrations applied. The helper refuses anything else.
 
+Set `PGUSER` and `PGPASSWORD` to the values the `db` service of `docker-compose.yml` sets and build the URL in the
+shell; a `<user>` placeholder pasted into a shell is a redirection:
+
+```bash
+export TEST_DATABASE_URL="postgresql://$PGUSER:$PGPASSWORD@localhost:54322/prompthub_test"
+```
+
 | Where | How |
 |---|---|
-| Developer machine | `docker compose up -d db`, then `docker compose exec db createdb -U <user> prompthub_test`, then `npx prisma migrate deploy` with `DATABASE_URL` and `DIRECT_URL` set to `postgresql://<user>:<password>@localhost:54322/prompthub_test`, then `TEST_DATABASE_URL=` the same URL (`<user>` and `<password>` are the values `docker-compose.yml` sets for `db`) |
-| Cloud session without Docker | the main session creates a throwaway cluster (`pg_createcluster 16 <name> --port <port>`, `pg_ctlcluster 16 <name> start`, set the `postgres` password, `createdb prompthub_test`, `prisma migrate deploy`) and passes `TEST_DATABASE_URL` in the dispatch prompt |
+| Developer machine | `docker compose up -d --wait db`, then `docker compose exec db createdb -U "$PGUSER" prompthub_test`, then `DATABASE_URL="$TEST_DATABASE_URL" DIRECT_URL="$TEST_DATABASE_URL" npx prisma migrate deploy` |
+| Cloud session without Docker | the main session runs the cluster commands as the `postgres` OS user (`pg_createcluster 16 <name> --port <port>`, `pg_ctlcluster 16 <name> start`, set the `postgres` password, `createdb prompthub_test`), applies the migrations as above, and passes a `TEST_DATABASE_URL` with the cluster's port (not 54322) in the dispatch prompt |
 | CI | the `postgres:17-alpine` service container of T1 |
 
-The main session provisions the database before it dispatches T1, T2 or T3 and puts `TEST_DATABASE_URL` in the prompt.
-An agent that is dispatched without it writes its failing tests, reports "red not shown: no database" and stops; the
-task is not finished. The main session then provides the database and resumes the same agent with `SendMessage`; if that
-agent is no longer reachable, it dispatches a fresh agent with the tests already on disk, which runs them to show the
-red before it writes the implementation. The CI service container cannot be run before a pull request exists:
-`.github/workflows/ci.yml` triggers only on `push` to `master` and on `pull_request`. T1 reports the service as not run,
-and the local run against the real database is the acceptance until the first pull request; the CI run then becomes the
-final proof for the database-backed suites.
+The main session provisions the database before it dispatches T1, T2 or T3 and puts `TEST_DATABASE_URL` in the prompt;
+an agent creates no role or database. An agent that is dispatched without it writes its failing tests, reports "red not
+shown: no database" and stops; the task is not finished. The main session then provides the database and resumes the
+same agent with `SendMessage`; if that agent is no longer reachable, it dispatches a fresh agent with the tests already
+on disk, which runs them to show the red before it writes the implementation. The CI service container cannot be run
+before a pull request exists: `.github/workflows/ci.yml` triggers only on `push` to `master` and on `pull_request`. T1
+reports the service as not run, and the local run against the real database is the acceptance until the first pull
+request; the CI run then becomes the final proof for the database-backed suites.

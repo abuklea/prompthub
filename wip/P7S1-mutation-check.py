@@ -7,7 +7,7 @@ MIME: text/x-python
 Type: Python script (research tooling, not part of the application)
 
 Created: 20/10/2026 14:15 GMT+10
-Last modified: 20/10/2026 14:27 GMT+10
+Last modified: 20/10/2026 15:45 GMT+10
 ---------------
 Mutation check for the P7S1 reference implementations. It applies one deliberate defect at a time to a spike
 (wip/P7S1-draft-spike.ts, -loader-spike.ts, -persistence-spike.ts or -dialog-spike.tsx), runs the four spike suites and
@@ -24,6 +24,7 @@ Usage:
 Exit status: 0 when every mutation was killed, 1 when one survived, broke the file or did not match.
 
 Changelog:
+20/10/2026 15:45 GMT+10 | 83 mutations: P32, P33, D13, D14, L12, L13; the save and restore guards are shared constants
 20/10/2026 14:27 GMT+10 | Docstring: the check proves the reference tests and does not run against adapted files
 20/10/2026 14:15 GMT+10 | Created from the per-suite scratch scripts of the research session; adds the history dialog (H)
 """
@@ -63,6 +64,12 @@ class Mutation:
     new: str
     also: tuple = ()
 
+
+# The guards of useVersionSave.saveVersion and useVersionRestore.handleRestore, as the spike writes them.
+SAVE_GUARD = (
+    'if (!current.ready || current.synced?.promptId !== promptId || savingRef.current || blockedRef.current) return'
+)
+RESTORE_GUARD = 'if (!current.ready || current.synced?.promptId !== promptId || restoringRef.current) return false'
 
 MUTATIONS = [
     Mutation(
@@ -126,22 +133,36 @@ MUTATIONS = [
         'P9',
         'persistence',
         'a second save while one is in flight is accepted',
-        old='if (!current.ready || savingRef.current || blockedRef.current) return',
-        new='if (!current.ready || blockedRef.current) return',
+        old=SAVE_GUARD,
+        new=SAVE_GUARD.replace(' || savingRef.current', ''),
     ),
     Mutation(
         'P10',
         'persistence',
         'a save does not wait for the document',
-        old='if (!current.ready || savingRef.current || blockedRef.current) return',
-        new='if (savingRef.current || blockedRef.current) return',
+        old=SAVE_GUARD,
+        new=SAVE_GUARD.replace('!current.ready || ', ''),
     ),
     Mutation(
         'P11',
         'persistence',
         'a save is accepted during a restore',
-        old='if (!current.ready || savingRef.current || blockedRef.current) return',
-        new='if (!current.ready || savingRef.current) return',
+        old=SAVE_GUARD,
+        new=SAVE_GUARD.replace(' || blockedRef.current', ''),
+    ),
+    Mutation(
+        'P32',
+        'persistence',
+        'a save accepts a callback left over from another document',
+        old=SAVE_GUARD,
+        new=SAVE_GUARD.replace(' || current.synced?.promptId !== promptId', ''),
+    ),
+    Mutation(
+        'P33',
+        'persistence',
+        'a restore accepts a callback left over from another document',
+        old=RESTORE_GUARD,
+        new=RESTORE_GUARD.replace(' || current.synced?.promptId !== promptId', ''),
     ),
     Mutation(
         'P12',
@@ -248,8 +269,8 @@ MUTATIONS = [
         'P30',
         'persistence',
         'a restore does not wait for the document',
-        old='if (!current.ready || restoringRef.current) return false',
-        new='if (restoringRef.current) return false',
+        old=RESTORE_GUARD,
+        new=RESTORE_GUARD.replace('!current.ready || ', ''),
     ),
     Mutation(
         'P31',
@@ -328,8 +349,31 @@ MUTATIONS = [
         'D9',
         'loader',
         'the loader does not discard a consumed draft',
-        old='  if (read && (decision.kind !== "apply" || read.legacy)) discardRead(storage, ctx.promptId, read)\n',
-        new='',
+        old=(
+            '  if (read && secure(ctx, storage, server, read, decision) && consumed) '
+            'discardRead(storage, ctx.promptId, read)\n'
+        ),
+        new='  if (read) secure(ctx, storage, server, read, decision)\n',
+    ),
+    Mutation(
+        'D13',
+        'loader',
+        'a draft is discarded although the storage refused its stash',
+        old='  ctx.toastIds.push(id)\n  return kept\n}',
+        new='  ctx.toastIds.push(id)\n  void kept\n  return true\n}',
+    ),
+    Mutation(
+        'D14',
+        'loader',
+        'a legacy value is discarded although its migration to v1 failed',
+        old=(
+            '    return writeDraft(storage, ctx.promptId, { content: decision.content, base: hashContent(server.content) '
+            '}) !== null'
+        ),
+        new=(
+            '    writeDraft(storage, ctx.promptId, { content: decision.content, base: hashContent(server.content) })\n'
+            '    return true'
+        ),
     ),
     Mutation(
         'D10',
@@ -436,6 +480,20 @@ MUTATIONS = [
         new='',
     ),
     Mutation(
+        'L12',
+        'loader',
+        'the anonymous identity gets cache entries that every unresolved lookup shares',
+        old='  if (userId === ANONYMOUS) return\n  documentCache.set(cacheKey(userId, promptId), { userId, ...entry })',
+        new='  documentCache.set(cacheKey(userId, promptId), { userId, ...entry })',
+    ),
+    Mutation(
+        'L13',
+        'loader',
+        'the open document is still remembered after the editor unmounted',
+        old='    return () => {\n      promptIdRef.current = null\n    }\n  }, [promptId])',
+        new='    return () => {}\n  }, [promptId])',
+    ),
+    Mutation(
         'Q1',
         'persistence',
         'autoSaving is a boolean, not a count',
@@ -446,8 +504,8 @@ MUTATIONS = [
         'Q2',
         'persistence',
         'a second restore is accepted while one runs',
-        old='if (!current.ready || restoringRef.current) return false',
-        new='if (!current.ready) return false',
+        old=RESTORE_GUARD,
+        new=RESTORE_GUARD.replace(' || restoringRef.current', ''),
     ),
     Mutation(
         'Q3',

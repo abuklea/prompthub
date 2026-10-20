@@ -8,7 +8,7 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 13:16 GMT+10
-Last modified: 20/10/2026 14:48 GMT+10
+Last modified: 20/10/2026 15:45 GMT+10
 ---------------
 Proves the hooks of wip/P7S1-persistence-spike.ts over the real loader spike, the real draft writer, the real zustand
 stores and a fake server with controllable latency and failures. The fake server records every request in call order, so
@@ -18,6 +18,7 @@ React Strict Mode. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-persistence-spike.test.tsx
 
 Changelog:
+20/10/2026 15:45 GMT+10 | A save after unmount, a stale handleSave and handleRestore; the not-ready fake carries a baseline
 20/10/2026 14:48 GMT+10 | Two tests assert the requests the fake server received, not the version rows the fake derives from them
 20/10/2026 14:23 GMT+10 | A test that withActionTimeout limits the history read too
 20/10/2026 14:09 GMT+10 | The fakes moved to wip/P7S1-test-fakes.ts and the file is typed: no type error with the test packages installed
@@ -645,6 +646,39 @@ describe("manual save", () => {
     expect(tabOf("tab-A")?.isDirty).toBe(false)
   })
 
+  it("a save that completes after the editor unmounted leaves its tab's dirty flag alone and patches its cache entry", async () => {
+    const first = await open(env)
+    type(first, "A saved")
+    const release = env.hold("save")
+    pressCtrlS()
+    await settle()
+
+    first.unmount()
+    release()
+    await settle()
+
+    // Reason: the editor is gone, so the completion must not touch the tab's dirty flag; it is recomputed on the next open.
+    expect(tabOf("tab-A")?.isDirty).toBe(true)
+    expect(tabOf("tab-A")?.isNewDocument).toBe(false)
+    expect(getCachedDocument("user-1", A)?.synced).toEqual({ promptId: A, title: "Title", content: "A saved" })
+
+    const second = await open(env)
+    expect(loaderOf(second).synced).toEqual({ promptId: A, title: "Title", content: "A saved" })
+    expect(tabOf("tab-A")?.isDirty).toBe(false)
+  })
+
+  it("a handleSave left over from the previous document sends nothing and writes no text under the old id", async () => {
+    const hook = await open(env)
+    const stale = persistenceOf(hook).handleSave
+    await goTo(hook, env, B, "tab-B")
+    type(hook, "B text")
+
+    act(() => stale())
+    await settle()
+    expect(env.names()).toEqual([])
+    expect(env.rows.get(A)).toEqual({ title: "Title", content: "server" })
+  })
+
   it("does nothing for a document that is not ready, even when the fields in the loader look valid", async () => {
     const calls: unknown[] = []
     // Reason: a plain fake that is not ready; the hook must act on `ready`, not on the fields that look valid.
@@ -652,6 +686,7 @@ describe("manual save", () => {
       ready: false,
       title: "Title",
       content: "text",
+      synced: { promptId: A, title: "Title", content: "server" },
       markSynced: () => true,
       setTitle: () => {},
     } as unknown as DocumentLoader
@@ -958,6 +993,20 @@ describe("restore", () => {
     await settle()
     expect(tabOf("tab-A")?.isDirty).toBe(false)
     expect(tabOf("tab-A")?.title).toBe("Old title")
+  })
+
+  it("a handleRestore left over from the previous document restores nothing and saves nothing", async () => {
+    const hook = await open(env)
+    type(hook, "unsaved edit")
+    const stale = persistenceOf(hook).handleRestore
+    await goTo(hook, env, B, "tab-B")
+
+    let result: boolean | undefined
+    await act(async () => {
+      result = await stale(1)
+    })
+    expect(result).toBe(false)
+    expect(env.names()).toEqual([])
   })
 
   it("a restore that completes after the editor unmounted still replaces the cache entry, so a later open shows it", async () => {

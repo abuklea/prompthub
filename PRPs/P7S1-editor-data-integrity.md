@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 - Editor Data Integrity | 20/10/2026 11:52 GMT+10 | 20/10/2026 14:54 GMT+10 |
+| P7S1 - Editor Data Integrity | 20/10/2026 11:52 GMT+10 | 20/10/2026 15:45 GMT+10 |
 
 ## Table of Contents
 - [Goal](#goal)
@@ -48,18 +48,16 @@ dev-review #38. A November 2025 note
 not been shown to be the same defect.
 
 The independent reviews of this plan found five more defects of the same class by reading the code, none reproduced end
-to end. A save or autosave that completes after the user switched documents is applied to the open one: `handleSave`
-calls `setPromptData` with the saved document's data (`EditorPane.tsx:190`) and `handleAutoSave` sets `lastSaved`
-(`EditorPane.tsx:103`). A rejected server action leaves "Saving..." or the Save button stuck, because neither handler
-has a `finally` (`EditorPane.tsx:98-109`, `173-204`). The editor mounts on `loading` alone (`EditorPane.tsx:244`), and
-`Editor.tsx:137-142` applies the `value` of the render that mounted it, so in the render where `promptId` has just
-changed it can mount with the previous document's text. The freshly loaded footer reads "Unsaved" (`lastSaved` is never
-set on load), while the obvious fix would read "Saved" for a restored draft that is still unsaved. And the history
-dialog never loads its list: `VersionHistoryDialog` reads it inside the dialog's `onOpenChange` callback (`:39-52`,
-`:72`), which Radix calls only for a change the dialog makes itself (Escape, the Close button, the overlay) and never
-when the parent sets `open`, and `EditorPane` opens the dialog from its History button (`:303`). A control test with a
-bare Radix dialog shows that the callback is not called for a parent-driven `open` (`wip/P7S1-dialog-spike.test.tsx`);
-what a browser shows is unverified.
+to end; the evidence is in [the register](../wip/P7S1-research-drift.md#findings-that-are-defects-not-drift) (F-2, F-7,
+F-8). A save or autosave that completes after the user switched documents is applied to the open one. A rejected server
+action leaves "Saving..." or the Save button stuck, because neither handler has a `finally`. The editor mounts on
+`loading` alone (`EditorPane.tsx:244`) and `Editor.tsx:137-142` applies the `value` of the render that mounted it, so in
+the render where `promptId` has just changed it can mount with the previous document's text. The freshly loaded footer
+reads "Unsaved" because `lastSaved` is never set on load, while the obvious fix would read "Saved" for a restored draft
+that is still unsaved. And the history dialog never loads its list: `VersionHistoryDialog` reads it inside the dialog's
+`onOpenChange` callback, which Radix calls only for a change the dialog makes itself and never when the parent sets
+`open`, as `EditorPane` does from its History button. A control test with a bare Radix dialog shows that the callback is
+not called (`wip/P7S1-dialog-spike.test.tsx`); what a browser shows is unverified.
 
 The fixes interlock, which is why this is one PRP. A draft is only safe to restore if the editor knows what the server
 holds (the autosave baseline of #35). Restore (#32) is only safe if version history records the right states (#33). The
@@ -85,7 +83,7 @@ cached document type assumes a folder. The last four become follow-up issues, li
 | Empty or wiped editor on a fresh mount | The load effect starts with an empty user id, is aborted when the id resolves, and `loadedRef` stops the reload | Loading waits for the user id (a failed or slow lookup settles as anonymous) and shows "Loading prompt..." meanwhile; the editor mounts only for a ready document; an aborted load owns nothing | new, filed with the INITIAL report |
 | Restore does not reload the editor | `handleVersionRestored` resets a ref that no effect watches; the next keystroke autosaves the old content over the restore | `restorePromptVersion` returns the restored row and the editor applies it, replacing the cache entry and clearing the draft; unsaved edits of a titled document are saved first | #32 |
 | History records the wrong state | The snapshot is the row as read at save time, which autosave has already overwritten | A version is the saved state; an unchanged save adds nothing; restore snapshots the row it replaces | #33 |
-| Stale draft wins | Any non-empty draft that differs from the server wins; empty content is never stored; nothing clears it after an autosave | A draft exists only while the working content differs from the last confirmed server content, carries a hash of the content it was based on, and is applied only when the server content still matches; a draft that loses is kept and offered, not deleted | #34 |
+| Stale draft wins | Any non-empty draft that differs from the server wins; empty content is never stored; nothing clears it after an autosave | A draft exists only while the working content differs from the last confirmed server content, carries a hash of the content it was based on, and is applied only when the server content still matches; a draft that loses is stashed, offered once and never deleted | #34 |
 | Autosave writes without an edit | Every input change to the hook schedules a write | A write is scheduled only when title or content differ from the last loaded, saved, restored or autosaved values of that document | #35 |
 | Set-title dialog reopens | `setTimeout(() => handleSave())` runs a closure that still holds the blank title | The confirmed title is passed to the save and becomes the working title | #36 |
 | A completion changes the wrong document, or a flag sticks | Results are applied to whichever document is open; a rejected action leaves its busy flag set; a navigation orphans the queued actions, whose promises never settle | Each completion is applied by the id it started with and reports whether the document is still open; flags reset in `finally`; every request is abandoned after 30 seconds | found in review |
@@ -123,92 +121,21 @@ cached document type assumes a folder. The last four become follow-up issues, li
 
 ## Decisions
 
-Four are marked for the developer's confirmation: D1, D2, D4 and D5. They are made here so the executing agents do not
-guess, and work proceeds on them as written, on the session branch with no pull request. The developer confirms or
-changes each before the branch merges, and a change redoes the tasks that build on it; the INITIAL report carries them
-forward.
+Seven decisions shape the plan. [The decisions document](docs/P7S1-decisions.md) has the full text of each, with the
+alternatives rejected. Four are marked for the developer's confirmation: D1, D2, D4 and D5. They are made here so the
+executing agents do not guess, and work proceeds on them as written, on the session branch with no pull request. The
+developer confirms or changes each before the branch merges, and a change redoes the tasks that build on it; the INITIAL
+report carries them forward.
 
-D1, version model (confirm: issue #33 delegates this choice to the PRP). A version is the saved state. `saveVersion`
-updates the prompt row and records the new title and content as the snapshot in one transaction, skipping the snapshot
-when it equals the newest version. `restoreVersion` locks the row, records the row as it stands first when the newest
-version differs from it (so a restore never destroys autosaved work), writes the restored state, and records it as a new
-version unless it equals the newest one, which matches the stories document, whose "Reverting to a Version" item says to
-"save it as a new version, preserving the full history"
-([Prompt Editor](../docs/project/PromptHub_02_STORIES_01.md#prompt-editor)). History orders by `id desc`: ids are
-assigned in write order under the row lock, while `created_at` is stamped by each app instance's own clock. No schema
-change; existing rows stay restorable snapshots. A restore snapshots the saved row, not text only the browser holds,
-which is why D4 saves unsaved edits first. Rejected: separate draft columns on `Prompt` (a migration, and every reader
-of `Prompt.content` would disagree with the editor) and snapshot-of-previous, which is the defect. This model implements
-Plan Step 3b ("auto-save updates current content, manual save creates versions",
-[Phase 5](../docs/project/PromptHub_06_PLAN_01.md#phase-5-prompt-editor--version-control)).
-
-D2, drafts and the baseline (confirm: the conflict policy, the legacy rule and the new key). The client tracks `synced`,
-the title and content last known to be on the server. The draft is content only,
-`{"v":1,"base":"<hash>","content":"..."}` under the new key `prompt-v1-<id>`, so a tab or a rollback still running the
-old code never reads JSON as document text. `useDraftSync` writes it while the working content differs from
-`synced.content`, removes it when they are equal, and owns only the values it wrote; the loader removes the values it
-read and did not apply. At load a draft is applied when its base matches the hash of the server content. A draft that
-does not match is a conflict and its text is never deleted: the server copy wins, the text is stashed under
-`prompt-v1-<id>:conflict`, and a 20-second warning toast offers "Restore my text". The raw value of the removed hook
-under `prompt-<id>` is read once: applied when the document was never saved (its title is blank), because it is then the
-only copy, and treated as a conflict otherwise, because the old hook never cleared a draft and a saved document's is
-usually older than the server. The base is a content hash, not `updated_at`, which `renamePrompt` bumps without
-changing content and so would discard an untitled document's draft after a rename. Accepted: typing after an
-autosave whose response was lost raises a false conflict on reload (the text is offered, not lost); two tabs still race
-on one key; a stash holds one conflict per document. The contract records the rejected alternative.
-
-D3, autosave. `needsAutoSave(promptId, working, synced)` is false without a baseline for that document, without a
-non-blank title, or when nothing differs. `useAutoSave` takes the baseline, depends on it, and reads `onSave` through a
-ref so a new callback never re-arms the timer. `useServerAutoSave` passes it no `promptId` while a save or a restore is
-in flight, which cancels a pending write. Server actions in one tab run one at a time in call order (verified in the
-pinned Next, see the contract), so no ordering guard is needed.
-
-D4, restore (confirm: the UI document says the restore should "prompt the user to save it as a new version"
-([Screen 3 - State 4: Diff View](../docs/project/PromptHub_04_UI_01.md#screen-3---state-4-diff-view)), the stories say
-save it; this PRP follows the stories and the current button, which already restores in one click). `useVersionRestore`
-owns the call, so it can pause autosave and be tested without the dialog. `VersionHistoryDialog` reads its list when it
-opens, takes `loadHistory` and `onRestore(versionId)`, disables every Restore button while a restore runs, ignores
-requests to close meanwhile, and closes itself only when the restore succeeded. `restorePromptVersion` returns
-`{ title, content }`, and `applyServerState(promptId, row)` replaces title, content, `promptData`, `synced` and
-`lastSaved` of the open document, or only the cache entry of a document the editor has left. Before the request,
-`handleRestore` saves unsaved edits of a titled document through `autoSavePrompt` and aborts if that fails, so the
-restore snapshots them; with a blank title and unsaved edits it refuses and says why, because a blank title cannot be
-autosaved and the restore would replace the only copy.
-
-D5, test seams (confirm: adds three devDependencies and departs from the wording of #37 and #45).
-[The testing rules](../docs/rules/testing.md#rules) forbid mocking a module of this repository, so the issues' "auth
-stubbed at the `createClient` boundary" is not followed. Server logic moves to `src/features/editor/service.ts`, which
-takes `(db, userId, input)`; the actions stay thin shells with the same validation, authentication and rate limits they
-have today. The tests call the service against a real Postgres and never import an action, `@/lib/db` or Supabase code;
-how every action is tested is #45's decision (one option is a fake Auth HTTP server behind `SUPABASE_URL`). The service
-has no `"use server"` directive because every export of such a file is a public endpoint and these functions take a
-`userId`. Hook and component tests need a DOM: `jsdom@^26.1.0`,
-`@testing-library/react@^16.3.0` and `@testing-library/dom@^10.4.0` as devDependencies, which #37 anticipates ("needs
-`*.test.tsx` in the Vitest `include`"), and `esbuild: { jsx: "automatic" }` in `vitest.config.ts`, because
-`tsconfig.json` sets `"jsx": "preserve"` and leaves JSX in the output that Vitest cannot run; jsdom 26 supports Node 18
-and later, while jsdom 30 requires Node 22.22.2. Hooks and the dialog take their IO as parameters, and `EditorPane`
-supplies the real functions. The database helper refuses a `TEST_DATABASE_URL` that is not on a loopback host, whose
-database name lacks "test", that lists more than one host, or that carries a `host`, `hostaddr` or `port` query
-parameter (Prisma 6.19.0 connects to the host in `?host=`; the T1 brief has the probe). It treats an empty value as
-unset, and it throws when the value is unset in GitHub Actions so a misconfigured workflow cannot skip the suites
-silently.
-
-D6, the loader protocol (proved by a spike). The load effect waits for the user id and shows loading meanwhile (a lookup
-that fails or takes more than 10 seconds settles as `anonymous`; the id is looked up on every mount, because a
-remembered id would outlive a change of session and show one user's cache to the next), lets an aborted run touch
-nothing, and reads `io` through a ref. The document and `synced` arrive in one reducer action, so `ready`
-(`synced.promptId === promptId`) is true only in renders whose content belongs to that document. It replaces
-`isTransitioning`, `contentPromptIdRef` and `titlePromptIdRef`, whose release depended on an effect that a fresh-mount
-cache hit never re-ran, and there is no loaded mark. The editor mounts only when `ready`. The loader is a reducer with a
-module-level `runLoad`, which keeps every function under 80 lines.
-
-D7, async completions. Every request completes after the user may have moved on. A handler captures its `promptId` and
-`tabId` when it starts, applies its result through `markSynced` or `applyServerState`, which take that id and return
-whether the document is still open, resets its busy flag in a `finally`, and treats a rejected action as a failed one.
-Server actions and the document fetch run under a 30-second limit (`withTimeout`), because in the pinned Next 14.2.35 a
-navigation discards the pending action and leaves the actions queued behind it unsettled (the contract cites the
-lines); without the limit a busy flag would stay set. The request itself is not cancelled and its late result is
-ignored.
+| Decision | What it fixes | Confirm |
+|---|---|---|
+| [D1 Version model](docs/P7S1-decisions.md#d1-version-model) | A version is the saved state; a restore snapshots the row it replaces; history orders by `id desc` | yes: #33 delegates it |
+| [D2 Drafts](docs/P7S1-decisions.md#d2-drafts-and-the-baseline) | Content-only envelope under `prompt-v1-<id>` with a content-hash base; a losing draft is stashed and offered once; the legacy raw draft is read once | yes: conflict policy, legacy rule, new key |
+| [D3 Autosave](docs/P7S1-decisions.md#d3-autosave) | A write is due only when title or content differ from the baseline of that document; paused during a save or restore | no |
+| [D4 Restore](docs/P7S1-decisions.md#d4-restore) | `useVersionRestore` owns the call and saves unsaved edits first; the dialog loads its list on open and stays open meanwhile | yes: the UI document says "prompt to save" |
+| [D5 Test seams](docs/P7S1-decisions.md#d5-test-seams) | `service.ts` takes `(db, userId, input)`; Postgres-backed tests; jsdom; a guarded database URL; no module mocks | yes: three devDependencies, departs from #37 and #45 |
+| [D6 Loader protocol](docs/P7S1-decisions.md#d6-the-loader-protocol) | Identity gate, one reducer, atomic `ready`, editor mounts only when ready; no cache for the anonymous identity | no |
+| [D7 Async completions](docs/P7S1-decisions.md#d7-async-completions) | Captured ids, the boolean from `markSynced` and `applyServerState`, `finally`, a 30-second limit, stale-callback guards | no |
 
 ## All Needed Context
 
@@ -223,9 +150,9 @@ The module map with line budgets, every TypeScript interface, the loader, draft 
 view, the write-ordering rules and the coverage scope are in [the contract](docs/P7S1-editor-persistence-contracts.md);
 the server shells and transactions are its server half, in
 [the Server Contract](docs/P7S1-task-briefs.md#server-contract). The client half is specified by four working reference
-implementations in `wip/` with 195 passing tests (`P7S1-draft-spike`, `P7S1-loader-spike`, `P7S1-persistence-spike`,
+implementations in `wip/` with 204 passing tests (`P7S1-draft-spike`, `P7S1-loader-spike`, `P7S1-persistence-spike`,
 `P7S1-dialog-spike`) over shared typed fakes (`P7S1-test-fakes`); the executing agents adapt them.
-`wip/P7S1-mutation-check.py` applies 77 deliberate defects to them one at a time and reports whether a test fails for
+`wip/P7S1-mutation-check.py` applies 83 deliberate defects to them one at a time and reports whether a test fails for
 each. This document and those are one specification; where they disagree, the contract wins on interfaces and this
 document wins on decisions.
 
@@ -258,7 +185,9 @@ Nine tasks, each 2 to 4 hours, each ending with every gate green and no feature 
 state. One agent per task writes its tests first and watches them fail for the stated reason (the red-to-green map). The
 briefs are in [the task briefs](docs/P7S1-task-briefs.md#briefs) and
 [the client briefs](docs/P7S1-task-briefs-client.md#briefs). The hours add up to 30. Each client task adapts a working
-reference implementation with passing, type-clean tests, which is what keeps T5, T7 and T8 at the 4-hour limit.
+reference implementation with passing, type-clean tests, which is what keeps T5 to T8 at the 4-hour limit; T5, T7 and T8
+are dispatched in two halves, Step 1 (green, committed by the main session) and then Steps 2 and 3, so that no agent
+exhausts its turn budget in the middle of a red state.
 
 | Task | Title | Agent | Hours | After | [P] |
 |---|---|---|---|---|---|
@@ -268,7 +197,7 @@ reference implementation with passing, type-clean tests, which is what keeps T5,
 | P7S1T4 | Add the sync helpers, the draft store, the cache module and the request timeout | `senior-frontend-engineer` | 3 | none | with T1 to T3 |
 | P7S1T5 | Rewrite the document loader protocol | `senior-frontend-engineer` | 4 | T1, T4 | |
 | P7S1T6 | Replace the draft hook and add the autosave baseline | `senior-frontend-engineer` | 4 | T5 | |
-| P7S1T7 | Extract the persistence hooks and fix the set-title save | `senior-frontend-engineer` | 4 | T2, T5, T6 | |
+| P7S1T7 | Extract the persistence hooks and fix the set-title save | `senior-frontend-engineer` | 4 | T2, T3, T5, T6 | |
 | P7S1T8 | Restore into the editor, fix the history dialog and remove the superseded code | `senior-frontend-engineer` | 4 | T3, T7 | |
 | P7S1T9 | Sweep the documentation and the wip files | `documentation-manager` | 2 | T8 | |
 
@@ -287,10 +216,13 @@ Run from the repository root, never after a `cd`. The Prisma and build steps nee
 ### Level 1: syntax and style
 
 ```bash
+# generate: a fresh clone or worktree needs the Prisma client before tsc
+DATABASE_URL=postgresql://user:pass@localhost:5432/db DIRECT_URL=postgresql://user:pass@localhost:5432/db npx prisma generate
 DATABASE_URL=postgresql://user:pass@localhost:5432/db DIRECT_URL=postgresql://user:pass@localhost:5432/db npx prisma validate
 npm run lint
 npx tsc --noEmit
 bash scripts/audit-code-size.sh --summary
+python3 -c "import sys,yaml; yaml.safe_load(open(sys.argv[1]))" .github/workflows/ci.yml   # after T1: the workflow parses
 # Expected: no errors. Lint baseline on 20/10/2026 is 18 max-lines-per-function warnings;
 # none is added and the three in useDocumentLoader.ts go.
 ```
@@ -301,16 +233,17 @@ bash scripts/audit-code-size.sh --summary
 npm test
 # Without TEST_DATABASE_URL the DB-backed suites are reported as skipped. Baseline before this PRP: 5 files, 29 tests.
 
-# With a database (recipes: docs/P7S1-task-context.md#environment-for-database-tests):
-TEST_DATABASE_URL=postgresql://<user>:<password>@localhost:54322/prompthub_test npm test
+# With a database (credentials and recipes: docs/P7S1-task-context.md#environment-for-database-tests):
+export TEST_DATABASE_URL="postgresql://$PGUSER:$PGPASSWORD@localhost:54322/prompthub_test"
+npm test
 
 # Per-file coverage for each file in the contract's scope (read coverage/coverage-summary.json, not the text table);
-# a database-backed file needs the same TEST_DATABASE_URL in front:
-TEST_DATABASE_URL=postgresql://<user>:<password>@localhost:54322/prompthub_test npx vitest run --coverage --coverage.include=src/features/editor/service.ts --coverage.reporter=json-summary
+# a database-backed file needs TEST_DATABASE_URL exported as above:
+npx vitest run --coverage --coverage.include=src/features/editor/service.ts --coverage.reporter=json-summary
 
-# The reference implementations, until the main session removes them after T9 (195 tests, type-clean):
+# The reference implementations, until the main session removes them after T9 (204 tests, type-clean):
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-draft-spike.test.tsx wip/P7S1-loader-spike.test.tsx wip/P7S1-persistence-spike.test.tsx wip/P7S1-dialog-spike.test.tsx
-# 77 deliberate defects, one at a time: each must be KILLED by a test (about 5 minutes)
+# 83 deliberate defects, one at a time: each must be KILLED by a test (about 5 minutes)
 python3 wip/P7S1-mutation-check.py
 ```
 
@@ -334,12 +267,12 @@ and confirm "Recently updated" is unchanged; a cold open and an open after visit
   `src/features/prompts/actions.ts` has its new line count
 - [ ] Per-file coverage at least 80% on every file in the contract's scope, with each exemption and its reason recorded
 - [ ] `service.ts` has no `"use server"` directive and no client module imports it
-- [ ] A search of `src/`, outside the changelog lines of file headers, finds no `useLocalStorage`, `resetLoadedRef`,
-  `hydrateDocumentCache`, `isTransitioning`, `contentPromptIdRef`, `titlePromptIdRef` or `resolveUserId`, and
-  `Header.tsx` imports `clearDocumentCache` from `document-cache`
-- [ ] Every drift-register row is fixed or filed; every changed file has a header changelog line; README has a Testing
-  section; the wip reference implementations, the mutation check and the probes are deleted by the main session with
-  `git rm`
+- [ ] A search of `src/`, outside the changelog lines of file headers, finds no import, use or comment naming
+  `useLocalStorage`, `resetLoadedRef`, `hydrateDocumentCache`, `isTransitioning`, `contentPromptIdRef` or
+  `titlePromptIdRef`, and `Header.tsx` imports `clearDocumentCache` from `document-cache`
+- [ ] Every drift-register row is fixed or filed; every changed file that has a header block has a changelog line (T1
+  and T3 add one to `vitest.config.ts` and `src/features/prompts/actions.ts`); README has a Testing section; the wip
+  reference implementations, the mutation check and the probes are deleted by the main session with `git rm`
 - [ ] Browser checks are listed as not run and handed to #38
 
 ## Anti-Patterns to Avoid
@@ -358,7 +291,6 @@ and confirm "Recently updated" is unchanged; a cold open and an open after visit
   document fetch without the 30-second limit
 - Do not let a client write when it has no baseline
 - Do not widen into P7S2, #44, #48 or #53; file what you find
-- Do not run `cd` in Bash, write files from Bash, or name env files in Bash or Grep calls
 
 ----
 **PRP Status**: TODO
@@ -377,9 +309,9 @@ Agents:
 Notes:
 - Decisions D1, D2, D4 and D5 are the developer's to confirm; work proceeds on them as written and they are confirmed or
   changed before the branch merges
-- The reference implementations in wip/ (195 tests, 77 mutations each killed by a test) specify Tasks 4 to 8; the main
+- The reference implementations in wip/ (204 tests, 83 mutations each killed by a test) specify Tasks 4 to 8; the main
   session deletes them after Task 9
-- Tasks 5 and 7 are the riskiest; if either exhausts an agent's turn budget, split it at its Step 2 and Step 3 boundary
+- Tasks 5, 7 and 8 are dispatched in two halves, Step 1 and then Steps 2 and 3; Tasks 5 and 7 are the riskiest
 - Browser verification is #38 and cannot be run by an agent
 - Accepted: two tabs or devices stay last-writer-wins; a false draft conflict after a lost autosave response is offered,
   not lost

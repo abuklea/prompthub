@@ -8,7 +8,7 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 14:14 GMT+10
-Last modified: 20/10/2026 14:48 GMT+10
+Last modified: 20/10/2026 15:45 GMT+10
 ---------------
 Proves the history dialog of wip/P7S1-dialog-spike.tsx with the real Radix dialog and Button. The first group drives the
 dialog with injected fakes: a list that loads when the parent opens the dialog (the defect of the current component), a
@@ -17,6 +17,7 @@ real loader and persistence hooks, as EditorPane does, and restores through them
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-dialog-spike.test.tsx
 
 Changelog:
+20/10/2026 15:45 GMT+10 | A click on the overlay during a restore is ignored, and closes the dialog after a failed restore
 20/10/2026 14:48 GMT+10 | The flush-before-restore test asserts the autosave request instead of the fake's version rows
 20/10/2026 14:14 GMT+10 | Created
 */
@@ -114,6 +115,7 @@ const openHistory = () => fireEvent.click(screen.getByRole("button", { name: "Op
 const pressEscape = () => fireEvent.keyDown(document.body, { key: "Escape" })
 const restoreButtons = () => screen.queryAllByRole("button", { name: /^Restor/ })
 const isOpen = () => screen.queryByRole("dialog") !== null
+const overlay = () => document.querySelector(".fixed.inset-0") as HTMLElement
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -325,6 +327,23 @@ describe("restore from the dialog", () => {
 
     await r.finish(0, true)
     expect(isOpen()).toBe(false)
+  })
+
+  it("a click on the overlay is ignored meanwhile and closes the dialog once a restore did not succeed", async () => {
+    const { r, changes } = await openWithTwoVersions()
+    // Reason: Radix registers its outside-click listener on the next timer tick after the dialog opens.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    fireEvent.click(restoreButtons()[0])
+    fireEvent.pointerDown(overlay())
+    expect(isOpen()).toBe(true)
+    expect(changes).toEqual([])
+
+    await r.finish(0, false)
+    fireEvent.pointerDown(overlay())
+    expect(isOpen()).toBe(false)
+    expect(changes).toEqual([false])
   })
 
   it("a restore that did not succeed leaves the dialog open and the buttons usable again", async () => {
