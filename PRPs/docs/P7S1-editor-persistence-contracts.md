@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 20/10/2026 15:45 GMT+10 |
+| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 20/10/2026 16:12 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -124,7 +124,8 @@ export function writeDraft(
 // best-effort compare-and-delete
 export function removeIfUnchanged(storage: DraftStorage | null, key: string, raw: string | null): void
 export function clearDraft(storage: DraftStorage | null, promptId: string, ownedRaw: string | null): void
-export function stashConflict(storage: DraftStorage | null, promptId: string, content: string): void
+// returns false when the storage refused the stash; the caller then keeps the draft
+export function stashConflict(storage: DraftStorage | null, promptId: string, content: string): boolean
 export function discardRead(storage: DraftStorage | null, promptId: string, read: ReadDraft): void
 export function resolveDraft(server: DocFields, draft: StoredDraft | null): DraftDecision
 
@@ -222,7 +223,8 @@ export interface DocumentPersistence {
 // src/features/editor/components/VersionHistoryDialog.tsx (T8)
 export interface VersionHistoryDialogProps {
   promptId: string | null; open: boolean; onOpenChange(open: boolean): void
-  // read in an effect on [open, promptId], through a ref; EditorPane passes documentActions.getPromptVersionHistory
+  // read in an effect on [open, promptId], through a ref; EditorPane passes
+  // (id) => documentActions.getPromptVersionHistory({ promptId: id })
   loadHistory(promptId: string): Promise<ActionResult<PromptVersionHistoryItem[]>>
   onRestore(versionId: number): Promise<boolean>   // handleRestore: true closes the dialog, false leaves it open
 }
@@ -276,8 +278,9 @@ running the old code never reads JSON as document text; an unknown version is le
 `hashContent(synced.content)` when the draft was written; the cyrb53 source (public domain, by bryc) is in the draft
 spike.
 
-`readDraft` returns the v1 envelope, else the raw text under `prompt-<id>` (the removed hook's format), else null; an
-empty raw value is no draft, and the v1 envelope wins when both exist. `resolveDraft(server, draft)`:
+`readDraft` returns the v1 envelope, else the raw text under `prompt-<id>` (the removed hook's format, read once: a
+deliberate exception, [D2](P7S1-decisions.md#d2-drafts-and-the-baseline)), else null; an empty raw value is no draft,
+and the v1 envelope wins when both exist. `resolveDraft(server, draft)`:
 
 | Draft | Result |
 |---|---|
@@ -365,8 +368,9 @@ from the baseline (a restored draft, an untitled document); otherwise "Saved <ti
 when it is null), which the loader now sets from `updated_at`. The Save button is disabled while `saving` or
 `restoring`. `Header.tsx` imports `clearDocumentCache` from `document-cache`, and `EditorPane` no longer re-exports it.
 `EditorPane` builds two module-level constants: `loaderIo` (its `fetchPrompt` runs under `withTimeout`) and
-`documentActions` (the four actions under `withActionTimeout`). It passes `documentActions.getPromptVersionHistory` to
-the dialog as `loadHistory` and `persistence.handleRestore` as `onRestore`. The composition is sketched in
+`documentActions` (the four actions under `withActionTimeout`). It passes
+`(id) => documentActions.getPromptVersionHistory({ promptId: id })` to the dialog as `loadHistory` and
+`persistence.handleRestore` as `onRestore`. The composition is sketched in
 [the task context](P7S1-task-context.md#current-and-desired-trees).
 
 ## Write Ordering and Pausing
@@ -390,7 +394,7 @@ copy behind it. When the busy state ends the effect re-evaluates: after a succes
 
 Lint baseline on 20/10/2026 (`npm run lint`): 18 `max-lines-per-function` warnings, among them `EditorPane` (234 lines)
 and three in `useDocumentLoader.ts` (144, 89 and 82). The change adds none, and the loader file ends with none: counted
-as the rule counts them, the spikes' largest functions are `useDocumentLoader` (65 lines), `useVersionSave` (64),
+as the rule counts them, the spikes' largest functions are `useDocumentLoader` (71 lines), `useVersionSave` (64),
 `VersionHistoryDialog` (49) and the reducer (34).
 
 Files held to 80% line, function, branch and statement coverage by the per-file command: `sync.ts`,

@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Task Briefs | 20/10/2026 12:38 GMT+10 | 20/10/2026 15:45 GMT+10 |
+| P7S1 Task Briefs | 20/10/2026 12:38 GMT+10 | 20/10/2026 16:12 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -156,9 +156,11 @@ authorises what the agent's definition otherwise forbids: adding the three devDe
 `vitest.config.ts`, `.env.example` and `.github/workflows/ci.yml`.
 
 Step 1, red: CREATE `src/test/db.ts` as a stub that fails on assertions, not by throwing: `assertSafeTestDatabaseUrl`
-returns its argument, `getTestDatabaseUrl` returns null, `describeDb` is `describe`, and the other exports throw "not
-implemented" (a stub that threw everywhere would pass every rejection case without exercising a rule). Then CREATE
-`src/test/db.test.ts` with the guard cases (always run) and a smoke test under `describeDb`. Each rule has its own word
+returns its argument, `getTestDatabaseUrl` returns null, `describeDb` is `describe`, `useTestDatabase` returns the
+accessor `() => { throw new Error("not implemented") }` (calling it in a describe body must not throw, only the
+accessor does, so the smoke test fails inside the test), and the other exports throw "not implemented" (a stub that
+threw everywhere would pass every rejection case without exercising a rule). Then CREATE `src/test/db.test.ts` with the
+guard cases (always run) and a smoke test under `describeDb`. Each rule has its own word
 in its message and each rejection case asserts it, as in `toThrow(/loopback/)`: `scheme` (not postgres or postgresql),
 `parse` (a URL that does not parse; a second host in the authority, `a:1,b:2`, is one), `loopback` (a remote host,
 `.supabase.co`), `database name` (no lower-case "test"), `query parameter` (below) and `GITHUB_ACTIONS` (unset in
@@ -183,9 +185,11 @@ find a table (the `::text` cast is required: Prisma cannot deserialize `regclass
 
 MODIFY `package.json` and `package-lock.json` with
 `npm install -D jsdom@^26.1.0 @testing-library/react@^16.3.0 @testing-library/dom@^10.4.0`; nothing else changes
-version. MODIFY `vitest.config.ts` (it has no header block: add the source header, with `Created` taken from
-`git log --diff-filter=A`): `include: ['src/**/*.test.{ts,tsx}']`; `esbuild: { jsx: 'automatic' }` (tsconfig sets
-`"jsx": "preserve"`, so a JSX test fails with `ReferenceError: React is not defined`; the dialog suite of T8 uses JSX);
+version. MODIFY `vitest.config.ts` (it has no header block: add the source header with
+`Created: 08/07/2026 09:20 GMT+10`, the commit `3f3f08f` that added the file, read from the full history because a
+shallow clone reports its boundary commit): `include: ['src/**/*.test.{ts,tsx}']`; `esbuild: { jsx: 'automatic' }`
+(tsconfig sets `"jsx": "preserve"`, so a JSX test fails with `ReferenceError: React is not defined`; the dialog suite
+of T8 uses JSX);
 `coverage.include` keeps its four existing entries, drops the absent `src/lib/diff-utils.ts` and adds the files of
 [the coverage scope](P7S1-editor-persistence-contracts.md#budgets-and-coverage-scope) (a pattern for a file that does
 not exist yet matches nothing, so later tasks never edit this file; the `src/test/` fakes are not in it). MODIFY
@@ -234,9 +238,9 @@ A new step goes after "Validate Prisma schema" and before "Unit tests":
 
 Acceptance: `npm test` shows the 29 existing tests plus the new ones with the DB suites skipped, and with
 `TEST_DATABASE_URL` set the smoke test passes. The workflow still parses
-(`python3 -c "import sys,yaml; yaml.safe_load(open(sys.argv[1]))" .github/workflows/ci.yml`). The service container is
-reported as not run: the workflow triggers only on `push` to `master` and on `pull_request`, so nothing can run it
-before a pull request exists (see
+(`node -e "require('js-yaml').load(require('fs').readFileSync(process.argv[1], 'utf8'))" .github/workflows/ci.yml`,
+using the `js-yaml` that ESLint installs). The service container is reported as not run: the workflow triggers only on
+`push` to `master` and on `pull_request`, so nothing can run it before a pull request exists (see
 [Environment for Database Tests](P7S1-task-context.md#environment-for-database-tests)). The main session provides the
 database; the agent creates no role or database, and reports a command that is denied instead of working around it.
 Documentation sync after this task (main session, `documentation-manager`): drift rows DR-7, DR-8, DR-9, DR-11, DR-20
@@ -248,8 +252,8 @@ Agent `senior-backend-engineer`, 3 hours, after T1. Needs `TEST_DATABASE_URL`. R
 1: CREATE `src/features/editor/service.ts` by extracting the logic of `saveNewVersion` and `autoSavePrompt` with
 unchanged behaviour into `saveVersion` and `autoSaveDocument` (`(db, userId, input)`, `ActionResult` results,
 `EditorDb = Pick<PrismaClient, "prompt" | "promptVersion" | "$transaction">`); the two actions in
-`src/features/editor/actions.ts` call it and keep their shells; the file's header and the JSDoc of `saveNewVersion`
-describe the old order (a version first, then the prompt update), so rewrite both and add the changelog line (DR-22).
+`src/features/editor/actions.ts` call it and keep their shells; the JSDoc of `saveNewVersion` describes the old order
+(a version first, then the prompt update), so rewrite it and add a changelog line to the file's header (DR-22).
 Step 2, red: CREATE `service.save.test.ts` (`describeDb`). The ownership cases and the case of a save after an autosave
 moved the row to the same content pass on arrival and are regression tests; the other commit-style cases fail against
 the extraction. Step 3: change `saveVersion` to the semantics of the server pseudocode and confirm step 2 goes green.
@@ -266,7 +270,8 @@ unchanged (pass `saveVersion` a `db` whose `$transaction` hands the callback a `
 Agent `senior-backend-engineer`, 3 hours, after T2. Needs `TEST_DATABASE_URL`. READ `prisma/schema.prisma` first. Step
 1: extract `restorePromptVersion` and `getPromptVersionHistory` with unchanged behaviour into `restoreVersion` and
 `listVersions` in `service.ts`; the two actions in `src/features/prompts/actions.ts` call them and keep their shells.
-That file has no header block: add the source header (`Created` from `git log --diff-filter=A`) above `"use server"`.
+That file has no header block: add the source header with `Created: 06/11/2025 14:33 GMT+10` (the commit `fb2faa7` that
+added it, read from the full history because a shallow clone reports its boundary commit) above `"use server"`.
 Step 2, red: CREATE `service.restore.test.ts` against that extraction. The ownership cases and the `Promise.all` case
 pass on arrival (or cannot be made deterministically red) and are regression tests; the others fail. Step 3: implement
 `restoreVersion` and `listVersions` per the server pseudocode; `restorePromptVersion` returns `{ title, content }`.
@@ -290,8 +295,9 @@ session): DR-4, DR-6, DR-12, DR-18 and DR-21 (`README.md` says each save snapsho
 Agent `documentation-manager`, 2 hours, after T8. Verify, and fix any row whose fix is document-only and was missed by
 an earlier sync; report the rest (an agent files no issue). The prompt names the commit before T1 as the base of "every
 changed file" and supplies `TEST_DATABASE_URL`, which the README's database-backed command needs: the agent runs
-`npm test` with it and does not run any command that writes to a database, so that command is reported as unverified if
-it cannot be run. Check that every row of the drift register is fixed or reported; every changed file that has a header
+`npm test` with it (the suites write only to the disposable test database) and no other command that writes to a
+database, and reports a command it cannot run as unverified. Check that every row of the drift register is fixed or
+reported; every changed file that has a header
 block has a changelog line (`vitest.config.ts` and `src/features/prompts/actions.ts` gained one in T1 and T3; `ci.yml`,
 `.env.example` and `README.md` have none); ADD a Testing section to `README.md` (`npm test`, the database-backed
 variant, the DOM environment: DR-13); confirm the code-size register row for `src/features/prompts/actions.ts` has the
@@ -303,14 +309,15 @@ memory files that describe the removed ref-flag protocol, the `localStorage` dra
 Records are not drift and stay as they are: the PRPs and reports of earlier steps, `wip/P5S*`, `wip/P5S4bT1-*` and
 `wip/MONACO-*`. Also search for the draft key `prompt-<id>`.
 
-This agent is documentation-only and deletes nothing ([Never](../../.claude/AGENT-CONTRACT.md#never)). It lists the wip
-files of this PRP for removal, and the main session removes them with `git rm` once the REPORT is written, because their
-reference implementations are production code with tests by then: `wip/P7S1-loader-race-diagnostic.test.tsx`,
+This agent is documentation-only: it lists the wip files of this PRP for removal and deletes none. The main session
+removes them with `git rm` once the REPORT is written, because their reference implementations are production code with
+tests by then: `wip/P7S1-loader-race-diagnostic.test.tsx`,
 `wip/P7S1-autosave-timers-probe.test.tsx`, `wip/P7S1-draft-spike.ts`, `wip/P7S1-draft-spike.test.tsx`,
 `wip/P7S1-loader-spike.ts`, `wip/P7S1-loader-spike.test.tsx`, `wip/P7S1-persistence-spike.ts`,
 `wip/P7S1-persistence-spike.test.tsx`, `wip/P7S1-dialog-spike.tsx`, `wip/P7S1-dialog-spike.test.tsx`,
 `wip/P7S1-test-fakes.ts`, `wip/P7S1-mutation-check.py` and `wip/P7S1-vitest.diag.config.ts`. The main session, not this
 agent, amends dev-review #38 (it already lists "repeat across two tabs"; the new flows are a cold open, an open after
-visiting Settings, the conflict toast's "Restore my text", the History list and Escape during a restore) and comments on
-#37, #41, #44 (drafts now live under `prompt-v1-<id>`, `prompt-v1-<id>:conflict` and, until migrated, `prompt-<id>`; a
-`prompt-` prefix purge covers all), #45 and #53.
+visiting Settings, the conflict toast's "Restore my text" including a click while the editor is still starting up, the
+History list, Escape during a restore, and the Discard prompt on closing the tab of a titled, autosaved, never-saved
+document, finding F-9) and comments on #37, #41, #44 (drafts now live under `prompt-v1-<id>`,
+`prompt-v1-<id>:conflict` and, until migrated, `prompt-<id>`; a `prompt-` prefix purge covers all), #45 and #53.

@@ -8,14 +8,15 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 12:50 GMT+10
-Last modified: 20/10/2026 15:45 GMT+10
+Last modified: 20/10/2026 16:12 GMT+10
 ---------------
 Proves the draft protocol of wip/P7S1-draft-spike.ts together with the loader spike (wip/P7S1-loader-spike.ts): the pure
-helpers, scenarios S-1 to S-14 of PRPs/docs/P7S1-editor-persistence-contracts.md, and an invariant over a seeded random
-walk. A "reload" is an unmount followed by a new mount against the same fake server and the same storage. Run with:
+helpers, scenarios S-1 to S-14b (PRPs/docs/P7S1-task-briefs-client.md#draft-scenarios), and an invariant over a seeded
+random walk. A "reload" is an unmount followed by a new mount against the same fake server and the same storage. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-draft-spike.test.tsx
 
 Changelog:
+20/10/2026 16:12 GMT+10 | The header points at the scenario table in the client briefs, which holds S-1 to S-14b
 20/10/2026 15:45 GMT+10 | S-7e and S-8e (a refused write keeps the stored value); stashConflict reports whether it stored
 20/10/2026 14:09 GMT+10 | The fakes moved to wip/P7S1-test-fakes.ts and the file is typed: no type error with the test packages installed
 20/10/2026 13:20 GMT+10 | Tests for the v1 key, the legacy key, the kept conflict and its action, viewState, saveStatus and needsAutoSave with the document

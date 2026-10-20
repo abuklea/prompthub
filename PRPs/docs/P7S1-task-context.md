@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Task Context | 20/10/2026 14:41 GMT+10 | 20/10/2026 15:45 GMT+10 |
+| P7S1 Task Context | 20/10/2026 14:41 GMT+10 | 20/10/2026 16:12 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -208,7 +208,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
 
 // VERIFIED: server actions in one tab run one at a time in call order
 // (next/dist/shared/lib/router/action-queue.js:82-143). A router navigation marks the pending action discarded
-// (:118-135) and orphans the queued ones: handleResult returns before runRemainingActions (:60-71), so their promises
+// (:121-135) and orphans the queued ones: handleResult returns before runRemainingActions (:60-71), so their promises
 // never settle. Header renders <Link>s (Header.tsx:47, 55), so navigation happens while the editor is mounted: every
 // action and the document fetch runs under withTimeout (30 s).
 

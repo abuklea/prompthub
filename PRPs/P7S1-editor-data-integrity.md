@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 - Editor Data Integrity | 20/10/2026 11:52 GMT+10 | 20/10/2026 15:45 GMT+10 |
+| P7S1 - Editor Data Integrity | 20/10/2026 11:52 GMT+10 | 20/10/2026 16:12 GMT+10 |
 
 ## Table of Contents
 - [Goal](#goal)
@@ -74,7 +74,9 @@ size and retention (#53); rate limiting of autosave and restore (#48); clearing 
 keys start with `prompt-`); conflicts between two browser tabs or devices, which stay last-writer-wins; whether
 untitled documents should autosave; a rename from the document list not reaching the open editor, whose next autosave
 then writes the old title back; a failed autosave that is only logged; and `Prompt.folder_id` being nullable while the
-cached document type assumes a folder. The last four become follow-up issues, listed in the REPORT.
+cached document type assumes a folder. The last four become follow-up issues, listed in the REPORT. Closing the tab of
+a titled, autosaved, never-saved document offers "Discard", which deletes it (register finding F-9, read from the code
+and not reproduced): a tab-close path outside this PRP, filed as a bug of its own with the INITIAL report.
 
 ## What
 
@@ -153,8 +155,8 @@ the server shells and transactions are its server half, in
 implementations in `wip/` with 204 passing tests (`P7S1-draft-spike`, `P7S1-loader-spike`, `P7S1-persistence-spike`,
 `P7S1-dialog-spike`) over shared typed fakes (`P7S1-test-fakes`); the executing agents adapt them.
 `wip/P7S1-mutation-check.py` applies 83 deliberate defects to them one at a time and reports whether a test fails for
-each. This document and those are one specification; where they disagree, the contract wins on interfaces and this
-document wins on decisions.
+each. This document and those are one specification; where they disagree, the contract wins on interfaces and the
+decisions document wins on decisions.
 
 ```mermaid
 flowchart LR
@@ -206,8 +208,10 @@ intentionally failing tests. The `documentation-manager` also runs after T1, T3,
 session with the changed-file list and the drift rows that
 [the register](../wip/P7S1-research-drift.md#register) assigns to that task, so each document is corrected with the
 behaviour that made it false. The main session provisions the test database before it dispatches T1, T2 or T3, alone
-creates the issues, amends dev-review #38 (a cold open, an open after visiting Settings, the conflict toast and Escape
-during a restore are the new flows), comments on #37, #41, #44, #45 and #53, and files the follow-ups.
+creates the issues, amends dev-review #38 (a cold open, an open after visiting Settings, the conflict toast, "Restore my
+text" clicked while the editor is still starting up, Escape during a restore, and closing the tab of a titled,
+autosaved, never-saved document to look for "Discard" are the new flows), comments on #37, #41, #44, #45 and #53, and
+files the follow-ups.
 
 ## Validation Loop
 
@@ -222,7 +226,7 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/db DIRECT_URL=postgresql://us
 npm run lint
 npx tsc --noEmit
 bash scripts/audit-code-size.sh --summary
-python3 -c "import sys,yaml; yaml.safe_load(open(sys.argv[1]))" .github/workflows/ci.yml   # after T1: the workflow parses
+node -e "require('js-yaml').load(require('fs').readFileSync(process.argv[1], 'utf8'))" .github/workflows/ci.yml   # after T1: parses
 # Expected: no errors. Lint baseline on 20/10/2026 is 18 max-lines-per-function warnings;
 # none is added and the three in useDocumentLoader.ts go.
 ```
@@ -233,7 +237,7 @@ python3 -c "import sys,yaml; yaml.safe_load(open(sys.argv[1]))" .github/workflow
 npm test
 # Without TEST_DATABASE_URL the DB-backed suites are reported as skipped. Baseline before this PRP: 5 files, 29 tests.
 
-# With a database (credentials and recipes: docs/P7S1-task-context.md#environment-for-database-tests):
+# With a database (credentials and recipes: PRPs/docs/P7S1-task-context.md#environment-for-database-tests):
 export TEST_DATABASE_URL="postgresql://$PGUSER:$PGPASSWORD@localhost:54322/prompthub_test"
 npm test
 
@@ -257,7 +261,9 @@ There is no end-to-end runner and cloud sessions have no browser tooling, so the
 and belong to dev-review #38: untitled save through the dialog; edit and autosave; version save; the History list;
 restore an older version and edit; Escape during a pending restore; clear and reload; open documents without editing
 and confirm "Recently updated" is unchanged; a cold open and an open after visiting Settings; a draft conflict and its
-"Restore my text" action; the same edit in two tabs. They run on `npm run dev` port 3010 or the Docker stack.
+"Restore my text" action, also clicked while the editor is still starting up; the same edit in two tabs; closing the tab
+of a titled, autosaved, never-saved document and looking for "Discard" (F-9). They run on `npm run dev` port 3010 or the
+Docker stack.
 
 ## Final Validation Checklist
 - [ ] `npm test` passes; the DB-backed suites pass with `TEST_DATABASE_URL` set and show as skipped without it

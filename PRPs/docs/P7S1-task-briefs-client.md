@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Client Task Briefs | 20/10/2026 13:27 GMT+10 | 20/10/2026 15:45 GMT+10 |
+| P7S1 Client Task Briefs | 20/10/2026 13:27 GMT+10 | 20/10/2026 16:12 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -47,7 +47,9 @@ in two halves by default: Step 1 (behaviour-preserving and green, which the main
 ## Draft Scenarios
 
 The behaviour of the draft protocol in [the contract](P7S1-editor-persistence-contracts.md#draft-protocol), one row per
-scenario. Each has a test in the draft spike suite, named by its id, and T6 reproduces them.
+scenario. Each id names a test in the draft spike suite, and T6 reproduces them. The second case of S-10b, a save that
+completes after the editor unmounted, leaves the same state in storage and on the server as the first and has no test
+of its own.
 
 | Scenario | Expected |
 |---|---|
@@ -228,9 +230,10 @@ Step 1, behaviour-preserving. CREATE `useVersionRestore.ts` whose `handleRestore
 shows the success toast and calls `triggerPromptRefetch()` on success and returns true, or shows the error toast and
 returns false. Change `VersionHistoryDialog` to take `loadHistory(promptId)` and
 `onRestore(versionId): Promise<boolean>`: it keeps reading the history inside `onOpenChange` and the clicked-row button
-state, and calls `onOpenChange(false)` on `true`. EditorPane passes `documentActions.getPromptVersionHistory` and the
-hook's `handleRestore`; remove its `handleVersionRestored` and compose the hook in `useDocumentPersistence`, with
-`restoring` feeding `blocked` and `busy`. The editor still shows the old text after a restore, as it does today.
+state, and calls `onOpenChange(false)` on `true`. EditorPane passes
+`(id) => documentActions.getPromptVersionHistory({ promptId: id })` as `loadHistory` and the hook's `handleRestore` as
+`onRestore`; remove its `handleVersionRestored` and compose the hook in `useDocumentPersistence`, with `restoring`
+feeding `blocked` and `busy`. The editor still shows the old text after a restore, as it does today.
 
 Step 2, red. (a) CREATE `useDocumentPersistence.restore.test.tsx`. After `handleRestore` the loader shows the restored
 title and content, `synced` equals them, `promptData` follows, the draft is gone, the cache entry is replaced, the tab
