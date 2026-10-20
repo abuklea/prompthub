@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript React hook (research spike, not imported by the application)
 
 Created: 20/10/2026 12:34 GMT+10
-Last modified: 20/10/2026 13:03 GMT+10
+Last modified: 20/10/2026 13:21 GMT+10
 ---------------
 P7S1 research spike. A standalone version of useDocumentLoader that implements the loader protocol decided in
 PRPs/docs/P7S1-editor-persistence-contracts.md: an identity gate with `loading` true while the identity is pending, the
@@ -20,7 +20,8 @@ current raw-draft restore of useDocumentLoader.ts in its place. It exists to pro
 wip/P7S1-loader-spike.test.tsx and wip/P7S1-draft-spike.test.tsx before the production hook is rewritten in P7S1T5.
 
 Changelog:
-20/10/2026 13:03 GMT+10 | Reducer, runLoad and small hooks (each function under 80 lines); markSynced and applyServerState gated on the open document; identity timeout; initial loading; no loaded mark
+20/10/2026 13:21 GMT+10 | A conflict is kept and offered; identity remembered per page load; a rejected fetch is handled; useLatest exported
+20/10/2026 13:03 GMT+10 | Decomposed (reducer, runLoad, small hooks); markSynced and applyServerState take the document id; identity timeout; no loaded mark
 20/10/2026 12:40 GMT+10 | Corrected the header timestamps to the filesystem record
 20/10/2026 12:34 GMT+10 | Rewritten with atomic readiness (`ready`) in place of the ref flags and the transition effect
 */
@@ -40,10 +41,12 @@ import { toast } from "sonner"
 import type { Prompt } from "@prisma/client"
 import type { ActionResult } from "@/types/actions"
 import {
-  clearDraft,
-  parseDraft,
-  readDraftRaw,
+  discardRead,
+  hashContent,
+  readDraft,
   resolveDraft,
+  stashConflict,
+  writeDraft,
   type DocFields,
   type DraftStorage,
   type SyncedState,
@@ -52,10 +55,13 @@ import {
 export type PromptWithFolder = Prompt & { folder: { id: string; name: string } }
 export type { SyncedState }
 
-const ANONYMOUS = "anonymous"
+export const ANONYMOUS = "anonymous"
 export const IDENTITY_TIMEOUT_MS = 10_000
+export const CONFLICT_TOAST_MS = 20_000
 export const RESTORED_TOAST = "Restored unsaved changes from browser storage"
 export const CONFLICT_TOAST = "Local unsaved changes were not restored because the document changed on the server"
+export const CONFLICT_ACTION = "Restore my text"
+export const LOAD_FAILED = "Failed to load the document"
 
 // ---- document-cache.ts (T4) ----
 
@@ -99,8 +105,20 @@ export function updateDocumentCacheEntry(
   documentCache.set(cacheKey(userId, promptId), { ...existing, ...(typeof patch === "function" ? patch(existing) : patch) })
 }
 
+let knownUserId: string | null = null
+
+/** The signed-in user's id, looked up once per page load so a remount does not repeat a network call (S15). */
+export async function resolveUserId(lookup: () => Promise<string>): Promise<string> {
+  if (knownUserId !== null) return knownUserId
+  const id = await lookup()
+  if (id !== ANONYMOUS) knownUserId = id
+  return id
+}
+
+/** Drops every cached document and the remembered user id; called on sign-out. */
 export function clearDocumentCache(): void {
   documentCache.clear()
+  knownUserId = null
 }
 
 // ---- state ----
@@ -189,7 +207,8 @@ function reducer(state: LoaderState, action: Action): LoaderState {
 
 // ---- small hooks ----
 
-function useLatest<T>(value: T): MutableRefObject<T> {
+/** The latest value in a ref, updated after each render: lets a stable callback read current props and state. */
+export function useLatest<T>(value: T): MutableRefObject<T> {
   const ref = useRef(value)
   useEffect(() => {
     ref.current = value
@@ -236,17 +255,37 @@ function commit(ctx: LoadContext, doc: DocumentFields): void {
 }
 
 /**
- * T6. The working content for a document just read from the server: a stored draft that applies, else the server's.
- * A draft that does not apply was consumed here, so this is the only place that removes it; an applied one is
- * rewritten by useDraftSync in the same commit.
+ * T6. A draft that lost to the server is never deleted silently: its text is kept in the storage and offered by the
+ * toast's action, which puts it back into the editor while the same document is open.
  */
-function restoreDraft(io: DocumentLoaderIo, promptId: string, server: DocFields): string {
-  const storage = io.getStorage?.() ?? null
-  const raw = readDraftRaw(storage, promptId)
-  const decision = resolveDraft(server, parseDraft(raw))
-  if (decision.kind !== "apply" && raw !== null) clearDraft(storage, promptId, raw)
+function warnConflict(ctx: LoadContext, storage: DraftStorage | null, content: string): void {
+  stashConflict(storage, ctx.promptId, content)
+  toast.warning(CONFLICT_TOAST, {
+    duration: CONFLICT_TOAST_MS,
+    action: {
+      label: CONFLICT_ACTION,
+      onClick: () => {
+        if (ctx.monacoPromptIdRef.current === ctx.promptId) ctx.dispatch({ type: "content", value: content })
+      },
+    },
+  })
+}
+
+/**
+ * T6. The working content for a document just read from the server: a stored draft that applies, else the server's.
+ * A draft that does not apply was consumed here, so this is the only place that removes it; an applied v1 draft is
+ * rewritten by useDraftSync in the same commit, and an applied legacy value is migrated to v1 first, then removed.
+ */
+function restoreDraft(ctx: LoadContext, server: DocFields): string {
+  const storage = ctx.io.getStorage?.() ?? null
+  const read = readDraft(storage, ctx.promptId)
+  const decision = resolveDraft(server, read?.draft ?? null)
+  if (read && decision.kind === "apply" && read.legacy) {
+    writeDraft(storage, ctx.promptId, { content: decision.content, base: hashContent(server.content) })
+  }
+  if (read && (decision.kind !== "apply" || read.legacy)) discardRead(storage, ctx.promptId, read)
   if (decision.kind === "apply") toast.info(RESTORED_TOAST)
-  if (decision.kind === "conflict") toast.warning(CONFLICT_TOAST)
+  if (decision.kind === "conflict" && read) warnConflict(ctx, storage, read.draft.content)
   return decision.kind === "apply" ? decision.content : server.content
 }
 
@@ -255,9 +294,18 @@ function fromServer(ctx: LoadContext, data: PromptWithFolder): DocumentFields {
   return {
     promptData: data,
     title: data.title,
-    content: restoreDraft(ctx.io, ctx.promptId, server),
+    content: restoreDraft(ctx, server),
     lastSaved: new Date(data.updated_at),
     synced: { promptId: ctx.promptId, ...server },
+  }
+}
+
+/** A rejected fetch (offline, a deploy skew) takes the same path as a failed one, so `loading` never sticks. */
+async function fetchDocument(ctx: LoadContext): Promise<ActionResult> {
+  try {
+    return await ctx.io.fetchPrompt(ctx.promptId)
+  } catch {
+    return { success: false, error: LOAD_FAILED }
   }
 }
 
@@ -288,7 +336,7 @@ async function runLoad(ctx: LoadContext): Promise<void> {
   }
 
   dispatch({ type: "loading" })
-  const result = await ctx.io.fetchPrompt(promptId)
+  const result = await fetchDocument(ctx)
   // Reason: whoever aborted this run (a newer document, or unmount) owns the shared state.
   if (ctx.signal.aborted) return
   if (!result.success) {

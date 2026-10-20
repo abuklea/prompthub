@@ -8,7 +8,7 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 12:50 GMT+10
-Last modified: 20/10/2026 13:03 GMT+10
+Last modified: 20/10/2026 13:20 GMT+10
 ---------------
 Proves the draft protocol of wip/P7S1-draft-spike.ts together with the loader spike (wip/P7S1-loader-spike.ts): the pure
 helpers, scenarios S-1 to S-14 of PRPs/docs/P7S1-editor-persistence-contracts.md, and an invariant over a seeded random
@@ -16,36 +16,50 @@ walk. A "reload" is an unmount followed by a new mount against the same fake ser
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-draft-spike.test.tsx
 
 Changelog:
-20/10/2026 13:03 GMT+10 | Scenarios for the legacy rule, S-10b, S-11b and ownership across a switch; resolveDraft takes the document
+20/10/2026 13:20 GMT+10 | Tests for the v1 key, the legacy key, the kept conflict and its action, viewState, saveStatus and needsAutoSave with the document
+20/10/2026 13:03 GMT+10 | Scenarios for the legacy rule, S-10b, S-11b and ownership across a switch
 20/10/2026 12:50 GMT+10 | Created
 */
 
 import { StrictMode } from "react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
-import { act, renderHook } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { act, cleanup, renderHook } from "@testing-library/react"
 import { toast } from "sonner"
 import {
   clearDraft,
+  conflictKey,
+  discardRead,
+  draftKey,
   getBrowserStorage,
   hashContent,
+  legacyDraftKey,
   needsAutoSave,
   parseDraft,
   readDraft,
-  readDraftRaw,
+  readRaw,
+  removeIfUnchanged,
   resolveDraft,
   sameFields,
+  saveStatus,
+  stashConflict,
   useDraftSync,
+  viewState,
   writeDraft,
 } from "./P7S1-draft-spike"
-import { clearDocumentCache, setDocumentCacheEntry, useDocumentLoader } from "./P7S1-loader-spike"
+import {
+  CONFLICT_ACTION,
+  CONFLICT_TOAST,
+  RESTORED_TOAST,
+  clearDocumentCache,
+  setDocumentCacheEntry,
+  useDocumentLoader,
+} from "./P7S1-loader-spike"
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), info: vi.fn(), warning: vi.fn(), success: vi.fn() } }))
 
 const A = "11111111-1111-4111-8111-111111111111"
 const B = "22222222-2222-4222-8222-222222222222"
 const NOW = new Date("2026-10-20T01:00:00.000Z")
-const RESTORED_TOAST = "Restored unsaved changes from browser storage"
-const CONFLICT_TOAST = "Local unsaved changes were not restored because the document changed on the server"
 
 function makeStorage(initial = {}) {
   const map = new Map(Object.entries(initial))
@@ -141,13 +155,20 @@ function autosaveSucceeds(world, hook) {
   return accepted
 }
 
-const stored = (world, id = A) => world.storage.getItem(`prompt-${id}`)
+const stored = (world, id = A) => world.storage.getItem(draftKey(id))
+const storedLegacy = (world, id = A) => world.storage.getItem(legacyDraftKey(id))
+const storedConflict = (world, id = A) => world.storage.getItem(conflictKey(id))
 const draftOf = (world, id = A) => JSON.parse(stored(world, id))
+const v1 = (base, content) => JSON.stringify({ v: 1, base, content })
 
 beforeEach(() => {
   vi.clearAllMocks()
   clearDocumentCache()
   window.localStorage.clear()
+})
+
+afterEach(() => {
+  cleanup()
 })
 
 describe("hashContent", () => {
@@ -170,20 +191,16 @@ describe("hashContent", () => {
 })
 
 describe("parseDraft", () => {
-  const v1 = JSON.stringify({ v: 1, base: "5:abc", content: "text" })
-
-  it.each([[null], [""]])("returns null for %j", (raw) => {
-    expect(parseDraft(raw)).toBeNull()
-  })
-
-  it("reads a v1 draft, including an empty content", () => {
-    expect(parseDraft(v1)).toEqual({ content: "text", base: "5:abc" })
-    expect(parseDraft(JSON.stringify({ v: 1, base: "0:0", content: "" }))).toEqual({ content: "", base: "0:0" })
+  it("reads a v1 envelope, including an empty content", () => {
+    expect(parseDraft(v1("5:abc", "text"))).toEqual({ content: "text", base: "5:abc" })
+    expect(parseDraft(v1("0:0", ""))).toEqual({ content: "", base: "0:0" })
   })
 
   it.each([
+    ["null", null],
+    ["an empty string", ""],
     ["a plain string", "just some text"],
-    ["a wrong version", JSON.stringify({ v: 2, base: "x", content: "c" })],
+    ["another version", JSON.stringify({ v: 2, base: "x", content: "c" })],
     ["an empty base", JSON.stringify({ v: 1, base: "", content: "c" })],
     ["a non-string content", JSON.stringify({ v: 1, base: "x", content: 5 })],
     ["malformed JSON", '{"v":1,"base":"x"'],
@@ -191,8 +208,42 @@ describe("parseDraft", () => {
     ["a JSON array", "[1,2]"],
     ["a JSON string", '"quoted"'],
     ["JSON null", "null"],
-  ])("treats %s as a legacy raw value: the text is the content", (_name, raw) => {
-    expect(parseDraft(raw)).toEqual({ content: raw, base: null })
+  ])("returns null for %s: only a v1 envelope is a draft", (_name, raw) => {
+    expect(parseDraft(raw)).toBeNull()
+  })
+})
+
+describe("readDraft", () => {
+  it("reads the v1 envelope from its own key", () => {
+    const storage = makeStorage({ [draftKey(A)]: v1("5:abc", "text") })
+    expect(readDraft(storage, A)).toEqual({ draft: { content: "text", base: "5:abc" }, raw: v1("5:abc", "text"), legacy: false })
+  })
+
+  it("falls back to the raw text of the removed hook, which has no base", () => {
+    const storage = makeStorage({ [legacyDraftKey(A)]: "old text" })
+    expect(readDraft(storage, A)).toEqual({ draft: { content: "old text", base: null }, raw: "old text", legacy: true })
+  })
+
+  it("prefers the v1 envelope when both keys exist", () => {
+    const storage = makeStorage({ [draftKey(A)]: v1("5:abc", "new"), [legacyDraftKey(A)]: "old" })
+    expect(readDraft(storage, A).draft.content).toBe("new")
+  })
+
+  it("ignores an empty legacy value and an unreadable v1 value", () => {
+    expect(readDraft(makeStorage({ [legacyDraftKey(A)]: "" }), A)).toBeNull()
+    expect(readDraft(makeStorage({ [draftKey(A)]: JSON.stringify({ v: 2, base: "x", content: "c" }) }), A)).toBeNull()
+  })
+
+  it("treats text that looks like a v1 envelope under the legacy key as text", () => {
+    const lookalike = v1("5:abc", "inner")
+    const storage = makeStorage({ [legacyDraftKey(A)]: lookalike })
+    expect(readDraft(storage, A)).toEqual({ draft: { content: lookalike, base: null }, raw: lookalike, legacy: true })
+  })
+
+  it("never throws: a null storage and a blocked storage read as no draft", () => {
+    expect(readDraft(null, A)).toBeNull()
+    expect(readDraft(makeBrokenStorage(), A)).toBeNull()
+    expect(readRaw(makeBrokenStorage(), "k")).toBeNull()
   })
 })
 
@@ -210,15 +261,9 @@ describe("resolveDraft", () => {
   })
 
   it("applies a legacy draft only to a document that was never saved (blank title)", () => {
-    expect(resolveDraft(unsaved, { content: "legacy", base: null })).toEqual({ kind: "apply", content: "legacy" })
-    expect(resolveDraft({ title: "  ", content: text }, { content: "legacy", base: null })).toEqual({
-      kind: "apply",
-      content: "legacy",
-    })
-    expect(resolveDraft({ title: "", content: text }, { content: "legacy", base: null })).toEqual({
-      kind: "apply",
-      content: "legacy",
-    })
+    for (const title of [null, "", "  "]) {
+      expect(resolveDraft({ title, content: text }, { content: "legacy", base: null })).toEqual({ kind: "apply", content: "legacy" })
+    }
   })
 
   it("reports a conflict for a legacy draft that differs from a saved document: it is usually older than the server", () => {
@@ -238,12 +283,13 @@ describe("resolveDraft", () => {
   })
 })
 
-describe("writeDraft, readDraft and clearDraft", () => {
-  it("round-trips a draft and returns the raw value written", () => {
+describe("writeDraft, clearDraft, removeIfUnchanged, stashConflict and discardRead", () => {
+  it("writeDraft stores the envelope under the v1 key and returns the raw value written", () => {
     const storage = makeStorage()
     const raw = writeDraft(storage, A, { content: "text", base: "4:x" })
-    expect(raw).toBe(storage.getItem(`prompt-${A}`))
-    expect(readDraft(storage, A)).toEqual({ content: "text", base: "4:x" })
+    expect(raw).toBe(v1("4:x", "text"))
+    expect(storage.getItem(draftKey(A))).toBe(raw)
+    expect(storage.getItem(legacyDraftKey(A))).toBeNull()
   })
 
   it("never throws: a null storage, a blocked storage and a refused write all degrade to null", () => {
@@ -252,25 +298,42 @@ describe("writeDraft, readDraft and clearDraft", () => {
     expect(writeDraft(null, A, { content: "t", base: "b" })).toBeNull()
     expect(writeDraft(makeBrokenStorage(), A, { content: "t", base: "b" })).toBeNull()
     expect(writeDraft(refusing, A, { content: "t", base: "b" })).toBeNull()
-    expect(readDraftRaw(null, A)).toBeNull()
-    expect(readDraftRaw(makeBrokenStorage(), A)).toBeNull()
-    expect(readDraft(makeBrokenStorage(), A)).toBeNull()
     expect(() => clearDraft(null, A, "x")).not.toThrow()
     expect(() => clearDraft(makeBrokenStorage(), A, "x")).not.toThrow()
+    expect(() => stashConflict(refusing, A, "text")).not.toThrow()
+    expect(() => stashConflict(null, A, "text")).not.toThrow()
   })
 
-  it("clearDraft removes the key only while it still holds the owned raw value", () => {
-    const storage = makeStorage({ [`prompt-${A}`]: "mine" })
-    clearDraft(storage, A, "someone else's")
-    expect(storage.getItem(`prompt-${A}`)).toBe("mine")
-    clearDraft(storage, A, "mine")
-    expect(storage.getItem(`prompt-${A}`)).toBeNull()
+  it("removeIfUnchanged removes the key only while it still holds the given raw value", () => {
+    const storage = makeStorage({ k: "mine" })
+    removeIfUnchanged(storage, "k", "someone else's")
+    expect(storage.getItem("k")).toBe("mine")
+    removeIfUnchanged(storage, "k", "mine")
+    expect(storage.getItem("k")).toBeNull()
   })
 
   it("clearDraft with no ownership leaves an existing draft alone", () => {
-    const storage = makeStorage({ [`prompt-${A}`]: "theirs" })
+    const storage = makeStorage({ [draftKey(A)]: "theirs" })
     clearDraft(storage, A, null)
-    expect(storage.getItem(`prompt-${A}`)).toBe("theirs")
+    expect(storage.getItem(draftKey(A))).toBe("theirs")
+  })
+
+  it("stashConflict keeps the text in its own slot, one per document", () => {
+    const storage = makeStorage()
+    stashConflict(storage, A, "first")
+    stashConflict(storage, A, "second")
+    expect(storage.getItem(conflictKey(A))).toBe("second")
+    expect(conflictKey(A).startsWith("prompt-")).toBe(true)
+  })
+
+  it("discardRead removes the key the draft was read from, and only while unchanged", () => {
+    const storage = makeStorage({ [draftKey(A)]: v1("1:a", "x"), [legacyDraftKey(B)]: "old" })
+    discardRead(storage, A, { raw: "different", legacy: false })
+    expect(storage.getItem(draftKey(A))).not.toBeNull()
+    discardRead(storage, A, { raw: v1("1:a", "x"), legacy: false })
+    expect(storage.getItem(draftKey(A))).toBeNull()
+    discardRead(storage, B, { raw: "old", legacy: true })
+    expect(storage.getItem(legacyDraftKey(B))).toBeNull()
   })
 })
 
@@ -295,23 +358,45 @@ describe("getBrowserStorage", () => {
   })
 })
 
-describe("sameFields and needsAutoSave", () => {
+describe("sameFields, needsAutoSave, viewState and saveStatus", () => {
   const synced = { promptId: A, title: "T", content: "c" }
 
-  it("treats a null title and an empty title as the same", () => {
+  it("sameFields treats a null title and an empty title as the same", () => {
     expect(sameFields({ title: null, content: "c" }, { title: "", content: "c" })).toBe(true)
     expect(sameFields({ title: "T", content: "c" }, { title: "U", content: "c" })).toBe(false)
   })
 
   it.each([
-    ["no baseline", { title: "T", content: "d" }, null, false],
-    ["equal fields", { title: "T", content: "c" }, synced, false],
-    ["changed content", { title: "T", content: "d" }, synced, true],
-    ["changed title", { title: "U", content: "c" }, synced, true],
-    ["a null title", { title: null, content: "d" }, synced, false],
-    ["a whitespace title", { title: "   ", content: "d" }, synced, false],
-  ])("needsAutoSave with %s is %s", (_name, working, baseline, expected) => {
-    expect(needsAutoSave(working, baseline)).toBe(expected)
+    ["no baseline", A, { title: "T", content: "d" }, null, false],
+    ["equal fields", A, { title: "T", content: "c" }, synced, false],
+    ["changed content", A, { title: "T", content: "d" }, synced, true],
+    ["changed title", A, { title: "U", content: "c" }, synced, true],
+    ["a null title", A, { title: null, content: "d" }, synced, false],
+    ["a whitespace title", A, { title: "   ", content: "d" }, synced, false],
+    ["a baseline for another document", B, { title: "T", content: "d" }, synced, false],
+  ])("needsAutoSave with %s is %s", (_name, promptId, working, baseline, expected) => {
+    expect(needsAutoSave(promptId, working, baseline)).toBe(expected)
+  })
+
+  it.each([
+    ["no document", { promptId: "", error: "", loading: false, ready: false }, "empty"],
+    ["a failed load, which is neither loading nor ready", { promptId: A, error: "x", loading: false, ready: false }, "error"],
+    ["an error while loading", { promptId: A, error: "x", loading: true, ready: false }, "error"],
+    ["loading", { promptId: A, error: "", loading: true, ready: false }, "loading"],
+    ["not loading but not ready: the render where the document just changed", { promptId: A, error: "", loading: false, ready: false }, "loading"],
+    ["ready", { promptId: A, error: "", loading: false, ready: true }, "editor"],
+  ])("viewState for %s is %s", (_name, state, expected) => {
+    expect(viewState(state)).toBe(expected)
+  })
+
+  it.each([
+    ["autosaving", true, { title: "T", content: "d" }, synced, "saving"],
+    ["no baseline", false, { title: "T", content: "c" }, null, "unsaved"],
+    ["equal to the baseline", false, { title: "T", content: "c" }, synced, "saved"],
+    ["a draft applied over the baseline", false, { title: "T", content: "d" }, synced, "unsaved"],
+    ["a title typed over a null title", false, { title: "T", content: "c" }, { ...synced, title: null }, "unsaved"],
+  ])("saveStatus while %s is %s", (_name, autoSaving, working, baseline, expected) => {
+    expect(saveStatus({ autoSaving, working, synced: baseline })).toBe(expected)
   })
 })
 
@@ -345,7 +430,7 @@ describe("draft protocol scenarios", () => {
     expect(second.result.current.content).toBe("typed")
     expect(second.result.current.synced.content).toBe("server")
     expect(toast.info).toHaveBeenCalledWith(RESTORED_TOAST)
-    expect(needsAutoSave(second.result.current, second.result.current.synced)).toBe(true)
+    expect(needsAutoSave(A, second.result.current, second.result.current.synced)).toBe(true)
 
     autosaveSucceeds(world, second)
     expect(stored(world)).toBeNull()
@@ -386,7 +471,7 @@ describe("draft protocol scenarios", () => {
     const second = await open(world)
     expect(second.result.current.content).toBe("typed")
     expect(second.result.current.title).toBeNull()
-    expect(needsAutoSave(second.result.current, second.result.current.synced)).toBe(false)
+    expect(needsAutoSave(A, second.result.current, second.result.current.synced)).toBe(false)
     expect(draftOf(world).content).toBe("typed")
   })
 
@@ -403,49 +488,92 @@ describe("draft protocol scenarios", () => {
     expect(toast.warning).not.toHaveBeenCalled()
   })
 
-  it("S-7a: a legacy raw draft for a document that was never saved is its only copy: applied once, rewritten as v1", async () => {
+  it("S-7a: a legacy raw draft for a document that was never saved is its only copy: applied, migrated to v1", async () => {
     world = makeWorld({ [A]: { title: null, content: "" } })
-    world.storage.map.set(`prompt-${A}`, "legacy text")
+    world.storage.map.set(legacyDraftKey(A), "legacy text")
     const hook = await open(world)
     expect(hook.result.current.content).toBe("legacy text")
     expect(toast.info).toHaveBeenCalledWith(RESTORED_TOAST)
     expect(draftOf(world)).toEqual({ v: 1, base: hashContent(""), content: "legacy text" })
+    expect(storedLegacy(world)).toBeNull()
   })
 
-  it("S-7b: a legacy raw draft that differs from a saved document is not applied: the server wins, with a warning", async () => {
-    world.storage.map.set(`prompt-${A}`, "stale legacy text")
+  it("S-7b: a legacy raw draft that differs from a saved document is not applied: the server wins, the text is kept", async () => {
+    world.storage.map.set(legacyDraftKey(A), "stale legacy text")
     const hook = await open(world)
     expect(hook.result.current.content).toBe("server")
-    expect(toast.warning).toHaveBeenCalledWith(CONFLICT_TOAST)
+    expect(toast.warning).toHaveBeenCalledTimes(1)
     expect(toast.info).not.toHaveBeenCalled()
     expect(stored(world)).toBeNull()
-    expect(needsAutoSave(hook.result.current, hook.result.current.synced)).toBe(false)
+    expect(storedLegacy(world)).toBeNull()
+    expect(storedConflict(world)).toBe("stale legacy text")
+    expect(needsAutoSave(A, hook.result.current, hook.result.current.synced)).toBe(false)
   })
 
-  it("S-8: a draft written against other server content loses to the server, with a warning, and is removed", async () => {
-    world.storage.map.set(
-      `prompt-${A}`,
-      JSON.stringify({ v: 1, base: hashContent("older server"), content: "stale local" })
-    )
+  it("S-7c: a legacy raw draft equal to the server content is removed without a toast; an empty one is ignored", async () => {
+    world.storage.map.set(legacyDraftKey(A), "server")
+    await open(world)
+    expect(storedLegacy(world)).toBeNull()
+    expect(toast.info).not.toHaveBeenCalled()
+    expect(toast.warning).not.toHaveBeenCalled()
+  })
+
+  it("S-7d: when both keys exist the v1 draft wins and the legacy value is left for the next migration", async () => {
+    world.storage.map.set(draftKey(A), v1(hashContent("server"), "from v1"))
+    world.storage.map.set(legacyDraftKey(A), "from legacy")
+    const hook = await open(world)
+    expect(hook.result.current.content).toBe("from v1")
+    expect(storedLegacy(world)).toBe("from legacy")
+  })
+
+  it("S-8: a draft written against other server content loses to the server, with a warning, and its text is kept", async () => {
+    world.storage.map.set(draftKey(A), v1(hashContent("older server"), "stale local"))
     const hook = await open(world)
     expect(hook.result.current.content).toBe("server")
     expect(hook.result.current.synced.content).toBe("server")
-    expect(toast.warning).toHaveBeenCalledWith(CONFLICT_TOAST)
+    expect(toast.warning).toHaveBeenCalledTimes(1)
+    expect(toast.warning.mock.calls[0][0]).toBe(CONFLICT_TOAST)
     expect(toast.info).not.toHaveBeenCalled()
     expect(stored(world)).toBeNull()
+    expect(storedConflict(world)).toBe("stale local")
+  })
+
+  it("S-8b: the conflict toast's action puts the kept text back, and the writer and autosave then treat it as an edit", async () => {
+    world.storage.map.set(draftKey(A), v1(hashContent("older server"), "stale local"))
+    const hook = await open(world)
+    const options = toast.warning.mock.calls[0][1]
+    expect(options.action.label).toBe(CONFLICT_ACTION)
+
+    act(() => options.action.onClick())
+    expect(hook.result.current.content).toBe("stale local")
+    expect(draftOf(world)).toEqual({ v: 1, base: hashContent("server"), content: "stale local" })
+    expect(needsAutoSave(A, hook.result.current, hook.result.current.synced)).toBe(true)
+  })
+
+  it("S-8c: the conflict toast's action does nothing once another document is open", async () => {
+    world = makeWorld({ [A]: { title: "A", content: "A server" }, [B]: { title: "B", content: "B server" } })
+    world.storage.map.set(draftKey(A), v1(hashContent("older"), "stale local"))
+    const hook = await open(world, A)
+    const options = toast.warning.mock.calls[0][1]
+
+    hook.rerender({ promptId: B, io: world.io })
+    await settle()
+    act(() => options.action.onClick())
+    expect(hook.result.current.content).toBe("B server")
+    expect(stored(world, B)).toBeNull()
   })
 
   it("S-9: a draft equal to the server content is removed without a toast, in v1 and in legacy form", async () => {
-    world.storage.map.set(`prompt-${A}`, JSON.stringify({ v: 1, base: hashContent("older"), content: "server" }))
+    world.storage.map.set(draftKey(A), v1(hashContent("older"), "server"))
     const first = await open(world)
     expect(first.result.current.content).toBe("server")
     expect(stored(world)).toBeNull()
     first.unmount()
 
-    world.storage.map.set(`prompt-${A}`, "server")
+    world.storage.map.set(legacyDraftKey(A), "server")
     const second = await open(world)
     expect(second.result.current.content).toBe("server")
-    expect(stored(world)).toBeNull()
+    expect(storedLegacy(world)).toBeNull()
     expect(toast.info).not.toHaveBeenCalled()
     expect(toast.warning).not.toHaveBeenCalled()
   })
@@ -463,7 +591,7 @@ describe("draft protocol scenarios", () => {
     expect(stored(world)).toBeNull()
   })
 
-  it("S-10b (accepted limitation): typing after a lost autosave response is a conflict on reload and is not restored", async () => {
+  it("S-10b: typing after a lost autosave response is a conflict on reload; the text is kept and offered, not deleted", async () => {
     const first = await open(world)
     type(first, "one")
     world.server.set(A, { title: "Title", content: "one" })
@@ -472,8 +600,10 @@ describe("draft protocol scenarios", () => {
 
     const second = await open(world)
     expect(second.result.current.content).toBe("one")
-    expect(toast.warning).toHaveBeenCalledWith(CONFLICT_TOAST)
-    expect(stored(world)).toBeNull()
+    expect(toast.warning).toHaveBeenCalledTimes(1)
+    expect(storedConflict(world)).toBe("one two")
+    act(() => toast.warning.mock.calls[0][1].action.onClick())
+    expect(second.result.current.content).toBe("one two")
   })
 
   it("S-11: two tabs share one key; a tab removes only the value it wrote", async () => {
@@ -571,21 +701,21 @@ describe("draft protocol scenarios", () => {
     }
   })
 
-  it("S-14: stored JSON that is not a v1 draft is the text itself, subject to the legacy rule", async () => {
-    world = makeWorld({ [A]: { title: null, content: "" } })
-    world.storage.map.set(`prompt-${A}`, '{"foo":1}')
+  it("S-14: a value under the v1 key that is not a v1 envelope is left alone and never applied", async () => {
+    world.storage.map.set(draftKey(A), JSON.stringify({ v: 2, base: "x", content: "from the future" }))
     const hook = await open(world)
-    expect(hook.result.current.content).toBe('{"foo":1}')
-    expect(toast.info).toHaveBeenCalledWith(RESTORED_TOAST)
-    hook.unmount()
+    expect(hook.result.current.content).toBe("server")
+    expect(toast.info).not.toHaveBeenCalled()
+    expect(toast.warning).not.toHaveBeenCalled()
+    expect(JSON.parse(stored(world)).v).toBe(2)
+  })
 
-    toast.info.mockClear()
-    world = makeWorld({ [A]: { title: "Title", content: "server" } })
-    world.storage.map.set(`prompt-${A}`, '{"foo":1}')
-    const saved = await open(world)
-    expect(saved.result.current.content).toBe("server")
-    expect(toast.warning).toHaveBeenCalledWith(CONFLICT_TOAST)
-    expect(stored(world)).toBeNull()
+  it("S-14b: text under the legacy key that looks like an envelope is only text", async () => {
+    world = makeWorld({ [A]: { title: null, content: "" } })
+    const lookalike = v1("5:abc", "inner")
+    world.storage.map.set(legacyDraftKey(A), lookalike)
+    const hook = await open(world)
+    expect(hook.result.current.content).toBe(lookalike)
   })
 
   it("typing while an autosave request is in flight keeps a draft against the new baseline", async () => {
@@ -629,7 +759,7 @@ describe("draft protocol scenarios", () => {
     hook.rerender({ promptId: B, io: world.io })
     await settle()
     expect(hook.result.current.content).toBe("B server")
-    expect(world.storage.sets.filter((s) => s.key === `prompt-${B}`)).toHaveLength(0)
+    expect(world.storage.sets.filter((s) => s.key === draftKey(B))).toHaveLength(0)
     expect(stored(world, B)).toBeNull()
     expect(draftOf(world, A).content).toBe("A typed")
 
@@ -651,9 +781,9 @@ describe("draft protocol scenarios", () => {
     world = makeWorld({ [A]: { title: "Title", content: "server" } }, window.localStorage)
     const hook = await open(world)
     type(hook, "typed")
-    expect(JSON.parse(window.localStorage.getItem(`prompt-${A}`)).content).toBe("typed")
+    expect(JSON.parse(window.localStorage.getItem(draftKey(A))).content).toBe("typed")
     autosaveSucceeds(world, hook)
-    expect(window.localStorage.getItem(`prompt-${A}`)).toBeNull()
+    expect(window.localStorage.getItem(draftKey(A))).toBeNull()
   })
 })
 
@@ -671,7 +801,7 @@ describe("invariant over a seeded random walk", () => {
   function expectInvariant(world, hook) {
     const { ready, content, synced } = hook.result.current
     if (!ready) return
-    const raw = world.storage.getItem(`prompt-${synced.promptId}`)
+    const raw = world.storage.getItem(draftKey(synced.promptId))
     if (content === synced.content) {
       expect(raw).toBeNull()
     } else {
@@ -683,7 +813,7 @@ describe("invariant over a seeded random walk", () => {
     const rand = mulberry32(seed)
     const world = makeWorld({ [A]: { title: "Title", content: "server" } })
     let hook = await open(world)
-    const texts = ["", "a", "ab", "abc", "server", "line one\nline two", "{\"v\":1}"]
+    const texts = ["", "a", "ab", "abc", "server", "line one\nline two", '{"v":1}']
 
     for (let step = 0; step < 150; step++) {
       const op = Math.floor(rand() * 5)

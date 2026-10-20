@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript React hook and helpers (research spike, not imported by the application)
 
 Created: 20/10/2026 12:48 GMT+10
-Last modified: 20/10/2026 13:03 GMT+10
+Last modified: 20/10/2026 13:20 GMT+10
 ---------------
 P7S1 research spike. A standalone version of the sync helpers (sync.ts), the draft store (draft.ts) and the draft writer
 (hooks/useDraftSync.ts) decided in PRPs/docs/P7S1-editor-persistence-contracts.md. It exists to prove the draft protocol
@@ -15,12 +15,13 @@ into this file), before P7S1T4 writes sync.ts and draft.ts and P7S1T6 writes the
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-draft-spike.test.tsx
 
 Changelog:
-20/10/2026 13:03 GMT+10 | useDraftSync owns only what it wrote (a map per document); resolveDraft takes the document and applies a legacy draft only to an unsaved one
+20/10/2026 13:20 GMT+10 | Key prompt-v1-<id>, legacy key read once, conflicts kept and offered, needsAutoSave takes the document, viewState, saveStatus
+20/10/2026 13:03 GMT+10 | useDraftSync owns only what it wrote (a map per document); resolveDraft takes the document and a legacy rule
 20/10/2026 12:49 GMT+10 | Corrected the header timestamps to the filesystem record
 20/10/2026 12:48 GMT+10 | Created
 */
 
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { z } from "zod"
 
 // ---- sync.ts (T4) ----
@@ -39,9 +40,31 @@ export function sameFields(a: DocFields, b: DocFields): boolean {
   return (a.title ?? "") === (b.title ?? "") && a.content === b.content
 }
 
-export function needsAutoSave(working: DocFields, synced: SyncedState | null): boolean {
+/** True when the working copy of `promptId` has a title and differs from the baseline known for that same document. */
+export function needsAutoSave(promptId: string, working: DocFields, synced: SyncedState | null): boolean {
   // Reason: null?.trim() is undefined and undefined !== "" is true, so test truthiness, never inequality with "".
-  return synced !== null && Boolean(working.title?.trim()) && !sameFields(working, synced)
+  return synced !== null && synced.promptId === promptId && Boolean(working.title?.trim()) && !sameFields(working, synced)
+}
+
+export type ViewState = "empty" | "error" | "loading" | "editor"
+
+/**
+ * What EditorPane renders. The order matters: an error shows before the loading screen, because a failed load has
+ * `ready` false and `loading` false and would otherwise spin forever; the editor mounts only when `ready`, so Monaco's
+ * first render never receives another document's text.
+ */
+export function viewState(s: { promptId: string; error: string; loading: boolean; ready: boolean }): ViewState {
+  if (!s.promptId) return "empty"
+  if (s.error) return "error"
+  return s.loading || !s.ready ? "loading" : "editor"
+}
+
+export type SaveStatus = "saving" | "unsaved" | "saved"
+
+/** The footer's state, derived from the baseline so a restored draft or an untitled document never reads as saved. */
+export function saveStatus(s: { autoSaving: boolean; working: DocFields; synced: SyncedState | null }): SaveStatus {
+  if (s.autoSaving) return "saving"
+  return s.synced !== null && sameFields(s.working, s.synced) ? "saved" : "unsaved"
 }
 
 // ---- draft.ts (T4) ----
@@ -60,7 +83,12 @@ export interface StoredDraft {
 
 export type DraftDecision = { kind: "none" } | { kind: "apply"; content: string } | { kind: "conflict" }
 
-export const draftKey = (promptId: string) => `prompt-${promptId}`
+/** The v1 envelope. A new key, so a tab or a rollback running the old code never reads JSON as document text. */
+export const draftKey = (promptId: string) => `prompt-v1-${promptId}`
+/** The raw text the removed hook stored. Read once to migrate, then removed. */
+export const legacyDraftKey = (promptId: string) => `prompt-${promptId}`
+/** Where a draft that lost to the server is kept, one slot per document, for the "Restore my text" action. */
+export const conflictKey = (promptId: string) => `prompt-v1-${promptId}:conflict`
 
 /** cyrb53 by bryc (public domain): a fast 53-bit string hash. Not cryptographic; it only detects a changed text. */
 function cyrb53(str: string, seed = 0): number {
@@ -91,10 +119,10 @@ export function getBrowserStorage(): DraftStorage | null {
   }
 }
 
-export function readDraftRaw(storage: DraftStorage | null, promptId: string): string | null {
+export function readRaw(storage: DraftStorage | null, key: string): string | null {
   if (!storage) return null
   try {
-    return storage.getItem(draftKey(promptId))
+    return storage.getItem(key)
   } catch {
     return null
   }
@@ -102,21 +130,35 @@ export function readDraftRaw(storage: DraftStorage | null, promptId: string): st
 
 const draftV1Schema = z.object({ v: z.literal(1), base: z.string().min(1), content: z.string() })
 
+/** The v1 envelope, or null for anything else (absent, malformed, another version): unreadable values are left alone. */
 export function parseDraft(raw: string | null): StoredDraft | null {
-  if (raw === null || raw === "") return null
+  if (raw === null) return null
   try {
     const parsed = draftV1Schema.safeParse(JSON.parse(raw))
-    if (parsed.success) return { content: parsed.data.content, base: parsed.data.base }
+    return parsed.success ? { content: parsed.data.content, base: parsed.data.base } : null
   } catch {
-    // Not JSON: a raw string left by the removed hook.
+    return null
   }
-  // Reason: anything that is not a v1 draft is the text itself. An untitled document is never autosaved, so this
-  // value can be the only copy of the user's text, and discarding it would destroy content.
-  return { content: raw, base: null }
 }
 
-export function readDraft(storage: DraftStorage | null, promptId: string): StoredDraft | null {
-  return parseDraft(readDraftRaw(storage, promptId))
+/** A draft as read from the storage, with the raw value it came from so the reader can remove exactly that value. */
+export interface ReadDraft {
+  draft: StoredDraft
+  raw: string
+  legacy: boolean
+}
+
+/**
+ * The stored draft of a document: the v1 envelope, else the raw text of the removed hook (migrated on use). An empty
+ * legacy value is no draft. When both exist the v1 envelope wins.
+ */
+export function readDraft(storage: DraftStorage | null, promptId: string): ReadDraft | null {
+  const v1Raw = readRaw(storage, draftKey(promptId))
+  const v1 = parseDraft(v1Raw)
+  if (v1 && v1Raw !== null) return { draft: v1, raw: v1Raw, legacy: false }
+  const legacyRaw = readRaw(storage, legacyDraftKey(promptId))
+  if (legacyRaw) return { draft: { content: legacyRaw, base: null }, raw: legacyRaw, legacy: true }
+  return null
 }
 
 /** Returns the raw value written, or null when the storage refused it. Never throws. */
@@ -135,14 +177,33 @@ export function writeDraft(
   }
 }
 
-/** Compare-and-delete: removes the key only while it still holds `ownedRaw`, so another tab's draft survives. */
-export function clearDraft(storage: DraftStorage | null, promptId: string, ownedRaw: string | null): void {
+/** Compare-and-delete: removes the key only while it still holds `raw`. Best effort; localStorage has no atomic form. */
+export function removeIfUnchanged(storage: DraftStorage | null, key: string, raw: string | null): void {
   if (!storage) return
   try {
-    if (storage.getItem(draftKey(promptId)) === ownedRaw) storage.removeItem(draftKey(promptId))
+    if (storage.getItem(key) === raw) storage.removeItem(key)
   } catch {
-    // Storage unavailable: nothing to clear.
+    // Storage unavailable: nothing to remove.
   }
+}
+
+export function clearDraft(storage: DraftStorage | null, promptId: string, ownedRaw: string | null): void {
+  removeIfUnchanged(storage, draftKey(promptId), ownedRaw)
+}
+
+/** Keeps the text of a draft that lost to the server. One slot per document; a later conflict replaces it. */
+export function stashConflict(storage: DraftStorage | null, promptId: string, content: string): void {
+  if (!storage) return
+  try {
+    storage.setItem(conflictKey(promptId), content)
+  } catch {
+    // A full or blocked storage cannot keep it; the toast action still holds the text in memory.
+  }
+}
+
+/** Removes what the loader consumed (a draft that does not apply) so nothing else has to. */
+export function discardRead(storage: DraftStorage | null, promptId: string, read: ReadDraft): void {
+  removeIfUnchanged(storage, read.legacy ? legacyDraftKey(promptId) : draftKey(promptId), read.raw)
 }
 
 export function resolveDraft(server: DocFields, draft: StoredDraft | null): DraftDecision {
@@ -178,6 +239,9 @@ export function useDraftSync({ promptId, ready, content, synced, getStorage }: U
   // draft (an autosave can complete while another document is open), and a value this tab did not write is never
   // removed: another tab may hold a newer draft under the same key.
   const ownedRef = useRef(new Map<string, string>())
+  const syncedContent = synced?.content ?? null
+  // Reason: hashing the baseline on every keystroke is O(n); it changes only when the baseline does.
+  const base = useMemo(() => (syncedContent === null ? null : hashContent(syncedContent)), [syncedContent])
 
   useEffect(() => {
     getStorageRef.current = getStorage
@@ -186,10 +250,10 @@ export function useDraftSync({ promptId, ready, content, synced, getStorage }: U
   useEffect(() => {
     // Reason: `ready` is false in the render where promptId has just changed, so the old document's text is never
     // written under the new document's key (the P5S5 bleed).
-    if (!ready || synced === null) return
+    if (!ready || syncedContent === null || base === null) return
     const storage = getStorageRef.current()
     const owned = ownedRef.current
-    if (content === synced.content) {
+    if (content === syncedContent) {
       const raw = owned.get(promptId)
       if (raw !== undefined) {
         clearDraft(storage, promptId, raw)
@@ -197,8 +261,8 @@ export function useDraftSync({ promptId, ready, content, synced, getStorage }: U
       }
       return
     }
-    const written = writeDraft(storage, promptId, { content, base: hashContent(synced.content) })
+    const written = writeDraft(storage, promptId, { content, base })
     // Reason: a refused write leaves the older draft in the storage; keep owning it so the next clear removes it.
     if (written !== null) owned.set(promptId, written)
-  }, [promptId, ready, content, synced])
+  }, [promptId, ready, content, syncedContent, base])
 }

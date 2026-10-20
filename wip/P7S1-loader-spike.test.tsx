@@ -8,13 +8,14 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 12:33 GMT+10
-Last modified: 20/10/2026 13:03 GMT+10
+Last modified: 20/10/2026 13:20 GMT+10
 ---------------
 Proves the loader protocol of wip/P7S1-loader-spike.ts: loading, ready and synced after every path, including the paths
 the first PRP review found missing, plus an invariant over every render. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-loader-spike.test.tsx
 
 Changelog:
+20/10/2026 13:20 GMT+10 | Tests for a rejected fetch, applyServerState after unmount, the remembered identity and the cache user check
 20/10/2026 13:03 GMT+10 | Tests for same-document gating, the identity fallback, the first-render loading state and an emptied promptId
 20/10/2026 12:40 GMT+10 | Corrected the header timestamps to the filesystem record
 20/10/2026 12:33 GMT+10 | Readiness assertions use `ready`; added the every-render invariant test
@@ -22,11 +23,13 @@ Changelog:
 
 import { StrictMode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { act, renderHook } from "@testing-library/react"
+import { act, cleanup, renderHook } from "@testing-library/react"
 import {
   clearDocumentCache,
   getCachedDocument,
   IDENTITY_TIMEOUT_MS,
+  LOAD_FAILED,
+  resolveUserId,
   setDocumentCacheEntry,
   useDocumentLoader,
 } from "./P7S1-loader-spike"
@@ -116,6 +119,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  cleanup()
 })
 
 describe("loader protocol spike", () => {
@@ -422,5 +426,60 @@ describe("loader protocol spike", () => {
     await act(async () => {})
     expect(result.current.currentUserId).toBe("anonymous")
     expect(t.calls).toHaveLength(1)
+  })
+
+  it("a fetch that rejects ends like a failed one: an error, no loading, no baseline", async () => {
+    const t = makeIo()
+    const io = { ...t.io, fetchPrompt: () => Promise.reject(new Error("Failed to fetch")) }
+    const { result } = mount(io)
+    await t.resolveUser()
+    await act(async () => {})
+    expect(result.current.error).toBe(LOAD_FAILED)
+    expect(result.current.loading).toBe(false)
+    expect(result.current.synced).toBeNull()
+    expect(result.current.ready).toBe(false)
+  })
+
+  it("applyServerState called after the editor unmounted still replaces the cache entry", async () => {
+    const t = makeIo()
+    const { result, unmount } = mount(t.io)
+    await t.resolveUser()
+    await t.resolveFetch(A, serverRow(A, "A title", "A content"))
+    setDocumentCacheEntry("user-1", A, cacheEntryFor(A, "A title", "A content"))
+    const { applyServerState } = result.current
+    unmount()
+
+    applyServerState(A, { title: "Restored", content: "Restored content" })
+    const entry = getCachedDocument("user-1", A)
+    expect(entry.content).toBe("Restored content")
+    expect(entry.synced).toEqual({ promptId: A, title: "Restored", content: "Restored content" })
+  })
+})
+
+describe("document cache and remembered identity", () => {
+  it("getCachedDocument drops and never returns an entry written for another user", () => {
+    // Reason: the key is `${userId}-${promptId}`; these two pairs build the same key, so only the stored userId tells them apart.
+    setDocumentCacheEntry("a-b", "c", cacheEntryFor("c", "T", "text"))
+    expect(getCachedDocument("a", "b-c")).toBeNull()
+    expect(getCachedDocument("a-b", "c")).toBeNull()
+  })
+
+  it("resolveUserId looks the id up once, never remembers anonymous, and forgets on clearDocumentCache", async () => {
+    let lookups = 0
+    const lookup = (id) => () => {
+      lookups += 1
+      return Promise.resolve(id)
+    }
+    expect(await resolveUserId(lookup("anonymous"))).toBe("anonymous")
+    expect(await resolveUserId(lookup("anonymous"))).toBe("anonymous")
+    expect(lookups).toBe(2)
+
+    expect(await resolveUserId(lookup("user-1"))).toBe("user-1")
+    expect(await resolveUserId(lookup("user-2"))).toBe("user-1")
+    expect(lookups).toBe(3)
+
+    clearDocumentCache()
+    expect(await resolveUserId(lookup("user-2"))).toBe("user-2")
+    expect(lookups).toBe(4)
   })
 })
