@@ -8,21 +8,28 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 12:33 GMT+10
-Last modified: 20/10/2026 12:40 GMT+10
+Last modified: 20/10/2026 13:03 GMT+10
 ---------------
 Proves the loader protocol of wip/P7S1-loader-spike.ts: loading, ready and synced after every path, including the paths
 the first PRP review found missing, plus an invariant over every render. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-loader-spike.test.tsx
 
 Changelog:
+20/10/2026 13:03 GMT+10 | Tests for same-document gating, the identity fallback, the first-render loading state and an emptied promptId
 20/10/2026 12:40 GMT+10 | Corrected the header timestamps to the filesystem record
 20/10/2026 12:33 GMT+10 | Readiness assertions use `ready`; added the every-render invariant test
 */
 
 import { StrictMode } from "react"
-import { beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, renderHook } from "@testing-library/react"
-import { clearDocumentCache, setDocumentCacheEntry, useDocumentLoader } from "./P7S1-loader-spike"
+import {
+  clearDocumentCache,
+  getCachedDocument,
+  IDENTITY_TIMEOUT_MS,
+  setDocumentCacheEntry,
+  useDocumentLoader,
+} from "./P7S1-loader-spike"
 
 const A = "11111111-1111-4111-8111-111111111111"
 const B = "22222222-2222-4222-8222-222222222222"
@@ -93,8 +100,22 @@ function mount(io, promptId = A, options = {}) {
   return renderHook((props) => useDocumentLoader(props), { initialProps: { promptId, io }, ...options })
 }
 
+function cacheEntryFor(id, title, content) {
+  return {
+    promptData: serverRow(id, title, content).data,
+    title,
+    content,
+    lastSaved: NOW,
+    synced: { promptId: id, title, content },
+  }
+}
+
 beforeEach(() => {
   clearDocumentCache()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe("loader protocol spike", () => {
@@ -260,17 +281,146 @@ describe("loader protocol spike", () => {
     expect(result.current.synced.content).toBe("Autosaved")
   })
 
-  it("applyServerState replaces title, content, promptData and the baseline", async () => {
+  it("applyServerState replaces title, content, promptData and the baseline of the open document", async () => {
     const t = makeIo()
     const { result } = mount(t.io)
     await t.resolveUser()
     await t.resolveFetch(A, serverRow(A, "Server title", "Server content"))
+    let applied
     act(() => {
-      result.current.applyServerState({ title: "Restored title", content: "Restored content" })
+      applied = result.current.applyServerState(A, { title: "Restored title", content: "Restored content" })
     })
+    expect(applied).toBe(true)
     expect(result.current.title).toBe("Restored title")
     expect(result.current.content).toBe("Restored content")
     expect(result.current.promptData.content).toBe("Restored content")
     expect(result.current.synced).toEqual({ promptId: A, title: "Restored title", content: "Restored content" })
+  })
+
+  it("applyServerState for a document the editor has left changes that cache entry only", async () => {
+    const t = makeIo()
+    const { result, rerender } = mount(t.io)
+    await t.resolveUser()
+    await t.resolveFetch(A, serverRow(A, "A title", "A content"))
+    setDocumentCacheEntry("user-1", A, cacheEntryFor(A, "A title", "A content"))
+    setDocumentCacheEntry("user-1", B, cacheEntryFor(B, "B title", "B content"))
+    rerender({ promptId: B, io: t.io })
+    expectReady(result, B, "B title", "B content")
+
+    let applied
+    act(() => {
+      applied = result.current.applyServerState(A, { title: "Restored", content: "Restored content" })
+    })
+    expect(applied).toBe(false)
+    expectReady(result, B, "B title", "B content")
+    expect(result.current.lastSaved).toEqual(NOW)
+    const entry = getCachedDocument("user-1", A)
+    expect(entry.content).toBe("Restored content")
+    expect(entry.synced).toEqual({ promptId: A, title: "Restored", content: "Restored content" })
+    expect(entry.promptData.content).toBe("Restored content")
+  })
+
+  it("markSynced sets the baseline and lastSaved; a saved version also patches promptData", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] })
+    const later = new Date("2026-10-20T03:00:00.000Z")
+    vi.setSystemTime(later)
+    const t = makeIo()
+    const { result } = mount(t.io)
+    await t.resolveUser()
+    await t.resolveFetch(A, serverRow(A, "Server title", "Server content"))
+
+    act(() => {
+      result.current.markSynced({ promptId: A, title: "Server title", content: "Autosaved" })
+    })
+    expect(result.current.synced.content).toBe("Autosaved")
+    expect(result.current.lastSaved).toEqual(later)
+    expect(result.current.promptData.content).toBe("Server content")
+
+    act(() => {
+      result.current.markSynced({ promptId: A, title: "New title", content: "Saved" }, { version: true })
+    })
+    expect(result.current.promptData).toMatchObject({ title: "New title", content: "Saved", updated_at: later })
+    expect(result.current.content).toBe("Server content")
+  })
+
+  it("markSynced for a document the editor has left changes that cache entry only", async () => {
+    const t = makeIo()
+    const { result, rerender } = mount(t.io)
+    await t.resolveUser()
+    await t.resolveFetch(A, serverRow(A, "A title", "A content"))
+    setDocumentCacheEntry("user-1", A, cacheEntryFor(A, "A title", "A content"))
+    setDocumentCacheEntry("user-1", B, cacheEntryFor(B, "B title", "B content"))
+    rerender({ promptId: B, io: t.io })
+
+    let accepted
+    act(() => {
+      accepted = result.current.markSynced({ promptId: A, title: "A saved", content: "A saved content" }, { version: true })
+    })
+    expect(accepted).toBe(false)
+    expectReady(result, B, "B title", "B content")
+    expect(result.current.promptData.title).toBe("B title")
+    expect(result.current.lastSaved).toEqual(NOW)
+    const entry = getCachedDocument("user-1", A)
+    expect(entry.synced).toEqual({ promptId: A, title: "A saved", content: "A saved content" })
+    expect(entry.promptData).toMatchObject({ title: "A saved", content: "A saved content" })
+    expect(entry.content).toBe("A content")
+  })
+
+  it("the first render with a promptId is already loading", () => {
+    const t = makeIo()
+    const states = []
+    renderHook(
+      (props) => {
+        const s = useDocumentLoader(props)
+        states.push({ loading: s.loading, ready: s.ready })
+        return s
+      },
+      { initialProps: { promptId: A, io: t.io } }
+    )
+    expect(states[0]).toEqual({ loading: true, ready: false })
+  })
+
+  it("a render without a promptId is not loading and a promptId that goes empty wipes the document", async () => {
+    const t = makeIo()
+    const { result, rerender } = mount(t.io, "")
+    expect(result.current.loading).toBe(false)
+    expect(t.calls).toHaveLength(0)
+
+    rerender({ promptId: A, io: t.io })
+    await t.resolveUser()
+    await t.resolveFetch(A, serverRow(A, "Server title", "Server content"))
+    expectReady(result, A, "Server title", "Server content")
+
+    rerender({ promptId: "", io: t.io })
+    expect(result.current.loading).toBe(false)
+    expect(result.current.content).toBe("")
+    expect(result.current.synced).toBeNull()
+    expect(result.current.monacoPromptIdRef.current).toBeNull()
+  })
+
+  it("an identity lookup that never settles falls back to anonymous after the timeout, and a late answer is ignored", async () => {
+    vi.useFakeTimers()
+    const t = makeIo()
+    const { result } = mount(t.io)
+    expect(t.calls).toHaveLength(0)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(IDENTITY_TIMEOUT_MS)
+    })
+    expect(result.current.currentUserId).toBe("anonymous")
+    expect(t.calls).toHaveLength(1)
+
+    await t.resolveUser("user-1")
+    expect(result.current.currentUserId).toBe("anonymous")
+    expect(t.calls).toHaveLength(1)
+  })
+
+  it("an identity lookup that rejects falls back to anonymous", async () => {
+    const t = makeIo()
+    const io = { ...t.io, getUserId: () => Promise.reject(new Error("no session")) }
+    const { result } = mount(io)
+    await act(async () => {})
+    expect(result.current.currentUserId).toBe("anonymous")
+    expect(t.calls).toHaveLength(1)
   })
 })

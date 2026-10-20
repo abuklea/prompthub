@@ -1,0 +1,707 @@
+// @vitest-environment jsdom
+// @ts-nocheck -- research probe: see wip/P7S1-loader-race-diagnostic.test.tsx for why type-checking is off.
+/*
+Project: PromptHub
+Author: Allan James
+Source: wip/P7S1-draft-spike.test.tsx
+MIME: text/typescript
+Type: TypeScript React test (research spike, not part of the suite)
+
+Created: 20/10/2026 12:50 GMT+10
+Last modified: 20/10/2026 13:03 GMT+10
+---------------
+Proves the draft protocol of wip/P7S1-draft-spike.ts together with the loader spike (wip/P7S1-loader-spike.ts): the pure
+helpers, scenarios S-1 to S-14 of PRPs/docs/P7S1-editor-persistence-contracts.md, and an invariant over a seeded random
+walk. A "reload" is an unmount followed by a new mount against the same fake server and the same storage. Run with:
+npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-draft-spike.test.tsx
+
+Changelog:
+20/10/2026 13:03 GMT+10 | Scenarios for the legacy rule, S-10b, S-11b and ownership across a switch; resolveDraft takes the document
+20/10/2026 12:50 GMT+10 | Created
+*/
+
+import { StrictMode } from "react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { act, renderHook } from "@testing-library/react"
+import { toast } from "sonner"
+import {
+  clearDraft,
+  getBrowserStorage,
+  hashContent,
+  needsAutoSave,
+  parseDraft,
+  readDraft,
+  readDraftRaw,
+  resolveDraft,
+  sameFields,
+  useDraftSync,
+  writeDraft,
+} from "./P7S1-draft-spike"
+import { clearDocumentCache, setDocumentCacheEntry, useDocumentLoader } from "./P7S1-loader-spike"
+
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), info: vi.fn(), warning: vi.fn(), success: vi.fn() } }))
+
+const A = "11111111-1111-4111-8111-111111111111"
+const B = "22222222-2222-4222-8222-222222222222"
+const NOW = new Date("2026-10-20T01:00:00.000Z")
+const RESTORED_TOAST = "Restored unsaved changes from browser storage"
+const CONFLICT_TOAST = "Local unsaved changes were not restored because the document changed on the server"
+
+function makeStorage(initial = {}) {
+  const map = new Map(Object.entries(initial))
+  const api = {
+    map,
+    sets: [],
+    refuseWrites: false,
+    getItem: (key) => (map.has(key) ? map.get(key) : null),
+    setItem: (key, value) => {
+      if (api.refuseWrites) throw new Error("QuotaExceededError")
+      api.sets.push({ key, value })
+      map.set(key, value)
+    },
+    removeItem: (key) => {
+      map.delete(key)
+    },
+  }
+  return api
+}
+
+function makeBrokenStorage() {
+  const fail = () => {
+    throw new Error("storage blocked")
+  }
+  return { getItem: fail, setItem: fail, removeItem: fail }
+}
+
+/** A fake server (rows by id) and the io seam the loader reads: real promises, no mocks of repository modules. */
+function makeWorld(rows, storage = makeStorage()) {
+  const server = new Map(Object.entries(rows))
+  const io = {
+    getUserId: () => Promise.resolve("user-1"),
+    fetchPrompt: (id) =>
+      Promise.resolve(
+        server.has(id)
+          ? {
+              success: true,
+              data: {
+                id,
+                ...server.get(id),
+                created_at: NOW,
+                updated_at: NOW,
+                user_id: "user-1",
+                folder_id: "f1",
+                folder: { id: "f1", name: "Folder" },
+                tags: [],
+              },
+            }
+          : { success: false, error: "Prompt not found" }
+      ),
+    getStorage: () => storage,
+  }
+  return { server, storage, io }
+}
+
+/** What EditorPane composes: the loader plus the only draft writer. */
+function useEditor({ promptId, io }) {
+  const loader = useDocumentLoader({ promptId, io })
+  useDraftSync({
+    promptId,
+    ready: loader.ready,
+    content: loader.content,
+    synced: loader.synced,
+    getStorage: io.getStorage,
+  })
+  return loader
+}
+
+const settle = () =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+async function open(world, promptId = A, options = {}) {
+  const hook = renderHook((props) => useEditor(props), { initialProps: { promptId, io: world.io }, ...options })
+  await settle()
+  return hook
+}
+
+const type = (hook, text) =>
+  act(() => {
+    hook.result.current.setContent(text)
+  })
+
+/** The autosave's success path: the server now holds what was sent, and the editor learns it through markSynced. */
+function autosaveSucceeds(world, hook) {
+  const { title, content, synced } = hook.result.current
+  world.server.set(synced.promptId, { title, content })
+  let accepted
+  act(() => {
+    accepted = hook.result.current.markSynced({ promptId: synced.promptId, title, content })
+  })
+  return accepted
+}
+
+const stored = (world, id = A) => world.storage.getItem(`prompt-${id}`)
+const draftOf = (world, id = A) => JSON.parse(stored(world, id))
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  clearDocumentCache()
+  window.localStorage.clear()
+})
+
+describe("hashContent", () => {
+  it("is deterministic and starts with the length", () => {
+    expect(hashContent("hello")).toBe(hashContent("hello"))
+    expect(hashContent("hello").startsWith("5:")).toBe(true)
+    expect(hashContent("").startsWith("0:")).toBe(true)
+  })
+
+  it("differs for one changed character and for a different length", () => {
+    expect(hashContent("hello")).not.toBe(hashContent("hellp"))
+    expect(hashContent("hello")).not.toBe(hashContent("hello "))
+  })
+
+  it("has no collision across 10,000 distinct strings", () => {
+    const seen = new Set()
+    for (let i = 0; i < 10000; i++) seen.add(hashContent(`prompt number ${i} ${"x".repeat(i % 50)}`))
+    expect(seen.size).toBe(10000)
+  })
+})
+
+describe("parseDraft", () => {
+  const v1 = JSON.stringify({ v: 1, base: "5:abc", content: "text" })
+
+  it.each([[null], [""]])("returns null for %j", (raw) => {
+    expect(parseDraft(raw)).toBeNull()
+  })
+
+  it("reads a v1 draft, including an empty content", () => {
+    expect(parseDraft(v1)).toEqual({ content: "text", base: "5:abc" })
+    expect(parseDraft(JSON.stringify({ v: 1, base: "0:0", content: "" }))).toEqual({ content: "", base: "0:0" })
+  })
+
+  it.each([
+    ["a plain string", "just some text"],
+    ["a wrong version", JSON.stringify({ v: 2, base: "x", content: "c" })],
+    ["an empty base", JSON.stringify({ v: 1, base: "", content: "c" })],
+    ["a non-string content", JSON.stringify({ v: 1, base: "x", content: 5 })],
+    ["malformed JSON", '{"v":1,"base":"x"'],
+    ["valid JSON that is not a draft", '{"foo":1}'],
+    ["a JSON array", "[1,2]"],
+    ["a JSON string", '"quoted"'],
+    ["JSON null", "null"],
+  ])("treats %s as a legacy raw value: the text is the content", (_name, raw) => {
+    expect(parseDraft(raw)).toEqual({ content: raw, base: null })
+  })
+})
+
+describe("resolveDraft", () => {
+  const text = "server text"
+  const base = hashContent(text)
+  const saved = { title: "Title", content: text }
+  const unsaved = { title: null, content: text }
+
+  it("returns none without a draft and when the draft equals the server content", () => {
+    expect(resolveDraft(saved, null)).toEqual({ kind: "none" })
+    expect(resolveDraft(saved, { content: text, base })).toEqual({ kind: "none" })
+    expect(resolveDraft(saved, { content: text, base: null })).toEqual({ kind: "none" })
+    expect(resolveDraft(saved, { content: text, base: "9:other" })).toEqual({ kind: "none" })
+  })
+
+  it("applies a legacy draft only to a document that was never saved (blank title)", () => {
+    expect(resolveDraft(unsaved, { content: "legacy", base: null })).toEqual({ kind: "apply", content: "legacy" })
+    expect(resolveDraft({ title: "  ", content: text }, { content: "legacy", base: null })).toEqual({
+      kind: "apply",
+      content: "legacy",
+    })
+    expect(resolveDraft({ title: "", content: text }, { content: "legacy", base: null })).toEqual({
+      kind: "apply",
+      content: "legacy",
+    })
+  })
+
+  it("reports a conflict for a legacy draft that differs from a saved document: it is usually older than the server", () => {
+    expect(resolveDraft(saved, { content: "legacy", base: null })).toEqual({ kind: "conflict" })
+  })
+
+  it("applies a v1 draft whose base is the hash of the server content, including an empty draft", () => {
+    expect(resolveDraft(saved, { content: "local", base })).toEqual({ kind: "apply", content: "local" })
+    expect(resolveDraft(saved, { content: "", base })).toEqual({ kind: "apply", content: "" })
+    expect(resolveDraft(unsaved, { content: "local", base })).toEqual({ kind: "apply", content: "local" })
+  })
+
+  it("reports a conflict for a v1 draft whose base is another server content, whatever the title", () => {
+    const stale = { content: "local", base: hashContent("older") }
+    expect(resolveDraft(saved, stale)).toEqual({ kind: "conflict" })
+    expect(resolveDraft(unsaved, stale)).toEqual({ kind: "conflict" })
+  })
+})
+
+describe("writeDraft, readDraft and clearDraft", () => {
+  it("round-trips a draft and returns the raw value written", () => {
+    const storage = makeStorage()
+    const raw = writeDraft(storage, A, { content: "text", base: "4:x" })
+    expect(raw).toBe(storage.getItem(`prompt-${A}`))
+    expect(readDraft(storage, A)).toEqual({ content: "text", base: "4:x" })
+  })
+
+  it("never throws: a null storage, a blocked storage and a refused write all degrade to null", () => {
+    const refusing = makeStorage()
+    refusing.refuseWrites = true
+    expect(writeDraft(null, A, { content: "t", base: "b" })).toBeNull()
+    expect(writeDraft(makeBrokenStorage(), A, { content: "t", base: "b" })).toBeNull()
+    expect(writeDraft(refusing, A, { content: "t", base: "b" })).toBeNull()
+    expect(readDraftRaw(null, A)).toBeNull()
+    expect(readDraftRaw(makeBrokenStorage(), A)).toBeNull()
+    expect(readDraft(makeBrokenStorage(), A)).toBeNull()
+    expect(() => clearDraft(null, A, "x")).not.toThrow()
+    expect(() => clearDraft(makeBrokenStorage(), A, "x")).not.toThrow()
+  })
+
+  it("clearDraft removes the key only while it still holds the owned raw value", () => {
+    const storage = makeStorage({ [`prompt-${A}`]: "mine" })
+    clearDraft(storage, A, "someone else's")
+    expect(storage.getItem(`prompt-${A}`)).toBe("mine")
+    clearDraft(storage, A, "mine")
+    expect(storage.getItem(`prompt-${A}`)).toBeNull()
+  })
+
+  it("clearDraft with no ownership leaves an existing draft alone", () => {
+    const storage = makeStorage({ [`prompt-${A}`]: "theirs" })
+    clearDraft(storage, A, null)
+    expect(storage.getItem(`prompt-${A}`)).toBe("theirs")
+  })
+})
+
+describe("getBrowserStorage", () => {
+  it("returns window.localStorage", () => {
+    expect(getBrowserStorage()).toBe(window.localStorage)
+  })
+
+  it("returns null when reading the property throws", () => {
+    const original = Object.getOwnPropertyDescriptor(window, "localStorage")
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new Error("blocked")
+      },
+    })
+    try {
+      expect(getBrowserStorage()).toBeNull()
+    } finally {
+      if (original) Object.defineProperty(window, "localStorage", original)
+    }
+  })
+})
+
+describe("sameFields and needsAutoSave", () => {
+  const synced = { promptId: A, title: "T", content: "c" }
+
+  it("treats a null title and an empty title as the same", () => {
+    expect(sameFields({ title: null, content: "c" }, { title: "", content: "c" })).toBe(true)
+    expect(sameFields({ title: "T", content: "c" }, { title: "U", content: "c" })).toBe(false)
+  })
+
+  it.each([
+    ["no baseline", { title: "T", content: "d" }, null, false],
+    ["equal fields", { title: "T", content: "c" }, synced, false],
+    ["changed content", { title: "T", content: "d" }, synced, true],
+    ["changed title", { title: "U", content: "c" }, synced, true],
+    ["a null title", { title: null, content: "d" }, synced, false],
+    ["a whitespace title", { title: "   ", content: "d" }, synced, false],
+  ])("needsAutoSave with %s is %s", (_name, working, baseline, expected) => {
+    expect(needsAutoSave(working, baseline)).toBe(expected)
+  })
+})
+
+describe("draft protocol scenarios", () => {
+  let world
+
+  beforeEach(() => {
+    world = makeWorld({ [A]: { title: "Title", content: "server" } })
+  })
+
+  it("opening an unmodified document writes nothing", async () => {
+    await open(world)
+    expect(world.storage.sets).toHaveLength(0)
+    expect(stored(world)).toBeNull()
+  })
+
+  it("S-1: typing writes a v1 draft against the server content; a successful autosave removes it", async () => {
+    const hook = await open(world)
+    type(hook, "typed")
+    expect(draftOf(world)).toEqual({ v: 1, base: hashContent("server"), content: "typed" })
+    expect(autosaveSucceeds(world, hook)).toBe(true)
+    expect(stored(world)).toBeNull()
+  })
+
+  it("S-2: after a failed autosave the next open applies the draft with a toast and keeps the server as baseline", async () => {
+    const first = await open(world)
+    type(first, "typed")
+    first.unmount()
+
+    const second = await open(world)
+    expect(second.result.current.content).toBe("typed")
+    expect(second.result.current.synced.content).toBe("server")
+    expect(toast.info).toHaveBeenCalledWith(RESTORED_TOAST)
+    expect(needsAutoSave(second.result.current, second.result.current.synced)).toBe(true)
+
+    autosaveSucceeds(world, second)
+    expect(stored(world)).toBeNull()
+  })
+
+  it("S-3: clearing to empty with a successful autosave leaves no draft and no toast on reload", async () => {
+    const first = await open(world)
+    type(first, "")
+    expect(draftOf(world)).toEqual({ v: 1, base: hashContent("server"), content: "" })
+    autosaveSucceeds(world, first)
+    expect(stored(world)).toBeNull()
+    first.unmount()
+
+    const second = await open(world)
+    expect(second.result.current.content).toBe("")
+    expect(toast.info).not.toHaveBeenCalled()
+    expect(stored(world)).toBeNull()
+  })
+
+  it("S-4: clearing to empty with a failed autosave applies the empty draft on reload", async () => {
+    const first = await open(world)
+    type(first, "")
+    first.unmount()
+
+    const second = await open(world)
+    expect(second.result.current.content).toBe("")
+    expect(second.result.current.synced.content).toBe("server")
+    expect(toast.info).toHaveBeenCalledWith(RESTORED_TOAST)
+    expect(draftOf(world)).toEqual({ v: 1, base: hashContent("server"), content: "" })
+  })
+
+  it("S-5: an untitled document keeps its typed text through a reload and is never autosaved", async () => {
+    world = makeWorld({ [A]: { title: null, content: "server" } })
+    const first = await open(world)
+    type(first, "typed")
+    first.unmount()
+
+    const second = await open(world)
+    expect(second.result.current.content).toBe("typed")
+    expect(second.result.current.title).toBeNull()
+    expect(needsAutoSave(second.result.current, second.result.current.synced)).toBe(false)
+    expect(draftOf(world).content).toBe("typed")
+  })
+
+  it("S-6: a rename from the list does not invalidate the draft", async () => {
+    world = makeWorld({ [A]: { title: null, content: "server" } })
+    const first = await open(world)
+    type(first, "typed")
+    first.unmount()
+    world.server.set(A, { title: "Renamed", content: "server" })
+
+    const second = await open(world)
+    expect(second.result.current.content).toBe("typed")
+    expect(second.result.current.title).toBe("Renamed")
+    expect(toast.warning).not.toHaveBeenCalled()
+  })
+
+  it("S-7a: a legacy raw draft for a document that was never saved is its only copy: applied once, rewritten as v1", async () => {
+    world = makeWorld({ [A]: { title: null, content: "" } })
+    world.storage.map.set(`prompt-${A}`, "legacy text")
+    const hook = await open(world)
+    expect(hook.result.current.content).toBe("legacy text")
+    expect(toast.info).toHaveBeenCalledWith(RESTORED_TOAST)
+    expect(draftOf(world)).toEqual({ v: 1, base: hashContent(""), content: "legacy text" })
+  })
+
+  it("S-7b: a legacy raw draft that differs from a saved document is not applied: the server wins, with a warning", async () => {
+    world.storage.map.set(`prompt-${A}`, "stale legacy text")
+    const hook = await open(world)
+    expect(hook.result.current.content).toBe("server")
+    expect(toast.warning).toHaveBeenCalledWith(CONFLICT_TOAST)
+    expect(toast.info).not.toHaveBeenCalled()
+    expect(stored(world)).toBeNull()
+    expect(needsAutoSave(hook.result.current, hook.result.current.synced)).toBe(false)
+  })
+
+  it("S-8: a draft written against other server content loses to the server, with a warning, and is removed", async () => {
+    world.storage.map.set(
+      `prompt-${A}`,
+      JSON.stringify({ v: 1, base: hashContent("older server"), content: "stale local" })
+    )
+    const hook = await open(world)
+    expect(hook.result.current.content).toBe("server")
+    expect(hook.result.current.synced.content).toBe("server")
+    expect(toast.warning).toHaveBeenCalledWith(CONFLICT_TOAST)
+    expect(toast.info).not.toHaveBeenCalled()
+    expect(stored(world)).toBeNull()
+  })
+
+  it("S-9: a draft equal to the server content is removed without a toast, in v1 and in legacy form", async () => {
+    world.storage.map.set(`prompt-${A}`, JSON.stringify({ v: 1, base: hashContent("older"), content: "server" }))
+    const first = await open(world)
+    expect(first.result.current.content).toBe("server")
+    expect(stored(world)).toBeNull()
+    first.unmount()
+
+    world.storage.map.set(`prompt-${A}`, "server")
+    const second = await open(world)
+    expect(second.result.current.content).toBe("server")
+    expect(stored(world)).toBeNull()
+    expect(toast.info).not.toHaveBeenCalled()
+    expect(toast.warning).not.toHaveBeenCalled()
+  })
+
+  it("S-10: an autosave that committed with a lost response leaves a draft equal to the server: no toast", async () => {
+    const first = await open(world)
+    type(first, "typed")
+    first.unmount()
+    world.server.set(A, { title: "Title", content: "typed" })
+
+    const second = await open(world)
+    expect(second.result.current.content).toBe("typed")
+    expect(second.result.current.synced.content).toBe("typed")
+    expect(toast.info).not.toHaveBeenCalled()
+    expect(stored(world)).toBeNull()
+  })
+
+  it("S-10b (accepted limitation): typing after a lost autosave response is a conflict on reload and is not restored", async () => {
+    const first = await open(world)
+    type(first, "one")
+    world.server.set(A, { title: "Title", content: "one" })
+    type(first, "one two")
+    first.unmount()
+
+    const second = await open(world)
+    expect(second.result.current.content).toBe("one")
+    expect(toast.warning).toHaveBeenCalledWith(CONFLICT_TOAST)
+    expect(stored(world)).toBeNull()
+  })
+
+  it("S-11: two tabs share one key; a tab removes only the value it wrote", async () => {
+    const tab1 = await open(world)
+    const tab2 = await open(world)
+    type(tab1, "one")
+    type(tab2, "two")
+    expect(draftOf(world).content).toBe("two")
+
+    autosaveSucceeds(world, tab1)
+    expect(draftOf(world).content).toBe("two")
+
+    autosaveSucceeds(world, tab2)
+    expect(stored(world)).toBeNull()
+  })
+
+  it("S-11b: opening a document from the cache never removes another tab's draft for it", async () => {
+    world = makeWorld({
+      [A]: { title: "Title", content: "server" },
+      [B]: { title: "B", content: "B server" },
+    })
+    const other = await open(world, A)
+    type(other, "two")
+    const theirs = stored(world)
+
+    setDocumentCacheEntry("user-1", A, {
+      promptData: other.result.current.promptData,
+      title: "Title",
+      content: "server",
+      lastSaved: NOW,
+      synced: { promptId: A, title: "Title", content: "server" },
+    })
+    const mine = await open(world, B)
+    mine.rerender({ promptId: A, io: world.io })
+    await settle()
+    expect(mine.result.current.content).toBe("server")
+    expect(mine.result.current.ready).toBe(true)
+    expect(stored(world)).toBe(theirs)
+  })
+
+  it("a draft this tab wrote is cleared when the document is reopened after an autosave completed elsewhere", async () => {
+    world = makeWorld({
+      [A]: { title: "A", content: "A server" },
+      [B]: { title: "B", content: "B server" },
+    })
+    const hook = await open(world, A)
+    type(hook, "A typed")
+    setDocumentCacheEntry("user-1", A, {
+      promptData: hook.result.current.promptData,
+      title: "A",
+      content: "A typed",
+      lastSaved: NOW,
+      synced: { promptId: A, title: "A", content: "A server" },
+    })
+    hook.rerender({ promptId: B, io: world.io })
+    await settle()
+
+    world.server.set(A, { title: "A", content: "A typed" })
+    let accepted
+    act(() => {
+      accepted = hook.result.current.markSynced({ promptId: A, title: "A", content: "A typed" })
+    })
+    expect(accepted).toBe(false)
+    expect(draftOf(world, A).content).toBe("A typed")
+
+    hook.rerender({ promptId: A, io: world.io })
+    await settle()
+    expect(hook.result.current.content).toBe("A typed")
+    expect(stored(world, A)).toBeNull()
+  })
+
+  it("S-12: restore replaces the working copy and the baseline and removes the draft", async () => {
+    const hook = await open(world)
+    type(hook, "typed")
+    expect(stored(world)).not.toBeNull()
+
+    act(() => {
+      hook.result.current.applyServerState(A, { title: "Old title", content: "restored" })
+    })
+    expect(hook.result.current.content).toBe("restored")
+    expect(hook.result.current.synced).toEqual({ promptId: A, title: "Old title", content: "restored" })
+    expect(stored(world)).toBeNull()
+  })
+
+  it("S-13: a storage that throws on every call, or no storage at all, leaves the editor working without drafts", async () => {
+    for (const storage of [makeBrokenStorage(), null]) {
+      world = makeWorld({ [A]: { title: "Title", content: "server" } }, storage)
+      const hook = await open(world)
+      expect(hook.result.current.content).toBe("server")
+      type(hook, "typed")
+      expect(hook.result.current.content).toBe("typed")
+      expect(autosaveSucceeds(world, hook)).toBe(true)
+      expect(hook.result.current.synced.content).toBe("typed")
+      hook.unmount()
+    }
+  })
+
+  it("S-14: stored JSON that is not a v1 draft is the text itself, subject to the legacy rule", async () => {
+    world = makeWorld({ [A]: { title: null, content: "" } })
+    world.storage.map.set(`prompt-${A}`, '{"foo":1}')
+    const hook = await open(world)
+    expect(hook.result.current.content).toBe('{"foo":1}')
+    expect(toast.info).toHaveBeenCalledWith(RESTORED_TOAST)
+    hook.unmount()
+
+    toast.info.mockClear()
+    world = makeWorld({ [A]: { title: "Title", content: "server" } })
+    world.storage.map.set(`prompt-${A}`, '{"foo":1}')
+    const saved = await open(world)
+    expect(saved.result.current.content).toBe("server")
+    expect(toast.warning).toHaveBeenCalledWith(CONFLICT_TOAST)
+    expect(stored(world)).toBeNull()
+  })
+
+  it("typing while an autosave request is in flight keeps a draft against the new baseline", async () => {
+    const first = await open(world)
+    type(first, "one")
+    const sent = first.result.current.content
+    type(first, "one two")
+    world.server.set(A, { title: "Title", content: sent })
+    act(() => {
+      first.result.current.markSynced({ promptId: A, title: "Title", content: sent })
+    })
+    expect(draftOf(world)).toEqual({ v: 1, base: hashContent("one"), content: "one two" })
+    first.unmount()
+
+    const second = await open(world)
+    expect(second.result.current.content).toBe("one two")
+    expect(second.result.current.synced.content).toBe("one")
+  })
+
+  it("a refused write keeps ownership of the older draft, so the next clear still removes it", async () => {
+    const hook = await open(world)
+    type(hook, "a")
+    const older = stored(world)
+    world.storage.refuseWrites = true
+    type(hook, "ab")
+    expect(stored(world)).toBe(older)
+    world.storage.refuseWrites = false
+
+    autosaveSucceeds(world, hook)
+    expect(stored(world)).toBeNull()
+  })
+
+  it("switching documents never writes one document's text under another's key", async () => {
+    world = makeWorld({
+      [A]: { title: "A", content: "A server" },
+      [B]: { title: "B", content: "B server" },
+    })
+    const hook = await open(world, A)
+    type(hook, "A typed")
+
+    hook.rerender({ promptId: B, io: world.io })
+    await settle()
+    expect(hook.result.current.content).toBe("B server")
+    expect(world.storage.sets.filter((s) => s.key === `prompt-${B}`)).toHaveLength(0)
+    expect(stored(world, B)).toBeNull()
+    expect(draftOf(world, A).content).toBe("A typed")
+
+    hook.rerender({ promptId: A, io: world.io })
+    await settle()
+    expect(hook.result.current.content).toBe("A typed")
+    expect(hook.result.current.synced.content).toBe("A server")
+  })
+
+  it("works under React Strict Mode", async () => {
+    const hook = await open(world, A, { wrapper: StrictMode })
+    type(hook, "typed")
+    expect(draftOf(world).content).toBe("typed")
+    autosaveSucceeds(world, hook)
+    expect(stored(world)).toBeNull()
+  })
+
+  it("works against the real window.localStorage", async () => {
+    world = makeWorld({ [A]: { title: "Title", content: "server" } }, window.localStorage)
+    const hook = await open(world)
+    type(hook, "typed")
+    expect(JSON.parse(window.localStorage.getItem(`prompt-${A}`)).content).toBe("typed")
+    autosaveSucceeds(world, hook)
+    expect(window.localStorage.getItem(`prompt-${A}`)).toBeNull()
+  })
+})
+
+describe("invariant over a seeded random walk", () => {
+  function mulberry32(seed) {
+    let a = seed
+    return () => {
+      a = (a + 0x6d2b79f5) | 0
+      let t = Math.imul(a ^ (a >>> 15), 1 | a)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+  }
+
+  function expectInvariant(world, hook) {
+    const { ready, content, synced } = hook.result.current
+    if (!ready) return
+    const raw = world.storage.getItem(`prompt-${synced.promptId}`)
+    if (content === synced.content) {
+      expect(raw).toBeNull()
+    } else {
+      expect(JSON.parse(raw)).toEqual({ v: 1, base: hashContent(synced.content), content })
+    }
+  }
+
+  it.each([1, 2, 3])("seed %i: a draft exists exactly while the working copy differs from the baseline", async (seed) => {
+    const rand = mulberry32(seed)
+    const world = makeWorld({ [A]: { title: "Title", content: "server" } })
+    let hook = await open(world)
+    const texts = ["", "a", "ab", "abc", "server", "line one\nline two", "{\"v\":1}"]
+
+    for (let step = 0; step < 150; step++) {
+      const op = Math.floor(rand() * 5)
+      if (op === 0 || op === 1) {
+        type(hook, texts[Math.floor(rand() * texts.length)])
+      } else if (op === 2) {
+        autosaveSucceeds(world, hook)
+      } else if (op === 3) {
+        act(() => {
+          hook.result.current.applyServerState(A, { title: "Title", content: texts[Math.floor(rand() * texts.length)] })
+        })
+        world.server.set(A, { title: "Title", content: hook.result.current.content })
+      } else {
+        hook.unmount()
+        hook = await open(world)
+      }
+      expectInvariant(world, hook)
+    }
+    hook.unmount()
+  })
+})
