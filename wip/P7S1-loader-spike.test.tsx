@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// @ts-nocheck -- research probe: see wip/P7S1-loader-race-diagnostic.test.tsx for why type-checking is off.
+// @ts-nocheck -- see wip/P7S1-loader-race-diagnostic.test.tsx; this file is type-clean once P7S1T1 installs the test packages.
 /*
 Project: PromptHub
 Author: Allan James
@@ -8,13 +8,14 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 12:33 GMT+10
-Last modified: 20/10/2026 13:20 GMT+10
+Last modified: 20/10/2026 14:09 GMT+10
 ---------------
 Proves the loader protocol of wip/P7S1-loader-spike.ts: loading, ready and synced after every path, including the paths
 the first PRP review found missing, plus an invariant over every render. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-loader-spike.test.tsx
 
 Changelog:
+20/10/2026 14:09 GMT+10 | The fakes moved to wip/P7S1-test-fakes.ts and the file is typed: no type error with the test packages installed
 20/10/2026 13:20 GMT+10 | Tests for a rejected fetch, applyServerState after unmount, the remembered identity and the cache user check
 20/10/2026 13:03 GMT+10 | Tests for same-document gating, the identity fallback, the first-render loading state and an emptied promptId
 20/10/2026 12:40 GMT+10 | Corrected the header timestamps to the filesystem record
@@ -23,7 +24,7 @@ Changelog:
 
 import { StrictMode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { act, cleanup, renderHook } from "@testing-library/react"
+import { act, cleanup, renderHook, type RenderHookResult } from "@testing-library/react"
 import {
   clearDocumentCache,
   getCachedDocument,
@@ -31,65 +32,22 @@ import {
   LOAD_FAILED,
   setDocumentCacheEntry,
   useDocumentLoader,
+  type CacheEntry,
+  type DocumentLoader,
+  type DocumentLoaderIo,
 } from "./P7S1-loader-spike"
+import { A, B, C, NOW, makeDeferredIo, serverRow } from "./P7S1-test-fakes"
 
-const A = "11111111-1111-4111-8111-111111111111"
-const B = "22222222-2222-4222-8222-222222222222"
-const C = "33333333-3333-4333-8333-333333333333"
-const NOW = new Date("2026-10-20T01:00:00.000Z")
+const makeIo = () => makeDeferredIo(act)
 
-function defer() {
-  let resolve
-  const promise = new Promise((r) => {
-    resolve = r
-  })
-  return { promise, resolve }
+type Hook = RenderHookResult<DocumentLoader, LoaderProps>
+
+interface LoaderProps {
+  promptId: string
+  io: DocumentLoaderIo
 }
 
-function serverRow(id, title, content) {
-  return {
-    success: true,
-    data: {
-      id,
-      title,
-      content,
-      created_at: NOW,
-      updated_at: NOW,
-      user_id: "user-1",
-      folder_id: "f1",
-      folder: { id: "f1", name: "Folder" },
-      tags: [],
-    },
-  }
-}
-
-function makeIo() {
-  const user = defer()
-  const calls = []
-  const io = {
-    getUserId: () => user.promise,
-    getStorage: () => null,
-    fetchPrompt: (promptId) => {
-      const d = defer()
-      calls.push({ promptId, d })
-      return d.promise
-    },
-  }
-  return {
-    io,
-    calls,
-    resolveUser: (id = "user-1") =>
-      act(async () => {
-        user.resolve(id)
-      }),
-    resolveFetch: (promptId, value) =>
-      act(async () => {
-        calls.filter((c) => c.promptId === promptId).at(-1).d.resolve(value)
-      }),
-  }
-}
-
-function expectReady(result, id, title, content) {
+function expectReady(result: Hook["result"], id: string, title: string | null, content: string) {
   const s = result.current
   expect(s.loading).toBe(false)
   expect(s.ready).toBe(true)
@@ -99,11 +57,11 @@ function expectReady(result, id, title, content) {
   expect(s.synced).toEqual({ promptId: id, title, content })
 }
 
-function mount(io, promptId = A, options = {}) {
-  return renderHook((props) => useDocumentLoader(props), { initialProps: { promptId, io }, ...options })
+function mount(io: DocumentLoaderIo, promptId = A, options: { wrapper?: typeof StrictMode } = {}): Hook {
+  return renderHook((props: LoaderProps) => useDocumentLoader(props), { initialProps: { promptId, io }, ...options })
 }
 
-function cacheEntryFor(id, title, content) {
+function cacheEntryFor(id: string, title: string | null, content: string): Omit<CacheEntry, "userId"> {
   return {
     promptData: serverRow(id, title, content).data,
     title,
@@ -214,9 +172,9 @@ describe("loader protocol spike", () => {
 
   it("atomic readiness: in every render where ready is true, title and content belong to that document", async () => {
     const t = makeIo()
-    const renders = []
+    const renders: Array<{ promptId: string; ready: boolean; title: string | null; content: string }> = []
     const { rerender } = renderHook(
-      (props) => {
+      (props: LoaderProps) => {
         const s = useDocumentLoader(props)
         renders.push({ promptId: props.promptId, ready: s.ready, title: s.title, content: s.content })
         return s
@@ -239,7 +197,11 @@ describe("loader protocol spike", () => {
     rerender({ promptId: B, io: t.io })
     await t.resolveFetch(B, serverRow(B, "B title", "B content"))
 
-    const own = { [A]: ["A title", "A content"], [B]: ["B title", "B content"], [C]: ["C title", "C content"] }
+    const own: Record<string, string[]> = {
+      [A]: ["A title", "A content"],
+      [B]: ["B title", "B content"],
+      [C]: ["C title", "C content"],
+    }
     const readyRenders = renders.filter((r) => r.ready)
     expect(readyRenders.length).toBeGreaterThan(3)
     for (const r of readyRenders) expect([r.title, r.content]).toEqual(own[r.promptId])
@@ -277,12 +239,12 @@ describe("loader protocol spike", () => {
       accepted = result.current.markSynced({ promptId: A, title: "Server title", content: "Autosaved" })
     })
     expect(accepted).toBe(true)
-    expect(result.current.synced.content).toBe("Autosaved")
+    expect(result.current.synced?.content).toBe("Autosaved")
     act(() => {
       accepted = result.current.markSynced({ promptId: B, title: "x", content: "y" })
     })
     expect(accepted).toBe(false)
-    expect(result.current.synced.content).toBe("Autosaved")
+    expect(result.current.synced?.content).toBe("Autosaved")
   })
 
   it("applyServerState replaces title, content, promptData and the baseline of the open document", async () => {
@@ -297,7 +259,7 @@ describe("loader protocol spike", () => {
     expect(applied).toBe(true)
     expect(result.current.title).toBe("Restored title")
     expect(result.current.content).toBe("Restored content")
-    expect(result.current.promptData.content).toBe("Restored content")
+    expect(result.current.promptData?.content).toBe("Restored content")
     expect(result.current.synced).toEqual({ promptId: A, title: "Restored title", content: "Restored content" })
   })
 
@@ -319,9 +281,9 @@ describe("loader protocol spike", () => {
     expectReady(result, B, "B title", "B content")
     expect(result.current.lastSaved).toEqual(NOW)
     const entry = getCachedDocument("user-1", A)
-    expect(entry.content).toBe("Restored content")
-    expect(entry.synced).toEqual({ promptId: A, title: "Restored", content: "Restored content" })
-    expect(entry.promptData.content).toBe("Restored content")
+    expect(entry?.content).toBe("Restored content")
+    expect(entry?.synced).toEqual({ promptId: A, title: "Restored", content: "Restored content" })
+    expect(entry?.promptData.content).toBe("Restored content")
   })
 
   it("markSynced sets the baseline and lastSaved; a saved version also patches promptData", async () => {
@@ -336,9 +298,9 @@ describe("loader protocol spike", () => {
     act(() => {
       result.current.markSynced({ promptId: A, title: "Server title", content: "Autosaved" })
     })
-    expect(result.current.synced.content).toBe("Autosaved")
+    expect(result.current.synced?.content).toBe("Autosaved")
     expect(result.current.lastSaved).toEqual(later)
-    expect(result.current.promptData.content).toBe("Server content")
+    expect(result.current.promptData?.content).toBe("Server content")
 
     act(() => {
       result.current.markSynced({ promptId: A, title: "New title", content: "Saved" }, { version: true })
@@ -362,12 +324,12 @@ describe("loader protocol spike", () => {
     })
     expect(accepted).toBe(false)
     expectReady(result, B, "B title", "B content")
-    expect(result.current.promptData.title).toBe("B title")
+    expect(result.current.promptData?.title).toBe("B title")
     expect(result.current.lastSaved).toEqual(NOW)
     const entry = getCachedDocument("user-1", A)
-    expect(entry.synced).toEqual({ promptId: A, title: "A saved", content: "A saved content" })
-    expect(entry.promptData).toMatchObject({ title: "A saved", content: "A saved content" })
-    expect(entry.content).toBe("A content")
+    expect(entry?.synced).toEqual({ promptId: A, title: "A saved", content: "A saved content" })
+    expect(entry?.promptData).toMatchObject({ title: "A saved", content: "A saved content" })
+    expect(entry?.content).toBe("A content")
   })
 
   it("monacoPromptIdRef names the document only while it is applied: null while another one loads", async () => {
@@ -386,9 +348,9 @@ describe("loader protocol spike", () => {
 
   it("the first render with a promptId is already loading", () => {
     const t = makeIo()
-    const states = []
+    const states: Array<{ loading: boolean; ready: boolean }> = []
     renderHook(
-      (props) => {
+      (props: LoaderProps) => {
         const s = useDocumentLoader(props)
         states.push({ loading: s.loading, ready: s.ready })
         return s
@@ -465,8 +427,8 @@ describe("loader protocol spike", () => {
 
     applyServerState(A, { title: "Restored", content: "Restored content" })
     const entry = getCachedDocument("user-1", A)
-    expect(entry.content).toBe("Restored content")
-    expect(entry.synced).toEqual({ promptId: A, title: "Restored", content: "Restored content" })
+    expect(entry?.content).toBe("Restored content")
+    expect(entry?.synced).toEqual({ promptId: A, title: "Restored", content: "Restored content" })
   })
 })
 
