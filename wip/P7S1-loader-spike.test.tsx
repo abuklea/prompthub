@@ -8,13 +8,14 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 12:33 GMT+10
-Last modified: 20/10/2026 14:09 GMT+10
+Last modified: 20/10/2026 15:45 GMT+10
 ---------------
 Proves the loader protocol of wip/P7S1-loader-spike.ts: loading, ready and synced after every path, including the paths
 the first PRP review found missing, plus an invariant over every render. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-loader-spike.test.tsx
 
 Changelog:
+20/10/2026 15:45 GMT+10 | markSynced and applyServerState after unmount, Strict Mode, and no cache for the anonymous identity
 20/10/2026 14:09 GMT+10 | The fakes moved to wip/P7S1-test-fakes.ts and the file is typed: no type error with the test packages installed
 20/10/2026 13:20 GMT+10 | Tests for a rejected fetch, applyServerState after unmount, the remembered identity and the cache user check
 20/10/2026 13:03 GMT+10 | Tests for same-document gating, the identity fallback, the first-render loading state and an emptied promptId
@@ -26,6 +27,7 @@ import { StrictMode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, cleanup, renderHook, type RenderHookResult } from "@testing-library/react"
 import {
+  ANONYMOUS,
   clearDocumentCache,
   getCachedDocument,
   IDENTITY_TIMEOUT_MS,
@@ -425,10 +427,37 @@ describe("loader protocol spike", () => {
     const { applyServerState } = result.current
     unmount()
 
-    applyServerState(A, { title: "Restored", content: "Restored content" })
+    expect(applyServerState(A, { title: "Restored", content: "Restored content" })).toBe(false)
     const entry = getCachedDocument("user-1", A)
     expect(entry?.content).toBe("Restored content")
     expect(entry?.synced).toEqual({ promptId: A, title: "Restored", content: "Restored content" })
+  })
+
+  it("markSynced called after the editor unmounted reports that the document is not open and patches its cache entry", async () => {
+    const t = makeIo()
+    const { result, unmount } = mount(t.io)
+    await t.resolveUser()
+    await t.resolveFetch(A, serverRow(A, "A title", "A content"))
+    setDocumentCacheEntry("user-1", A, cacheEntryFor(A, "A title", "A content"))
+    const { markSynced } = result.current
+    unmount()
+
+    expect(markSynced({ promptId: A, title: "A title", content: "Saved" }, { version: true })).toBe(false)
+    expect(getCachedDocument("user-1", A)?.synced).toEqual({ promptId: A, title: "A title", content: "Saved" })
+  })
+
+  it("React Strict Mode: the open document is still recognised after the effects run twice", async () => {
+    const t = makeIo()
+    const { result } = mount(t.io, A, { wrapper: StrictMode })
+    await t.resolveUser()
+    await t.resolveFetch(A, serverRow(A, "A title", "A content"))
+
+    let accepted
+    act(() => {
+      accepted = result.current.markSynced({ promptId: A, title: "A title", content: "Saved" })
+    })
+    expect(accepted).toBe(true)
+    expect(result.current.synced?.content).toBe("Saved")
   })
 })
 
@@ -444,5 +473,11 @@ describe("document cache", () => {
     setDocumentCacheEntry("a-b", "c", cacheEntryFor("c", "T", "text"))
     expect(getCachedDocument("a", "b-c")).toBeNull()
     expect(getCachedDocument("a-b", "c")).toBeNull()
+  })
+
+  it("the anonymous identity has no cache: nothing is written for it, so nothing is served to it", () => {
+    // Reason: a lookup that failed or timed out settles as anonymous, and every such lookup would share these entries.
+    setDocumentCacheEntry(ANONYMOUS, A, cacheEntryFor(A, "T", "text"))
+    expect(getCachedDocument(ANONYMOUS, A)).toBeNull()
   })
 })

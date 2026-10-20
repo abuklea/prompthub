@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Task Briefs | 20/10/2026 12:38 GMT+10 | 20/10/2026 14:48 GMT+10 |
+| P7S1 Task Briefs | 20/10/2026 12:38 GMT+10 | 20/10/2026 16:12 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -51,10 +51,13 @@ validation do not move; issue #48 owns changing them.
 
 Every shell keeps the `NEXT_REDIRECT` rethrow and a catch that returns a generic failure. Results: `saveNewVersion`
 returns `{ versionId }`, `autoSavePrompt` returns nothing as today, `restorePromptVersion` returns `{ title, content }`.
-No timestamp is returned: nothing depends on one (the draft base is a content hash, and writes complete in call order,
-see [Write Ordering and Pausing](P7S1-editor-persistence-contracts.md#write-ordering-and-pausing)). `service.ts` orders
+A save that changes nothing returns the id of the newest version, and the client toast still reads "Version saved
+successfully"; that is accepted, because the document is saved either way. No timestamp is returned: nothing depends on
+one (the draft base is a content hash, and writes complete in call order, see
+[Write Ordering and Pausing](P7S1-editor-persistence-contracts.md#write-ordering-and-pausing)). `service.ts` orders
 versions by `id desc` alone: ids are assigned in write order under the prompt row lock, while `created_at` is stamped by
-each app instance's clock.
+each app instance's clock. The shells are verified by `npx tsc --noEmit` and review only; how every action is tested is
+issue #45's decision, and the REPORT says so.
 
 ### Server Pseudocode
 
@@ -118,7 +121,9 @@ return ok(await db.promptVersion.findMany({
 }))
 ```
 
-`PromptVersion.diff` has a default (`""`), so a create omits it. The client half has no pseudocode: the spikes are its
+`PromptVersion.diff` has a default (`""`), so a create omits it. `PromptVersion` has no `user_id` column, so the order
+is the safeguard: no `promptVersion` read or write precedes the statement that proves ownership of the prompt (the
+scoped `updateMany`, the locked `SELECT`, or the ownership read). The client half has no pseudocode: the spikes are its
 reference implementation.
 
 ## Red to Green Map
@@ -150,34 +155,49 @@ Agent `qa-test-automation-engineer`, 3 hours, no predecessor. Needs `TEST_DATABA
 authorises what the agent's definition otherwise forbids: adding the three devDependencies and editing
 `vitest.config.ts`, `.env.example` and `.github/workflows/ci.yml`.
 
-Step 1, red: CREATE `src/test/db.test.ts` with the guard cases (always run) and a smoke test under `describeDb`; they
-fail because `src/test/db.ts` does not exist (create it as a stub whose functions throw). The guard rejects a remote
-host, `.supabase.co`, a database name without "test", a URL that does not parse (a second host in the authority,
-`a:1,b:2`, is one), and a `host`, `hostaddr` or `port` query parameter in any letter case: a probe on 20/10/2026 showed
-Prisma 6.19.0 connecting to the host in `?host=` instead of the authority's, and `port` and `hostaddr` were ignored but
-are rejected too, so that a version which reads them cannot bypass the guard. It accepts `localhost`, `127.0.0.1` and
-`[::1]` (the `hostname` of a parsed IPv6 URL keeps its brackets). An empty value is unset.
+Step 1, red: CREATE `src/test/db.ts` as a stub that fails on assertions, not by throwing: `assertSafeTestDatabaseUrl`
+returns its argument, `getTestDatabaseUrl` returns null, `describeDb` is `describe`, `useTestDatabase` returns the
+accessor `() => { throw new Error("not implemented") }` (calling it in a describe body must not throw, only the
+accessor does, so the smoke test fails inside the test), and the other exports throw "not implemented" (a stub that
+threw everywhere would pass every rejection case without exercising a rule). Then CREATE `src/test/db.test.ts` with the
+guard cases (always run) and a smoke test under `describeDb`. Each rule has its own word
+in its message and each rejection case asserts it, as in `toThrow(/loopback/)`: `scheme` (not postgres or postgresql),
+`parse` (a URL that does not parse; a second host in the authority, `a:1,b:2`, is one), `loopback` (a remote host,
+`.supabase.co`), `database name` (no lower-case "test"), `query parameter` (below) and `GITHUB_ACTIONS` (unset in
+Actions). The guard accepts `localhost`, `127.0.0.1` and `[::1]` (the `hostname` of a parsed IPv6 URL keeps its
+brackets), compared case-sensitively, because the parser does not lower-case the host of a non-special scheme and an
+upper-case host is rejected. It rejects a `host`, `hostaddr` or `port` query parameter, found as a key of
+`new URL(url).searchParams.keys()` lower-cased and never by a pattern on the raw string: a probe on 20/10/2026 showed
+Prisma 6.19.0 connecting to the host in `?host=` and in `?%68ost=` instead of the authority's, and ignoring `HOST`,
+`Host`, `port` and `hostaddr`; those are rejected too, so that a version which reads them cannot bypass the guard. The
+cases include `%68ost=`. An empty value is unset.
 
-Step 2: CREATE `src/test/db.ts`. `getTestDatabaseUrl(env = process.env)` returns null when `TEST_DATABASE_URL` is unset
-or empty, and throws when it is unset or empty and `GITHUB_ACTIONS` equals "true". `assertSafeTestDatabaseUrl(url)`
-applies the rules above plus the postgres or postgresql scheme, and throws otherwise. `describeDb` is `describe` when a
-URL exists and `describe.skip` otherwise. `useTestDatabase()` builds a `PrismaClient` with `datasourceUrl` inside
-`beforeAll`, never in the describe body, because Vitest runs a `describe.skip` factory at collection and a client built
-there would exist without a guard; asserts in `beforeAll` that `SELECT to_regclass('"Prompt"')::text` and the same for
-`"PromptVersion"` find a table (the `::text` cast is required: Prisma cannot deserialize `regclass`; the failure message
-says to run `npx prisma migrate deploy`); and disconnects in `afterAll`. `createTestUser(db)` and
+Step 2: implement `src/test/db.ts`. `getTestDatabaseUrl(env = process.env)` returns null when `TEST_DATABASE_URL` is
+unset or empty, and throws when it is unset or empty and `GITHUB_ACTIONS` equals "true".
+`assertSafeTestDatabaseUrl(url)` applies the rules above and returns the URL. `describeDb` is `describe` when a URL
+exists and `describe.skip` otherwise. `useTestDatabase()` returns an accessor, `() => PrismaClient`, valid inside tests:
+T2 and T3 call it in their describe bodies. It builds the `PrismaClient` with `datasourceUrl` inside `beforeAll`, never
+in the describe body, because Vitest runs a `describe.skip` factory at collection and a client built there would exist
+without a guard; asserts in `beforeAll` that `SELECT to_regclass('"Prompt"')::text` and the same for `"PromptVersion"`
+find a table (the `::text` cast is required: Prisma cannot deserialize `regclass`; the failure message says to run
+`npx prisma migrate deploy`); and disconnects in `afterAll`. `createTestUser(db)` and
 `createTestPrompt(db, userId, fields)` use unique ids, and a user is removed with `db.profile.delete` (cascade).
 
 MODIFY `package.json` and `package-lock.json` with
 `npm install -D jsdom@^26.1.0 @testing-library/react@^16.3.0 @testing-library/dom@^10.4.0`; nothing else changes
-version. MODIFY `vitest.config.ts`: `include: ['src/**/*.test.{ts,tsx}']`; `esbuild: { jsx: 'automatic' }` (tsconfig
-sets `"jsx": "preserve"`, which leaves JSX that Vitest cannot run; the dialog suite of T8 uses JSX); `coverage.include`
-lists every source file the contract's module map names (a pattern for a file that does not exist yet matches nothing,
-so later tasks never edit this file), without the absent `src/lib/diff-utils.ts`. MODIFY `.env.example`: a `# Tests`
-group with `TEST_DATABASE_URL=""`. MODIFY `.github/workflows/ci.yml`: add three pieces to the `verify` job, and rewrite
-the comment at lines 13-14 that says CI never connects to a database. Use the placeholder pair the job's `env` block
-already uses (`user` and `pass`) for the throwaway service, so no new credential-looking value enters the file, and the
-same pair in the three places below.
+version. MODIFY `vitest.config.ts` (it has no header block: add the source header with
+`Created: 08/07/2026 09:20 GMT+10`, the commit `3f3f08f` that added the file, read from the full history because a
+shallow clone reports its boundary commit): `include: ['src/**/*.test.{ts,tsx}']`; `esbuild: { jsx: 'automatic' }`
+(tsconfig sets `"jsx": "preserve"`, so a JSX test fails with `ReferenceError: React is not defined`; the dialog suite
+of T8 uses JSX);
+`coverage.include` keeps its four existing entries, drops the absent `src/lib/diff-utils.ts` and adds the files of
+[the coverage scope](P7S1-editor-persistence-contracts.md#budgets-and-coverage-scope) (a pattern for a file that does
+not exist yet matches nothing, so later tasks never edit this file; the `src/test/` fakes are not in it). MODIFY
+`.env.example`: a `# Tests` group with `TEST_DATABASE_URL=""`. MODIFY `.github/workflows/ci.yml`: add three pieces to
+the `verify` job, and rewrite the comment at lines 13-14 that says CI never connects to a database. `ci.yml`,
+`.env.example` and `README.md` carry no header block today and get none from this PRP. Use the placeholder pair the
+job's `env` block already uses (`user` and `pass`) for the throwaway service, so no new credential-looking value enters
+the file, and the same pair in the three places below.
 
 ```yaml
 # Fragment 1: under the verify job
@@ -217,11 +237,14 @@ A new step goes after "Validate Prisma schema" and before "Unit tests":
 ```
 
 Acceptance: `npm test` shows the 29 existing tests plus the new ones with the DB suites skipped, and with
-`TEST_DATABASE_URL` set the smoke test passes. The service container is reported as not run: the workflow triggers only
-on `push` to `master` and on `pull_request`, so nothing can run it before a pull request exists (see
-[Environment for Database Tests](P7S1-task-context.md#environment-for-database-tests)). Documentation sync after this
-task (main session, `documentation-manager`): drift rows DR-7, DR-8, DR-9, DR-11, DR-20 and the rules half of DR-15;
-this task itself fixes DR-10, DR-14 and the `.env.example` half of DR-15.
+`TEST_DATABASE_URL` set the smoke test passes. The workflow still parses
+(`node -e "require('js-yaml').load(require('fs').readFileSync(process.argv[1], 'utf8'))" .github/workflows/ci.yml`,
+using the `js-yaml` that ESLint installs). The service container is reported as not run: the workflow triggers only on
+`push` to `master` and on `pull_request`, so nothing can run it before a pull request exists (see
+[Environment for Database Tests](P7S1-task-context.md#environment-for-database-tests)). The main session provides the
+database; the agent creates no role or database, and reports a command that is denied instead of working around it.
+Documentation sync after this task (main session, `documentation-manager`): drift rows DR-7, DR-8, DR-9, DR-11, DR-20
+and the rules half of DR-15; this task itself fixes DR-10, DR-14 and the `.env.example` half of DR-15.
 
 ### P7S1T2 Move save and autosave into a tested service with commit-style versions
 
@@ -229,56 +252,72 @@ Agent `senior-backend-engineer`, 3 hours, after T1. Needs `TEST_DATABASE_URL`. R
 1: CREATE `src/features/editor/service.ts` by extracting the logic of `saveNewVersion` and `autoSavePrompt` with
 unchanged behaviour into `saveVersion` and `autoSaveDocument` (`(db, userId, input)`, `ActionResult` results,
 `EditorDb = Pick<PrismaClient, "prompt" | "promptVersion" | "$transaction">`); the two actions in
-`src/features/editor/actions.ts` call it and keep their shells. Step 2, red: CREATE `service.save.test.ts`
-(`describeDb`). The ownership cases pass on arrival and are regression tests; the commit-style cases fail against the
-extraction. Step 3: change `saveVersion` to the semantics of the server pseudocode and confirm step 2 goes green. Cases:
-save A, autosave B, save C lists C then A, both restorable by id | an identical save twice adds one row | two parallel
-identical saves add one row | a save after autosave moved the row to the same content adds one row equal to the saved
-state | autosave adds no version | user B cannot save or autosave user A's prompt and nothing changes | an unknown
-prompt returns not found. `saveNewVersion` returns `{ versionId }`. Documentation sync after T3 covers this task's
-behaviour change.
+`src/features/editor/actions.ts` call it and keep their shells; the JSDoc of `saveNewVersion` describes the old order
+(a version first, then the prompt update), so rewrite it and add a changelog line to the file's header (DR-22).
+Step 2, red: CREATE `service.save.test.ts` (`describeDb`). The ownership cases and the case of a save after an autosave
+moved the row to the same content pass on arrival and are regression tests; the other commit-style cases fail against
+the extraction. Step 3: change `saveVersion` to the semantics of the server pseudocode and confirm step 2 goes green.
+Cases: save A, autosave B, save C lists C then A, both restorable by id | an identical save twice adds one row | two
+parallel identical saves add one row | a save after autosave moved the row to the same content adds one row equal to the
+saved state (regression) | autosave adds no version | user B cannot save or autosave user A's prompt and nothing
+changes | an unknown prompt returns not found | a failure inside the transaction leaves the row and the history
+unchanged (pass `saveVersion` a `db` whose `$transaction` hands the callback a `tx` wrapped in a `Proxy` whose
+`promptVersion.create` throws: an injected seam over the real client, not a module mock). `saveNewVersion` returns
+`{ versionId }`. Documentation sync after T3 covers this task's behaviour change.
 
 ### P7S1T3 Move restore and history into the service
 
 Agent `senior-backend-engineer`, 3 hours, after T2. Needs `TEST_DATABASE_URL`. READ `prisma/schema.prisma` first. Step
 1: extract `restorePromptVersion` and `getPromptVersionHistory` with unchanged behaviour into `restoreVersion` and
 `listVersions` in `service.ts`; the two actions in `src/features/prompts/actions.ts` call them and keep their shells.
-Step 2, red: CREATE `service.restore.test.ts` against that extraction. The ownership cases pass on arrival and are
-regression tests; the others fail. Step 3: implement `restoreVersion` and `listVersions` per the server pseudocode;
-`restorePromptVersion` returns `{ title, content }`. Report the file's new line count. The file is RED, registered in
-`docs/rules/code-size-register.md`, and carries an ESLint `max-lines` disable; it is expected to stay above 600 lines
-(about 630 to 640), so the disable stays and the register row gets the new count. If it falls to 600 or fewer, remove
-the register row and the disable comment together. Cases: the working copy not in history is snapshotted, then the
+That file has no header block: add the source header with `Created: 06/11/2025 14:33 GMT+10` (the commit `fb2faa7` that
+added it, read from the full history because a shallow clone reports its boundary commit) above `"use server"`.
+Step 2, red: CREATE `service.restore.test.ts` against that extraction. The ownership cases and the `Promise.all` case
+pass on arrival (or cannot be made deterministically red) and are regression tests; the others fail. Step 3: implement
+`restoreVersion` and `listVersions` per the server pseudocode; `restorePromptVersion` returns `{ title, content }`.
+Report the file's new line count. The file is RED, registered in `docs/rules/code-size-register.md`, and carries an
+ESLint `max-lines` disable; it is expected to stay above 600 lines (about 630 to 640 with the header), so the disable
+stays and the register row gets the new count. If it falls to 600 or fewer, remove the register row and the disable
+comment together. Cases: the working copy not in history is snapshotted, then the
 restored state, in that id order, and history lists the restored state first | the working copy equal to the newest
 version adds no snapshot | restoring the newest version when the working copy equals it adds no duplicate, and when the
 working copy differs it adds the working copy snapshot and a row for the restored state | restore then autosave an edit
 leaves the restored text plus the edit and history unchanged by the autosave | autosave then restore keeps the autosaved
 text in history | restore and autosave started together with `Promise.all` leave the autosaved text either as the row
 content or in history | user B cannot restore or list user A's history | a version of another prompt returns not found |
-the list orders by `id` descending and caps at 50, with `created_at` values seeded to contradict the id order, so
-ordering by `created_at` fails. Documentation sync after this task (main session): DR-4, DR-6, DR-12 and DR-18.
+a failure of the last write inside the transaction leaves the row and the history unchanged (the `Proxy` seam of T2,
+failing the second `promptVersion.create`) | the list orders by `id` descending and caps at 50, with `created_at` values
+seeded to contradict the id order, so ordering by `created_at` fails. Documentation sync after this task (main
+session): DR-4, DR-6, DR-12, DR-18 and DR-21 (`README.md` says each save snapshots the previous version).
 
 ### P7S1T9 Sweep the documentation and the wip files
 
-Agent `documentation-manager`, 2 hours, after T8. Verify, do not duplicate the earlier syncs: every row of the drift
-register is fixed or filed; every changed file's header changelog has a line; ADD a Testing section to `README.md`
-(`npm test`, the database-backed variant, the DOM environment: DR-13); confirm the code-size register row for
-`src/features/prompts/actions.ts` has the new count; and reconcile `wip/P7S1-research-drift.md` with a closing line per
-row. Search for stale references to the removed names (`useLocalStorage`, `resetLoadedRef`, `hydrateDocumentCache`,
-`isTransitioning`, `contentPromptIdRef`, `titlePromptIdRef`, `resolveUserId`) in `src/` outside the changelog lines of
-file headers, and in the documents in scope of [the drift review](../../docs/rules/documentation.md#drift-review),
-including `.serena/memories/` (DR-19: `code_style_conventions.md` prescribes the removed ref-flag protocol and
-`project_overview.md` lists the P0 ref fixes). Records are not drift and stay as they are: the PRPs and reports of
-earlier steps, `wip/P5S*`, `wip/P5S4bT1-*` and `wip/MONACO-*`. Also search for the draft key `prompt-<id>`.
+Agent `documentation-manager`, 2 hours, after T8. Verify, and fix any row whose fix is document-only and was missed by
+an earlier sync; report the rest (an agent files no issue). The prompt names the commit before T1 as the base of "every
+changed file" and supplies `TEST_DATABASE_URL`, which the README's database-backed command needs: the agent runs
+`npm test` with it (the suites write only to the disposable test database) and no other command that writes to a
+database, and reports a command it cannot run as unverified. Check that every row of the drift register is fixed or
+reported; every changed file that has a header
+block has a changelog line (`vitest.config.ts` and `src/features/prompts/actions.ts` gained one in T1 and T3; `ci.yml`,
+`.env.example` and `README.md` have none); ADD a Testing section to `README.md` (`npm test`, the database-backed
+variant, the DOM environment: DR-13); confirm the code-size register row for `src/features/prompts/actions.ts` has the
+new count; and reconcile `wip/P7S1-research-drift.md` with a closing line per row. Search for stale references to the
+removed names (`useLocalStorage`, `resetLoadedRef`, `hydrateDocumentCache`, `isTransitioning`, `contentPromptIdRef`,
+`titlePromptIdRef`) in `src/` outside the changelog lines of file headers, and in the documents in scope of
+[the drift review](../../docs/rules/documentation.md#drift-review), including `.serena/memories/` (DR-19: the three
+memory files that describe the removed ref-flag protocol, the `localStorage` draft protocol and the P0 ref fixes).
+Records are not drift and stay as they are: the PRPs and reports of earlier steps, `wip/P5S*`, `wip/P5S4bT1-*` and
+`wip/MONACO-*`. Also search for the draft key `prompt-<id>`.
 
-This agent is documentation-only and deletes nothing ([Never](../../.claude/AGENT-CONTRACT.md#never)). It lists the wip
-files of this PRP for removal, and the main session removes them with `git rm` once the REPORT is written, because their
-reference implementations are production code with tests by then: `wip/P7S1-loader-race-diagnostic.test.tsx`,
+This agent is documentation-only: it lists the wip files of this PRP for removal and deletes none. The main session
+removes them with `git rm` once the REPORT is written, because their reference implementations are production code with
+tests by then: `wip/P7S1-loader-race-diagnostic.test.tsx`,
 `wip/P7S1-autosave-timers-probe.test.tsx`, `wip/P7S1-draft-spike.ts`, `wip/P7S1-draft-spike.test.tsx`,
 `wip/P7S1-loader-spike.ts`, `wip/P7S1-loader-spike.test.tsx`, `wip/P7S1-persistence-spike.ts`,
 `wip/P7S1-persistence-spike.test.tsx`, `wip/P7S1-dialog-spike.tsx`, `wip/P7S1-dialog-spike.test.tsx`,
 `wip/P7S1-test-fakes.ts`, `wip/P7S1-mutation-check.py` and `wip/P7S1-vitest.diag.config.ts`. The main session, not this
 agent, amends dev-review #38 (it already lists "repeat across two tabs"; the new flows are a cold open, an open after
-visiting Settings, the conflict toast's "Restore my text", the History list and Escape during a restore) and comments on
-#37, #41, #44 (drafts now live under `prompt-v1-<id>`, `prompt-v1-<id>:conflict` and, until migrated, `prompt-<id>`; a
-`prompt-` prefix purge covers all), #45 and #53.
+visiting Settings, the conflict toast's "Restore my text" including a click while the editor is still starting up, the
+History list, Escape during a restore, and the Discard prompt on closing the tab of a titled, autosaved, never-saved
+document, finding F-9) and comments on #37, #41, #44 (drafts now live under `prompt-v1-<id>`,
+`prompt-v1-<id>:conflict` and, until migrated, `prompt-<id>`; a `prompt-` prefix purge covers all), #45 and #53.

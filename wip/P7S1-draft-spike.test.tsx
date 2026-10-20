@@ -8,14 +8,16 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 12:50 GMT+10
-Last modified: 20/10/2026 14:09 GMT+10
+Last modified: 20/10/2026 16:12 GMT+10
 ---------------
 Proves the draft protocol of wip/P7S1-draft-spike.ts together with the loader spike (wip/P7S1-loader-spike.ts): the pure
-helpers, scenarios S-1 to S-14 of PRPs/docs/P7S1-editor-persistence-contracts.md, and an invariant over a seeded random
-walk. A "reload" is an unmount followed by a new mount against the same fake server and the same storage. Run with:
+helpers, scenarios S-1 to S-14b (PRPs/docs/P7S1-task-briefs-client.md#draft-scenarios), and an invariant over a seeded
+random walk. A "reload" is an unmount followed by a new mount against the same fake server and the same storage. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-draft-spike.test.tsx
 
 Changelog:
+20/10/2026 16:12 GMT+10 | The header points at the scenario table in the client briefs, which holds S-1 to S-14b
+20/10/2026 15:45 GMT+10 | S-7e and S-8e (a refused write keeps the stored value); stashConflict reports whether it stored
 20/10/2026 14:09 GMT+10 | The fakes moved to wip/P7S1-test-fakes.ts and the file is typed: no type error with the test packages installed
 20/10/2026 13:20 GMT+10 | Tests for the v1 key, the legacy key, the kept conflict and its action, viewState, saveStatus and needsAutoSave with the document
 20/10/2026 13:03 GMT+10 | Scenarios for the legacy rule, S-10b, S-11b and ownership across a switch
@@ -266,8 +268,9 @@ describe("writeDraft, clearDraft, removeIfUnchanged, stashConflict and discardRe
     expect(writeDraft(refusing, A, { content: "t", base: "b" })).toBeNull()
     expect(() => clearDraft(null, A, "x")).not.toThrow()
     expect(() => clearDraft(makeBrokenStorage(), A, "x")).not.toThrow()
-    expect(() => stashConflict(refusing, A, "text")).not.toThrow()
-    expect(() => stashConflict(null, A, "text")).not.toThrow()
+    expect(stashConflict(refusing, A, "text")).toBe(false)
+    expect(stashConflict(null, A, "text")).toBe(false)
+    expect(stashConflict(makeBrokenStorage(), A, "text")).toBe(false)
   })
 
   it("removeIfUnchanged removes the key only while it still holds the given raw value", () => {
@@ -284,10 +287,10 @@ describe("writeDraft, clearDraft, removeIfUnchanged, stashConflict and discardRe
     expect(storage.getItem(draftKey(A))).toBe("theirs")
   })
 
-  it("stashConflict keeps the text in its own slot, one per document", () => {
+  it("stashConflict keeps the text in its own slot, one per document, and reports that it did", () => {
     const storage = makeStorage()
-    stashConflict(storage, A, "first")
-    stashConflict(storage, A, "second")
+    expect(stashConflict(storage, A, "first")).toBe(true)
+    expect(stashConflict(storage, A, "second")).toBe(true)
     expect(storage.getItem(conflictKey(A))).toBe("second")
     expect(conflictKey(A).startsWith("prompt-")).toBe(true)
   })
@@ -521,6 +524,16 @@ describe("draft protocol scenarios", () => {
     expect(needsAutoSave(A, hook.result.current, hook.result.current.synced)).toBe(false)
   })
 
+  it("S-7e: a legacy raw draft stays in place while the v1 draft cannot be written, so its text is never the only loss", async () => {
+    world = makeWorld({ [A]: { title: null, content: "" } })
+    world.storage.map.set(legacyDraftKey(A), "legacy text")
+    world.storage.refuseWrites = true
+    const hook = await open(world)
+    expect(hook.result.current.content).toBe("legacy text")
+    expect(storedLegacy(world)).toBe("legacy text")
+    expect(stored(world)).toBeNull()
+  })
+
   it("S-7c: a legacy raw draft equal to the server content is removed without a toast; an empty one is ignored", async () => {
     world.storage.map.set(legacyDraftKey(A), "server")
     await open(world)
@@ -559,6 +572,20 @@ describe("draft protocol scenarios", () => {
     expect(hook.result.current.content).toBe("stale local")
     expect(draftOf(world)).toEqual({ v: 1, base: hashContent("server"), content: "stale local" })
     expect(needsAutoSave(A, hook.result.current, hook.result.current.synced)).toBe(true)
+  })
+
+  it("S-8e: when the storage refuses the stash, the draft stays where it is and the toast still offers the text", async () => {
+    const raw = v1(hashContent("older server"), "stale local")
+    world.storage.map.set(draftKey(A), raw)
+    world.storage.refuseWrites = true
+    const hook = await open(world)
+    expect(hook.result.current.content).toBe("server")
+    expect(toast.warning).toHaveBeenCalledTimes(1)
+    expect(storedConflict(world)).toBeNull()
+    expect(stored(world)).toBe(raw)
+
+    act(() => conflictToast().action.onClick())
+    expect(hook.result.current.content).toBe("stale local")
   })
 
   it("S-8c: the conflict toast's action does nothing once another document is open", async () => {

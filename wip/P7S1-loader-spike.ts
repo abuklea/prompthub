@@ -6,14 +6,14 @@ MIME: text/typescript
 Type: TypeScript React hook (research spike, not imported by the application)
 
 Created: 20/10/2026 12:34 GMT+10
-Last modified: 20/10/2026 14:23 GMT+10
+Last modified: 20/10/2026 15:45 GMT+10
 ---------------
 P7S1 research spike. A standalone version of useDocumentLoader that implements the loader protocol decided in
 PRPs/docs/P7S1-editor-persistence-contracts.md: an identity gate (looked up on every mount, never remembered) with
 `loading` true while the identity is pending, no loaded mark, an aborted run that owns nothing, io read through a ref, and
 atomic readiness: the document and `synced` are replaced in one reducer action, so `synced.promptId === promptId` is true
-only in renders whose title, content and promptData belong to that document. That token replaces isTransitioning,
-contentPromptIdRef and titlePromptIdRef. The file also shows the decomposition that keeps every function under the
+only in renders whose title, content and promptData belong to that document. That token replaces the ownership ref flags
+and the transition effect of the current hook. The file also shows the decomposition that keeps every function under the
 80-line lint limit: a reducer for the state, a module-level runLoad for the load protocol, and small hooks for the
 identity and the latest-value refs. Code marked T6 is added by P7S1T6; P7S1T5 adapts this file without it and keeps the
 current raw-draft restore of useDocumentLoader.ts in its place, reading the storage through `io.getStorage()`. It exists
@@ -21,6 +21,8 @@ to prove the protocol with wip/P7S1-loader-spike.test.tsx and wip/P7S1-draft-spi
 rewritten in P7S1T5.
 
 Changelog:
+20/10/2026 15:45 GMT+10 | No anonymous cache; open-document ref null on unmount; drafts removed only once safe
+20/10/2026 15:45 GMT+10 | The conflict toast says the text differs from the saved document
 20/10/2026 14:23 GMT+10 | Header corrected: no loaded mark and no remembered identity
 20/10/2026 13:56 GMT+10 | The remembered identity is removed (it would leak the cache across a change of session); getStorage is required; conflict toasts are dismissed when the effect cleans up
 20/10/2026 13:27 GMT+10 | Removed setPromptData, which no caller uses after T6
@@ -52,7 +54,9 @@ import {
   stashConflict,
   writeDraft,
   type DocFields,
+  type DraftDecision,
   type DraftStorage,
+  type ReadDraft,
   type SyncedState,
 } from "./P7S1-draft-spike"
 
@@ -63,7 +67,7 @@ export const ANONYMOUS = "anonymous"
 export const IDENTITY_TIMEOUT_MS = 10_000
 export const CONFLICT_TOAST_MS = 20_000
 export const RESTORED_TOAST = "Restored unsaved changes from browser storage"
-export const CONFLICT_TOAST = "Local unsaved changes were not restored because the document changed on the server"
+export const CONFLICT_TOAST = "Local unsaved changes were not restored: they differ from the saved document"
 export const CONFLICT_ACTION = "Restore my text"
 export const LOAD_FAILED = "Failed to load the document"
 
@@ -94,7 +98,12 @@ export function getCachedDocument(userId: string, promptId: string): CacheEntry 
   return entry
 }
 
+/**
+ * Writes an entry for this user. The anonymous identity (a lookup that failed or timed out) gets none: every unresolved
+ * lookup would share it, so nothing is ever cached for it, served to it or updated for it.
+ */
 export function setDocumentCacheEntry(userId: string, promptId: string, entry: Omit<CacheEntry, "userId">): void {
+  if (userId === ANONYMOUS) return
   documentCache.set(cacheKey(userId, promptId), { userId, ...entry })
 }
 
@@ -247,12 +256,13 @@ function commit(ctx: LoadContext, doc: DocumentFields): void {
 }
 
 /**
- * T6. A draft that lost to the server is never deleted silently: its text is kept in the storage and offered by the
- * toast's action, which puts it back into the editor while the same document is open. The toast is dismissed when the
- * document is left or the editor unmounts, because its action would then dispatch into state nobody renders.
+ * T6. A draft that lost to the server is never deleted silently: its text is stashed in the storage and offered once,
+ * by the toast's action, which puts it back into the editor while the same document is open. The toast is dismissed when
+ * the document is left or the editor unmounts, because its action would then dispatch into state nobody renders.
+ * Returns false when the storage refused the stash, so the caller keeps the draft where it is.
  */
-function warnConflict(ctx: LoadContext, storage: DraftStorage | null, content: string): void {
-  stashConflict(storage, ctx.promptId, content)
+function warnConflict(ctx: LoadContext, storage: DraftStorage | null, content: string): boolean {
+  const kept = stashConflict(storage, ctx.promptId, content)
   const id = toast.warning(CONFLICT_TOAST, {
     duration: CONFLICT_TOAST_MS,
     action: {
@@ -263,23 +273,39 @@ function warnConflict(ctx: LoadContext, storage: DraftStorage | null, content: s
     },
   })
   ctx.toastIds.push(id)
+  return kept
+}
+
+/**
+ * T6. Puts the text of a stored draft somewhere safe before the draft is removed: a conflict is stashed, a legacy value
+ * that applies is migrated to a v1 draft. False means the storage refused, and the stored value stays for the next load.
+ */
+function secure(
+  ctx: LoadContext,
+  storage: DraftStorage | null,
+  server: DocFields,
+  read: ReadDraft,
+  decision: DraftDecision
+): boolean {
+  if (decision.kind === "conflict") return warnConflict(ctx, storage, read.draft.content)
+  if (decision.kind === "apply" && read.legacy) {
+    return writeDraft(storage, ctx.promptId, { content: decision.content, base: hashContent(server.content) }) !== null
+  }
+  return true
 }
 
 /**
  * T6. The working content for a document just read from the server: a stored draft that applies, else the server's.
- * A draft that does not apply was consumed here, so this is the only place that removes it; an applied v1 draft is
- * rewritten by useDraftSync in the same commit, and an applied legacy value is migrated to v1 first, then removed.
+ * A draft that does not apply was consumed here, so this is the only place that removes it, and only after its text is
+ * safe elsewhere; an applied v1 draft is rewritten by useDraftSync in the same commit.
  */
 function restoreDraft(ctx: LoadContext, server: DocFields): string {
   const storage = ctx.io.getStorage()
   const read = readDraft(storage, ctx.promptId)
   const decision = resolveDraft(server, read?.draft ?? null)
-  if (read && decision.kind === "apply" && read.legacy) {
-    writeDraft(storage, ctx.promptId, { content: decision.content, base: hashContent(server.content) })
-  }
-  if (read && (decision.kind !== "apply" || read.legacy)) discardRead(storage, ctx.promptId, read)
+  const consumed = decision.kind !== "apply" || read?.legacy === true
+  if (read && secure(ctx, storage, server, read, decision) && consumed) discardRead(storage, ctx.promptId, read)
   if (decision.kind === "apply") toast.info(RESTORED_TOAST)
-  if (decision.kind === "conflict" && read) warnConflict(ctx, storage, read.draft.content)
   return decision.kind === "apply" ? decision.content : server.content
 }
 
@@ -366,8 +392,17 @@ export function useDocumentLoader({ promptId, io }: { promptId: string; io: Docu
   const ioRef = useLatest(io)
   const userId = useIdentity(ioRef)
   const userIdRef = useLatest(userId)
-  const promptIdRef = useLatest<string | null>(promptId)
+  const promptIdRef = useRef<string | null>(null)
   const monacoPromptIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    // Reason: null after unmount, so a request that completes later is not applied to state nobody renders; the body sets
+    // it again when Strict Mode re-runs the effect, and a change of document replaces it within the same commit.
+    promptIdRef.current = promptId
+    return () => {
+      promptIdRef.current = null
+    }
+  }, [promptId])
 
   useEffect(() => {
     const controller = new AbortController()

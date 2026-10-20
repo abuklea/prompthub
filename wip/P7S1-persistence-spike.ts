@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript React hooks (research spike, not imported by the application)
 
 Created: 20/10/2026 13:12 GMT+10
-Last modified: 20/10/2026 14:23 GMT+10
+Last modified: 20/10/2026 15:45 GMT+10
 ---------------
 P7S1 research spike for tasks T6 to T8. The hooks that sit between the document loader (wip/P7S1-loader-spike.ts) and the
 server actions: useAutoSave, useServerAutoSave, useVersionSave, useVersionRestore, useDocumentCacheSync and their
@@ -17,6 +17,7 @@ wip/P7S1-persistence-spike.test.tsx before the production hooks are written. Run
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-persistence-spike.test.tsx
 
 Changelog:
+20/10/2026 15:45 GMT+10 | A save and a restore require their own document's baseline: a stale callback sends nothing
 20/10/2026 14:23 GMT+10 | getPromptVersionHistory joins DocumentActions and withActionTimeout, for the history dialog
 20/10/2026 13:56 GMT+10 | withActionTimeout; the restore flushes through autoSavePrompt and refuses a blank title with unsaved edits
 20/10/2026 13:20 GMT+10 | Added the same-document gating of the cache sync after the review; no other change since creation
@@ -159,8 +160,10 @@ export function useVersionSave({ promptId, tabId, loader, actions, blocked }: Us
   const saveVersion = useCallback(
     async (titleToSave: string | null) => {
       const current = loaderRef.current
-      // Reason: a save while the document is not ready would store the previous document's text under this id.
-      if (!current.ready || savingRef.current || blockedRef.current) return
+      // Reason: `ready` says the loader's document is the open one; the baseline must also be THIS callback's document,
+      // or a callback left over from another document (or a render in which `loaderRef` still holds the previous
+      // document's loader) would store the open document's text under that document's id.
+      if (!current.ready || current.synced?.promptId !== promptId || savingRef.current || blockedRef.current) return
       const valid = titleValidationSchema.safeParse(titleToSave)
       if (!valid.success) {
         setShowSetTitleDialog(true)
@@ -263,7 +266,8 @@ export function useVersionRestore({ promptId, tabId, loader, actions }: UseVersi
   const handleRestore = useCallback(
     async (versionId: number): Promise<boolean> => {
       const current = loaderRef.current
-      if (!current.ready || restoringRef.current) return false
+      // Reason: the same two guards as a save; a stale callback must neither restore nor flush another document.
+      if (!current.ready || current.synced?.promptId !== promptId || restoringRef.current) return false
       restoringRef.current = true
       setRestoring(true)
       try {
