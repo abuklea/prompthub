@@ -28,7 +28,20 @@ PromptHub is built with a modern, type-safe, and scalable technology stack:
 
 ## Getting Started
 
-Follow these instructions to set up and run the project locally.
+### Run with Docker (no Supabase project needed)
+
+`docker-compose.yml` runs Postgres 17, GoTrue (Supabase Auth), an nginx gateway and the production build of the app. It needs no `.env` file and no Supabase account.
+
+```bash
+docker compose up --build -d   # first run builds the app image; the app applies the Prisma migrations on start
+docker compose ps              # wait until db, auth and app report (healthy)
+```
+
+Open [http://localhost:3010](http://localhost:3010) and sign up with any email and password (emails are auto-confirmed). Postgres is also published on host port 54322. `docker compose down` stops the stack and keeps the data in the `pgdata` volume; `docker compose down -v` deletes that data. The stack serves a production build, so rebuild after a code change with `docker compose up --build -d`.
+
+### Run on the host against Supabase Cloud
+
+Follow these instructions to set up and run the project with `npm run dev` against a Supabase project. Port 3010 is shared with the Docker gateway, so run only one of the two.
 
 ### 1. Clone the Repository
 
