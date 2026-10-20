@@ -8,7 +8,7 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 14:14 GMT+10
-Last modified: 20/10/2026 14:14 GMT+10
+Last modified: 20/10/2026 14:48 GMT+10
 ---------------
 Proves the history dialog of wip/P7S1-dialog-spike.tsx with the real Radix dialog and Button. The first group drives the
 dialog with injected fakes: a list that loads when the parent opens the dialog (the defect of the current component), a
@@ -17,6 +17,7 @@ real loader and persistence hooks, as EditorPane does, and restores through them
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-dialog-spike.test.tsx
 
 Changelog:
+20/10/2026 14:48 GMT+10 | The flush-before-restore test asserts the autosave request instead of the fake's version rows
 20/10/2026 14:14 GMT+10 | Created
 */
 
@@ -432,13 +433,13 @@ describe("the dialog beside the real hooks", () => {
     expect(env.rows.get(A)).toEqual({ title: "Old title", content: "old text" })
   })
 
-  it("unsaved edits are saved before the restore, so the restore keeps them as a version", async () => {
+  it("unsaved edits are saved before the restore: the requests are the list, an autosave, then the restore", async () => {
     await mount()
     await click("Type")
     await click("History")
     await click("Restore")
     expect(env.names()).toEqual(["history", "autosave", "restore"])
-    expect(env.state.versions.map((v) => v.content)).toContain("unsaved edit")
+    expect(env.inputs("autosave")).toEqual([{ promptId: A, title: "Title", content: "unsaved edit" }])
     expect(content()).toBe("old text")
   })
 

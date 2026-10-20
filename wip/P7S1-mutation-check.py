@@ -7,15 +7,15 @@ MIME: text/x-python
 Type: Python script (research tooling, not part of the application)
 
 Created: 20/10/2026 14:15 GMT+10
-Last modified: 20/10/2026 14:15 GMT+10
+Last modified: 20/10/2026 14:27 GMT+10
 ---------------
 Mutation check for the P7S1 reference implementations. It applies one deliberate defect at a time to a spike
 (wip/P7S1-draft-spike.ts, -loader-spike.ts, -persistence-spike.ts or -dialog-spike.tsx), runs the four spike suites and
 reports whether any test failed (the defect was KILLED) or none did (it SURVIVED, so no test notices that defect). A
 spike is restored after every run, also when the script is interrupted; if the process is killed outright,
 `git checkout -- wip/` restores the files. Each mutation names the behaviour it breaks, so a survivor points at a missing
-test. An executing agent adapts the spikes into src/ and their suites into src/**/*.test.ts(x); it should keep this
-check green against its own files by pointing the table at them.
+test. The patterns match the spike sources, so the check proves the reference tests; it does not run against the files
+an executing agent adapts from them, and the main session runs it whenever a spike or its suite changes.
 
 Usage:
   python3 wip/P7S1-mutation-check.py              # every mutation (about 5 minutes)
@@ -24,6 +24,7 @@ Usage:
 Exit status: 0 when every mutation was killed, 1 when one survived, broke the file or did not match.
 
 Changelog:
+20/10/2026 14:27 GMT+10 | Docstring: the check proves the reference tests and does not run against adapted files
 20/10/2026 14:15 GMT+10 | Created from the per-suite scratch scripts of the research session; adds the history dialog (H)
 """
 

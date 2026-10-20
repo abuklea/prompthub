@@ -8,7 +8,7 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 13:16 GMT+10
-Last modified: 20/10/2026 14:23 GMT+10
+Last modified: 20/10/2026 14:48 GMT+10
 ---------------
 Proves the hooks of wip/P7S1-persistence-spike.ts over the real loader spike, the real draft writer, the real zustand
 stores and a fake server with controllable latency and failures. The fake server records every request in call order, so
@@ -18,6 +18,7 @@ React Strict Mode. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-persistence-spike.test.tsx
 
 Changelog:
+20/10/2026 14:48 GMT+10 | Two tests assert the requests the fake server received, not the version rows the fake derives from them
 20/10/2026 14:23 GMT+10 | A test that withActionTimeout limits the history read too
 20/10/2026 14:09 GMT+10 | The fakes moved to wip/P7S1-test-fakes.ts and the file is typed: no type error with the test packages installed
 20/10/2026 13:56 GMT+10 | Tests for the request timeout, the single-flight restore, the blank-title refusal and a restore after a switch
@@ -458,7 +459,6 @@ describe("manual save", () => {
     await settle()
 
     expect(env.state.requests).toEqual([{ name: "save", input: { promptId: A, newTitle: "Title", newContent: "v2" } }])
-    expect(env.state.versions).toEqual([{ id: 1, promptId: A, title: "Title", content: "v2" }])
     expect(loaderOf(hook).synced).toEqual({ promptId: A, title: "Title", content: "v2" })
     expect(loaderOf(hook).promptData).toMatchObject({ title: "Title", content: "v2" })
     expect(env.storage.getItem(draftKey(A))).toBeNull()
@@ -731,7 +731,7 @@ describe("restore", () => {
     expect(env.rows.get(A)).toEqual({ title: "Old title", content: "old text" })
   })
 
-  it("unsaved edits of a titled document are saved first, so the restore snapshots them into history", async () => {
+  it("unsaved edits of a titled document are saved first: the requests are an autosave, then the restore", async () => {
     const hook = await open(env)
     type(hook, "unsaved edit")
     let result: boolean | undefined
@@ -742,7 +742,7 @@ describe("restore", () => {
 
     expect(result).toBe(true)
     expect(env.names()).toEqual(["autosave", "restore"])
-    expect(env.state.versions.map((v) => v.content)).toContain("unsaved edit")
+    expect(env.inputs("autosave")).toEqual([{ promptId: A, title: "Title", content: "unsaved edit" }])
     expect(loaderOf(hook).content).toBe("old text")
     expect(env.storage.getItem(draftKey(A))).toBeNull()
   })
