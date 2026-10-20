@@ -6,15 +6,17 @@ MIME: text/typescript
 Type: TypeScript React hook and helpers (research spike, not imported by the application)
 
 Created: 20/10/2026 12:48 GMT+10
-Last modified: 20/10/2026 13:20 GMT+10
+Last modified: 20/10/2026 14:23 GMT+10
 ---------------
-P7S1 research spike. A standalone version of the sync helpers (sync.ts), the draft store (draft.ts) and the draft writer
-(hooks/useDraftSync.ts) decided in PRPs/docs/P7S1-editor-persistence-contracts.md. It exists to prove the draft protocol
-with wip/P7S1-draft-spike.test.tsx, together with the loader spike (wip/P7S1-loader-spike.ts, whose blocks marked T6 call
-into this file), before P7S1T4 writes sync.ts and draft.ts and P7S1T6 writes the hook. Run with:
+P7S1 research spike. A standalone version of the sync helpers (sync.ts), the request timeout (request-timeout.ts), the
+draft store (draft.ts) and the draft writer (hooks/useDraftSync.ts) decided in
+PRPs/docs/P7S1-editor-persistence-contracts.md. It exists to prove the draft protocol with
+wip/P7S1-draft-spike.test.tsx, together with the loader spike (wip/P7S1-loader-spike.ts, whose blocks marked T6 call into
+this file), before P7S1T4 writes sync.ts, request-timeout.ts and draft.ts and P7S1T6 writes the hook. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-draft-spike.test.tsx
 
 Changelog:
+20/10/2026 13:56 GMT+10 | withTimeout and the 30 second request timeout, for server actions that a navigation orphans
 20/10/2026 13:20 GMT+10 | Key prompt-v1-<id>, legacy key read once, conflicts kept and offered, needsAutoSave takes the document, viewState, saveStatus
 20/10/2026 13:03 GMT+10 | useDraftSync owns only what it wrote (a map per document); resolveDraft takes the document and a legacy rule
 20/10/2026 12:49 GMT+10 | Corrected the header timestamps to the filesystem record

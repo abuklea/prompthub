@@ -8,7 +8,7 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 13:16 GMT+10
-Last modified: 20/10/2026 14:09 GMT+10
+Last modified: 20/10/2026 14:23 GMT+10
 ---------------
 Proves the hooks of wip/P7S1-persistence-spike.ts over the real loader spike, the real draft writer, the real zustand
 stores and a fake server with controllable latency and failures. The fake server records every request in call order, so
@@ -18,7 +18,9 @@ React Strict Mode. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-persistence-spike.test.tsx
 
 Changelog:
+20/10/2026 14:23 GMT+10 | A test that withActionTimeout limits the history read too
 20/10/2026 14:09 GMT+10 | The fakes moved to wip/P7S1-test-fakes.ts and the file is typed: no type error with the test packages installed
+20/10/2026 13:56 GMT+10 | Tests for the request timeout, the single-flight restore, the blank-title refusal and a restore after a switch
 20/10/2026 13:20 GMT+10 | Added the tests for a fake loader that is not ready and for the dirty flag of a document that is not open
 20/10/2026 13:16 GMT+10 | Created
 */
@@ -977,5 +979,24 @@ describe("restore", () => {
     expect(loaderOf(second).synced?.content).toBe("old text")
     await tick(5000)
     expect(env.names()).toEqual(["restore"])
+  })
+})
+
+// ---- withActionTimeout ----
+
+describe("withActionTimeout", () => {
+  it("rejects a history read that never settles, and passes a result that arrives in time", async () => {
+    const env = makeEnv({ [A]: { title: "T", content: "c" } })
+    const limited = withActionTimeout(env.actions, 1000)
+    const release = env.hold("history")
+    const stuck = limited.getPromptVersionHistory({ promptId: A }).then(
+      () => "settled",
+      (error: Error) => error.message
+    )
+    await tick(1000)
+    expect(await stuck).toBe(REQUEST_TIMED_OUT)
+
+    release()
+    expect(await limited.getPromptVersionHistory({ promptId: A })).toEqual({ success: true, data: [] })
   })
 })

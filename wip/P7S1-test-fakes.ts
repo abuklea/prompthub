@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript test fakes (research spike, not imported by the application)
 
 Created: 20/10/2026 14:03 GMT+10
-Last modified: 20/10/2026 14:03 GMT+10
+Last modified: 20/10/2026 14:23 GMT+10
 ---------------
 P7S1 research spike. The typed fakes that the three spike suites share: a recording storage, the fetch seam of the loader
 over a map of rows, a deferred seam for tests that settle each lookup by hand, and a fake server for the persistence
@@ -17,6 +17,7 @@ part as src/test/storage-fake.ts, P7S1T5 the loader part as src/test/loader-worl
 src/test/editor-env.ts.
 
 Changelog:
+20/10/2026 14:23 GMT+10 | The history action and request, listItem, and reject on a deferred, for the dialog tests
 20/10/2026 14:03 GMT+10 | Created
 */
 
@@ -131,14 +132,17 @@ export function makeWorld(
 export interface Deferred<T> {
   promise: Promise<T>
   resolve(value: T): void
+  reject(reason: unknown): void
 }
 
 export function defer<T>(): Deferred<T> {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>((r) => {
-    resolve = r
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
   })
-  return { promise, resolve }
+  return { promise, resolve, reject }
 }
 
 /** RTL's `act`, passed in so that this file imports no test library. */
@@ -198,6 +202,7 @@ interface RequestInputs {
   save: Input<"saveNewVersion">
   autosave: Input<"autoSavePrompt">
   restore: Input<"restorePromptVersion">
+  history: Input<"getPromptVersionHistory">
 }
 
 export type RequestName = keyof RequestInputs
@@ -312,6 +317,16 @@ export function makeEnv(rows: Record<string, Row>): EditorEnv {
       rowsMap.set(input.promptId, { title: version.title, content: version.content })
       pushVersion(input.promptId, version.title, version.content)
       return { success: true, data: { title: version.title, content: version.content } }
+    },
+    getPromptVersionHistory: async (input) => {
+      const early = await begin({ name: "history", input })
+      if (early) return early
+      // Reason: the server lists the newest snapshot first; ids only grow, so the id orders them.
+      const mine = state.versions.filter((v) => v.promptId === input.promptId).sort((a, b) => b.id - a.id)
+      return {
+        success: true,
+        data: mine.map((v) => ({ id: v.id, created_at: NOW, title_snapshot: v.title, content_snapshot: v.content })),
+      }
     },
   }
 

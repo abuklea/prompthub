@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript React hooks (research spike, not imported by the application)
 
 Created: 20/10/2026 13:12 GMT+10
-Last modified: 20/10/2026 13:20 GMT+10
+Last modified: 20/10/2026 14:23 GMT+10
 ---------------
 P7S1 research spike for tasks T6 to T8. The hooks that sit between the document loader (wip/P7S1-loader-spike.ts) and the
 server actions: useAutoSave, useServerAutoSave, useVersionSave, useVersionRestore, useDocumentCacheSync and their
@@ -17,6 +17,8 @@ wip/P7S1-persistence-spike.test.tsx before the production hooks are written. Run
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-persistence-spike.test.tsx
 
 Changelog:
+20/10/2026 14:23 GMT+10 | getPromptVersionHistory joins DocumentActions and withActionTimeout, for the history dialog
+20/10/2026 13:56 GMT+10 | withActionTimeout; the restore flushes through autoSavePrompt and refuses a blank title with unsaved edits
 20/10/2026 13:20 GMT+10 | Added the same-document gating of the cache sync after the review; no other change since creation
 20/10/2026 13:12 GMT+10 | Created
 */
@@ -25,6 +27,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import type { ActionResult } from "@/types/actions"
 import { titleValidationSchema } from "@/features/prompts/schemas"
+import type { PromptVersionHistoryItem } from "@/features/prompts/types"
 import { getDisplayTitle } from "@/features/prompts/utils"
 import { useTabStore } from "@/stores/use-tab-store"
 import { useUiStore } from "@/stores/use-ui-store"
@@ -40,6 +43,8 @@ export interface DocumentActions {
     promptId: string
     versionId: number
   }): Promise<ActionResult<{ title: string | null; content: string }>>
+  /** Read by the history dialog, not by the hooks below; kept here so one wrapper limits every request. */
+  getPromptVersionHistory(input: { promptId: string }): Promise<ActionResult<PromptVersionHistoryItem[]>>
 }
 
 /** EditorPane's module-level `documentActions`: the real actions, each limited to the request timeout. */
@@ -48,6 +53,7 @@ export function withActionTimeout(actions: DocumentActions, ms?: number): Docume
     saveNewVersion: (input) => withTimeout(actions.saveNewVersion(input), ms),
     autoSavePrompt: (input) => withTimeout(actions.autoSavePrompt(input), ms),
     restorePromptVersion: (input) => withTimeout(actions.restorePromptVersion(input), ms),
+    getPromptVersionHistory: (input) => withTimeout(actions.getPromptVersionHistory(input), ms),
   }
 }
 

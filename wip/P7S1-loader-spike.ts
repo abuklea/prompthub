@@ -6,20 +6,23 @@ MIME: text/typescript
 Type: TypeScript React hook (research spike, not imported by the application)
 
 Created: 20/10/2026 12:34 GMT+10
-Last modified: 20/10/2026 13:27 GMT+10
+Last modified: 20/10/2026 14:23 GMT+10
 ---------------
 P7S1 research spike. A standalone version of useDocumentLoader that implements the loader protocol decided in
-PRPs/docs/P7S1-editor-persistence-contracts.md: an identity gate with `loading` true while the identity is pending, the
-loaded mark set on apply and cleared by the wipe, an aborted run that owns nothing, io read through a ref, and atomic
-readiness: the document and `synced` are replaced in one reducer action, so `synced.promptId === promptId` is true only
-in renders whose title, content and promptData belong to that document. That token replaces isTransitioning,
+PRPs/docs/P7S1-editor-persistence-contracts.md: an identity gate (looked up on every mount, never remembered) with
+`loading` true while the identity is pending, no loaded mark, an aborted run that owns nothing, io read through a ref, and
+atomic readiness: the document and `synced` are replaced in one reducer action, so `synced.promptId === promptId` is true
+only in renders whose title, content and promptData belong to that document. That token replaces isTransitioning,
 contentPromptIdRef and titlePromptIdRef. The file also shows the decomposition that keeps every function under the
 80-line lint limit: a reducer for the state, a module-level runLoad for the load protocol, and small hooks for the
 identity and the latest-value refs. Code marked T6 is added by P7S1T6; P7S1T5 adapts this file without it and keeps the
-current raw-draft restore of useDocumentLoader.ts in its place. It exists to prove the protocol with
-wip/P7S1-loader-spike.test.tsx and wip/P7S1-draft-spike.test.tsx before the production hook is rewritten in P7S1T5.
+current raw-draft restore of useDocumentLoader.ts in its place, reading the storage through `io.getStorage()`. It exists
+to prove the protocol with wip/P7S1-loader-spike.test.tsx and wip/P7S1-draft-spike.test.tsx before the production hook is
+rewritten in P7S1T5.
 
 Changelog:
+20/10/2026 14:23 GMT+10 | Header corrected: no loaded mark and no remembered identity
+20/10/2026 13:56 GMT+10 | The remembered identity is removed (it would leak the cache across a change of session); getStorage is required; conflict toasts are dismissed when the effect cleans up
 20/10/2026 13:27 GMT+10 | Removed setPromptData, which no caller uses after T6
 20/10/2026 13:21 GMT+10 | A conflict is kept and offered; identity remembered per page load; a rejected fetch is handled; useLatest exported
 20/10/2026 13:03 GMT+10 | Decomposed (reducer, runLoad, small hooks); markSynced and applyServerState take the document id; identity timeout; no loaded mark
