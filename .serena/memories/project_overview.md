@@ -48,7 +48,8 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 P0T2 and P0T3 are superseded: `useDocumentLoader` now runs the identity-gate protocol (P7S1T5). The document and its
 baseline are applied in one reducer action, the `ready` token says when title, content and promptData belong to
 `promptId`, and the ownership refs and the transition lock are gone. The cache lives in
-`src/features/editor/document-cache.ts`.
+`src/features/editor/document-cache.ts`. The localStorage saves of P0T1 came from the removed `useLocalStorage` hook;
+browser drafts are now written only by `useDraftSync` (P7S1T6).
 
 **P1 Priority Fixes**:
 4. **P1T4**: Disabled auto-save during document transitions
@@ -71,7 +72,8 @@ baseline are applied in one reducer action, the `ready` token says when title, c
 1. **Document Management**: Create, edit, save versions of AI prompts
 2. **Folder Organization**: Hierarchical folder structure for organizing prompts
 3. **Tabbed Editor**: Multi-document tabs with preview/permanent states
-4. **Auto-Save**: 500ms debounce with localStorage persistence
+4. **Auto-Save**: 500ms debounce to the server (`autoSavePrompt`), written only when the title or content differ from
+   what the server holds; a content-only browser draft (`prompt-v1-<promptId>`) is the safety net
 5. **Version History**: Git-style diffs for version tracking
 6. **User Authentication**: Supabase Auth with JWT and RLS policies
 7. **Full-Text Search**: PostgreSQL tsvector for prompt search

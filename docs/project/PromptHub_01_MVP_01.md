@@ -66,7 +66,7 @@ This is the core feature, providing a rich interface for users to create, view, 
 #### Requirements
 - The version control system stores each version as a full snapshot of the title and content. A manual save records the saved state, and a restore records the unsaved text it replaces and then the restored state.
 - The UI must include a **diff viewer**, using Monaco Editor's diffing capabilities, to provide a clear, side-by-side comparison between versions.
-- The editor will feature auto-saving to local storage to prevent data loss.
+- The editor will feature auto-saving to the server, with a browser draft of unsaved content, to prevent data loss.
 
 ## Detailed Database Schema
 Below is the proposed schema for the core tables. Primary Keys, Foreign Keys, and important indexes are specified.

@@ -119,9 +119,9 @@
 *   **Description:** The active working state where a user is writing or modifying a prompt. The system provides feedback about its auto-save status.
 *   **UI/UX Flow:**
     *   As the user types in the Monaco Editor, the "Save" button becomes enabled.
-    *   Every few seconds, the content is saved to local storage. A small text indicator (Body Small: 12px, Gray 500 - `#6B7280`) appears briefly near the "Save" button, reading "Draft saved locally."
+    *   After the user pauses typing, the title and content are autosaved to the server without creating a version. A small text indicator in the editor footer (Body Small: 12px, Gray 500 - `#6B7280`) reads "Saving...", then "Saved <time>"; while the working text differs from what the server holds it reads "Unsaved changes".
     *   When the user manually clicks "Save", the button shows a loading spinner for the duration of the server action. On success, the indicator changes to "Version saved" (in Success Green - `#22C55E`) and then fades out. The "Save" button becomes disabled again until further changes are made.
-*   **Animations:** The status indicators ("Draft saved", "Version saved") fade in and out over 200ms.
+*   **Animations:** The status indicators ("Saved <time>", "Version saved") fade in and out over 200ms.
 
 #### Screen 3 - State 3: Version History Viewer
 

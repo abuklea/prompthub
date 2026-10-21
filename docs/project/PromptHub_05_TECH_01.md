@@ -210,17 +210,17 @@
 ### 3.3 Prompt Editor & Version Control
 - **User Stories:**
     - I want a powerful editor with syntax highlighting.
-    - I want my work auto-saved locally so I don't lose it.
+    - I want my work auto-saved so I don't lose it.
     - I want to view a history of all saved changes.
     - I want a side-by-side "diff" view to compare two versions.
 - **Technical Requirements:**
     - Integrate the Monaco Editor for the editing experience.
-    - Keep unsaved text in the browser per document, and autosave the current title and content to the server without creating a version.
+    - Keep unsaved content in the browser per document as a draft, and autosave the current title and content to the server without creating a version. The draft is a v1 JSON envelope `{"v":1,"base":"<hash of the server content it began from>","content":"..."}` under the key `prompt-v1-<promptId>` and covers the content only, not the title. It exists only while the working content differs from what the server holds and is removed once a save catches up. A draft whose base no longer matches the server content is not applied: its text is stashed under `prompt-v1-<promptId>:conflict` and offered once by a toast with the action "Restore my text".
     - When a user manually saves, the prompt is written and the saved title and content are recorded as a new version, unless the newest version already holds exactly that state.
     - The diff view must be implemented using Monaco Editor's built-in diffing capabilities.
 - **Implementation Approach:**
     1.  **Editor Component:** Create an `Editor.tsx` component that dynamically imports `@monaco-editor/react` to avoid SSR issues.
-    2.  **Auto-Saving:** The editor keeps unsaved text in the browser per document, and a debounced call to the `autoSavePrompt` Server Action writes the current title and content to the `Prompts` table. Autosave records no `PromptVersions` entry.
+    2.  **Auto-Saving:** The editor keeps the browser draft described above, and a debounced call to the `autoSavePrompt` Server Action writes the current title and content to the `Prompts` table. Autosave records no `PromptVersions` entry.
     3.  **Manual Save:** The "Save" button calls the Server Action `saveNewVersion({ promptId, newTitle, newContent })`.
         -   It writes the title, content and `updated_at` of the `Prompts` row, scoped to the signed-in user, in one transaction with the version.
         -   It records the saved title and content as a new `PromptVersions` entry (`title_snapshot`, `content_snapshot`), unless the newest version already holds exactly that state. In that case it adds nothing and returns that version's id.
@@ -328,7 +328,7 @@ model Tag {
 
 ### 4.2 Data Storage
 - **Database:** Supabase managed Postgres database.
-- **Data Persistence:** All application data will be persisted in the Postgres database via Prisma. Local drafts of prompts will be temporarily stored in the user's browser `localStorage`.
+- **Data Persistence:** All application data will be persisted in the Postgres database via Prisma. The editor's unsaved content is kept as a per-document draft in the user's browser `localStorage` (section 3.3) until a save catches up.
 - **Caching:** Next.js's server-side data cache will be used for read operations. Server Actions will use `revalidateTag` and `revalidatePath` to invalidate caches after mutations, ensuring UI consistency.
 - **Backup and Recovery:** Handled automatically by the Supabase platform.
 

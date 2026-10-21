@@ -16,8 +16,8 @@ PromptHub/
 │   │   │   ├── components/
 │   │   │   │   └── EditorPane.tsx # Main editor with cache system (P5S4 refactor)
 │   │   │   ├── hooks/
-│   │   │   │   ├── useAutoSave.ts # 500ms debounce auto-save
-│   │   │   │   └── useLocalStorage.ts # localStorage persistence
+│   │   │   │   ├── useAutoSave.ts # 500ms debounce auto-save against the sync baseline
+│   │   │   │   └── useDraftSync.ts # the only browser draft writer (v1 envelope)
 │   │   │   ├── actions.ts   # saveNewVersion, autoSavePrompt
 │   │   │   └── schemas.ts   # Zod validation schemas
 │   │   ├── folders/         # Folder management
@@ -75,8 +75,10 @@ PromptHub/
   identity), written by EditorPane and updated by the loader
 - Document loading by `useDocumentLoader` on the identity-gate protocol (`loader-protocol.ts`, `loader-state.ts`): the
   `ready` token replaces the ownership refs and the transition lock; `promptIdRef` and `monacoPromptIdRef` remain
-- 500ms auto-save, disabled until `ready`
-- localStorage persistence with cross-contamination prevention
+- 500ms auto-save to the server, disabled until `ready`, writing only when title or content differ from the baseline
+- Content-only browser draft per document (`prompt-v1-<promptId>`, `src/features/editor/draft.ts`): written by
+  `useDraftSync`, read by the loader (`restoreDraft`, `secure`, `warnConflict` in `loader-protocol.ts`); a draft whose
+  base no longer matches the server is stashed under `:conflict` and offered once by a "Restore my text" toast
 - Null title handling with getDisplayTitle utility
 
 **Key Features**:
@@ -168,7 +170,7 @@ model Prompt {
 EditorPane.tsx
 ├── Hooks
 │   ├── useAutoSave (500ms debounce)
-│   └── useLocalStorage (persistence)
+│   └── useDraftSync (browser draft)
 ├── Actions
 │   ├── saveNewVersion (manual save)
 │   └── autoSavePrompt (background save)

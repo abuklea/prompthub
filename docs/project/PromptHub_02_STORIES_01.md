@@ -76,7 +76,7 @@ This is the core feature, providing a rich interface for users to create, view, 
 ##### UX/UI Considerations
 - [Core Experience]
 	- **Editor Interface:** The right-hand pane will be dedicated to the Monaco Editor. Above the editor, a field for the prompt's `title` will be present. A "Save" button will manually trigger a new version creation.
-	- **Auto-saving:** The editor will automatically save the current content to the browser's local storage every few seconds. A subtle "Draft saved" message will appear to give the user confidence that their work is safe. This local draft is separate from the official version history.
+	- **Auto-saving:** The editor will automatically save the current title and content to the server without creating a version. The footer shows "Saving...", "Unsaved changes" or "Saved <time>" so the user can see whether their work is safe. While the content differs from what the server holds, the browser also keeps a draft of the content as a safety net, removed once a save catches up. Neither is part of the official version history.
 	- **Version History:** A "History" or clock icon will be present in the editor's header. Clicking this will open a modal or a slide-in panel displaying a list of saved versions with timestamps.
 	- **Diff Viewer:** Selecting a version from the history list will update the main view. To compare, the user can select two versions. This will transform the editor pane into a side-by-side diff view, powered by Monaco's built-in diffing capabilities, clearly highlighting insertions and deletions.
 

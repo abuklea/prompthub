@@ -28,7 +28,7 @@ The cache is a module-level map in `document-cache.ts`; neither the hook nor `Ed
 2. **One action**: the document and its sync baseline (`synced`) arrive in ONE reducer action (`apply`), so there is no
    render with new content and an old baseline.
 3. **`ready`**: true only in renders whose `title`, `content` and `promptData` belong to `promptId`. Gate every
-   consumer on it (the editor mount, auto-save, the cache write, the localStorage write). It replaces the ownership
+   consumer on it (the editor mount, auto-save, the cache write, the draft write). It replaces the ownership
    flags (`contentPromptIdRef`, `titlePromptIdRef`, `loadedRef`) and the transition effect (`isTransitioning`), which
    no longer exist.
 4. **Abort**: each run has an `AbortSignal`; a superseded run (new document or identity, unmount) changes nothing
