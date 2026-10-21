@@ -7,20 +7,20 @@ MIME: text/typescript
 Type: TypeScript React test (Vitest, jsdom)
 
 Created: 22/10/2026 09:10 GMT+10
-Last modified: 22/10/2026 09:10 GMT+10
+Last modified: 22/10/2026 09:36 GMT+10
 ---------------
 The document loader across document switches and the cache: a switch wipes the old document and loads the new one, a
 cache hit is ready at once, late responses of a document already left are ignored, readiness holds on every render, the
-Monaco guard names only the applied document, an emptied promptId wipes, and the raw draft value the old writer leaves
-in the browser storage is restored only when it differs from the server.
+Monaco guard names only the applied document, and an emptied promptId wipes.
 
 Changelog:
+22/10/2026 09:36 GMT+10 | Removed the raw-draft cases, superseded by decision D2 and the S-7 cases of
+                         useDocumentLoader.draft.test.tsx (P7S1T6 step 1)
 22/10/2026 09:10 GMT+10 | Created from the P7S1 loader spike suite, with the raw-draft cases (P7S1T5 step 2)
 */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, cleanup, renderHook } from "@testing-library/react"
-import { toast } from "sonner"
 import { clearDocumentCache, setDocumentCacheEntry } from "@/features/editor/document-cache"
 import { useDocumentLoader } from "./useDocumentLoader"
 import {
@@ -31,12 +31,10 @@ import {
   cacheEntryFor,
   expectReady,
   makeDeferredIo,
-  makeWorld,
   mountLoader as mount,
   serverRow,
   type LoaderProps,
 } from "@/test/loader-world"
-import { makeStorage } from "@/test/storage-fake"
 
 vi.mock("sonner", () => ({
   toast: { info: vi.fn(), error: vi.fn(), success: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
@@ -167,33 +165,5 @@ describe("useDocumentLoader switching documents", () => {
     expect(result.current.content).toBe("")
     expect(result.current.synced).toBeNull()
     expect(result.current.monacoPromptIdRef.current).toBeNull()
-  })
-})
-
-describe("useDocumentLoader raw draft value", () => {
-  /** Opens A after the identity is known, so the load is the plain fetch path. */
-  async function openAfterIdentity(stored: string) {
-    const storage = makeStorage({ [`prompt-${A}`]: stored })
-    const world = makeWorld({ [A]: { title: "Server title", content: "Server content" } }, storage)
-    const hook = mount(world.io, "")
-    await act(async () => {})
-    hook.rerender({ promptId: A, io: world.io })
-    await act(async () => {})
-    await act(async () => {})
-    return hook
-  }
-
-  it("a stored value that differs is applied with a toast; the baseline stays the server's", async () => {
-    const { result } = await openAfterIdentity("Unsaved text")
-    expect(result.current.title).toBe("Server title")
-    expect(result.current.content).toBe("Unsaved text")
-    expect(toast.info).toHaveBeenCalledWith("Restored unsaved changes from browser storage")
-    expect(result.current.synced).toEqual({ promptId: A, title: "Server title", content: "Server content" })
-  })
-
-  it("a stored value equal to the server's content is not offered", async () => {
-    const { result } = await openAfterIdentity("Server content")
-    expect(result.current.content).toBe("Server content")
-    expect(toast.info).not.toHaveBeenCalled()
   })
 })

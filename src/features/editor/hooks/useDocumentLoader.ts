@@ -6,14 +6,16 @@ MIME: text/typescript
 Type: TypeScript React Hook
 
 Created: 17/07/2026 10:00 GMT+10
-Last modified: 22/10/2026 09:14 GMT+10
+Last modified: 22/10/2026 09:39 GMT+10
 ---------------
 Loads the open document on the identity-gate protocol (contract: Loader Protocol). The user is looked up on every
 mount and the load waits for it; the document and its baseline arrive in one reducer action, so `ready` is true only in
 renders whose title, content and promptData belong to `promptId`. Completions of saves and restores are applied through
-`markSynced` and `applyServerState`, which change React state only for the open document.
+`markSynced` and `applyServerState`, which change React state only for the open document. A load's conflict toasts are
+dismissed when its effect cleans up (the document is left or the editor unmounts).
 
 Changelog:
+22/10/2026 09:39 GMT+10 | The load effect owns its conflict toasts and dismisses them on cleanup (P7S1T6)
 22/10/2026 09:14 GMT+10 | Rewritten on the identity-gate protocol: useIdentity, ready, synced, markSynced,
                          applyServerState; adopts document-cache.ts; the ownership ref flags and the transition
                          effect are removed (P7S1T5 step 3)
@@ -23,6 +25,7 @@ Changelog:
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { Dispatch, MutableRefObject, SetStateAction } from "react"
+import { toast } from "sonner"
 import { useLatest } from "@/hooks/use-latest"
 import { ANONYMOUS, updateDocumentCacheEntry } from "../document-cache"
 import { runLoad, type DocumentLoaderIo } from "../loader-protocol"
@@ -133,8 +136,14 @@ export function useDocumentLoader({ promptId, io }: UseDocumentLoaderOptions): D
 
   useEffect(() => {
     const controller = new AbortController()
-    void runLoad({ promptId, userId, io: ioRef.current, signal: controller.signal, dispatch, monacoPromptIdRef })
-    return () => controller.abort()
+    const toastIds: Array<string | number> = []
+    const { signal } = controller
+    void runLoad({ promptId, userId, io: ioRef.current, signal, dispatch, monacoPromptIdRef, toastIds })
+    return () => {
+      controller.abort()
+      // Reason: a conflict toast's action targets this run's document; once it is left, the offer is withdrawn.
+      toastIds.forEach((id) => toast.dismiss(id))
+    }
   }, [promptId, userId, ioRef])
 
   const setters = useMemo(

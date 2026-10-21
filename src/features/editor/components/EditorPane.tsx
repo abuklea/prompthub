@@ -6,13 +6,15 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 22/10/2026 09:17 GMT+10
+Last modified: 22/10/2026 09:41 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
-Features: Auto-save (500ms debounce), localStorage persistence, manual save (Ctrl+S).
+Features: autosave against the baseline (500ms debounce), browser drafts (useDraftSync), manual save (Ctrl+S).
 
 Changelog:
+22/10/2026 09:41 GMT+10 | Drafts written by useDraftSync in place of the old local-storage hook; autosave takes the
+                         baseline (P7S1T6)
 22/10/2026 09:17 GMT+10 | Renders from viewState and saveStatus, gates on loader.ready, records saves with markSynced;
                          no cache re-exports (P7S1T5 step 3)
 22/10/2026 08:57 GMT+10 | Defines the module-level loaderIo and passes it to useDocumentLoader (P7S1T5 step 1)
@@ -44,7 +46,7 @@ import { titleValidationSchema } from "@/features/prompts/schemas"
 import { SetTitleDialog } from "@/features/prompts/components/SetTitleDialog"
 import { getDisplayTitle } from "@/features/prompts/utils"
 import { useAutoSave } from "@/features/editor/hooks/useAutoSave"
-import { useLocalStorage } from "@/features/editor/hooks/useLocalStorage"
+import { useDraftSync } from "@/features/editor/hooks/useDraftSync"
 import { useDocumentLoader, type DocumentLoaderIo } from "@/features/editor/hooks/useDocumentLoader"
 import { getPromptDetails } from "@/features/prompts/actions"
 import { createClient } from "@/lib/supabase/client"
@@ -107,10 +109,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
   const [showSetTitleDialog, setShowSetTitleDialog] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
 
-  const [, setLocalContent, clearLocalContent] = useLocalStorage({
-    key: promptId ? `prompt-${promptId}` : "prompt-draft",
-    initialValue: "",
-  })
+  useDraftSync({ promptId, ready, content, synced, getStorage: getBrowserStorage })
 
   const handleAutoSave = useCallback(
     async (pid: string, t: string | null, c: string) => {
@@ -131,14 +130,9 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
     title,
     content,
     promptId: ready ? promptId : null,
-    delay: 500,
+    baseline: synced,
     onSave: handleAutoSave,
   })
-
-  // Sync content to localStorage; `ready` means the content belongs to promptId in this render
-  useEffect(() => {
-    if (ready && content) setLocalContent(content)
-  }, [content, ready, setLocalContent])
 
   // Update cache and tab metadata when title or content changes
   useEffect(() => {
@@ -189,7 +183,6 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
 
     if (result.success) {
       toast.success("Version saved successfully")
-      clearLocalContent()
       markSynced({ promptId, title, content }, { version: true })
       updateTab(tabId, { isDirty: false, isNewDocument: false })
       triggerPromptRefetch()
@@ -197,7 +190,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
       toast.error(result.error, { duration: 6000 })
     }
     setSaving(false)
-  }, [promptId, title, content, clearLocalContent, tabId, updateTab, triggerPromptRefetch, markSynced])
+  }, [promptId, title, content, tabId, updateTab, triggerPromptRefetch, markSynced])
 
   const handleSetTitle = useCallback(
     (newTitle: string) => {
