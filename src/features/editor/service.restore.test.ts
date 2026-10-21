@@ -6,22 +6,24 @@ MIME: text/typescript
 Type: TypeScript Module
 
 Created: 22/10/2026 08:51 GMT+10
-Last modified: 22/10/2026 08:54 GMT+10
+Last modified: 22/10/2026 09:06 GMT+10
 ---------------
 Tests for restoreVersion and listVersions against a real Postgres (skipped without TEST_DATABASE_URL): a restore
 records the working copy when history does not hold it, then the restored state, returns the restored title and
 content, never loses autosaved text, and is scoped to the owner; the history is ordered by id and capped at 50.
 
 Changelog:
+22/10/2026 09:06 GMT+10 | The failing-transaction seam moved to src/test/failing-db.ts, shared with the save suite
 22/10/2026 08:54 GMT+10 | One case added after a mutation check let M10 survive: the newest version is the highest id
                          even when created_at says otherwise
 22/10/2026 08:51 GMT+10 | Created (P7S1T3)
 */
 import { randomUUID } from "node:crypto"
 import { afterAll, beforeAll, expect, it } from "vitest"
-import type { Prisma, PrismaClient } from "@prisma/client"
+import type { PrismaClient } from "@prisma/client"
 import { createTestPrompt, createTestUser, describeDb, useTestDatabase } from "@/test/db"
-import { autoSaveDocument, listVersions, restoreVersion, saveVersion, type EditorDb } from "./service"
+import { withFailingVersionCreate } from "@/test/failing-db"
+import { autoSaveDocument, listVersions, restoreVersion, saveVersion } from "./service"
 
 const NOT_FOUND = { success: false, error: "Prompt not found or access denied" }
 const VERSION_NOT_FOUND = { success: false, error: "Version not found" }
@@ -52,36 +54,6 @@ async function listed(db: PrismaClient, userId: string, promptId: string): Promi
   const result = await listVersions(db, userId, { promptId })
   if (!result.success) throw new Error(`list failed: ${result.error}`)
   return result.data.map((v) => [v.title_snapshot, v.content_snapshot])
-}
-
-/**
- * A db whose transactions hand the callback the real transaction client wrapped in a Proxy whose promptVersion.create
- * throws on its `failOn`-th call within that transaction: an injected seam over the real client, not a module mock.
- */
-function withFailingVersionCreate(db: PrismaClient, failOn: number): EditorDb {
-  const wrap = (tx: Prisma.TransactionClient): Prisma.TransactionClient => {
-    let creates = 0
-    return new Proxy(tx, {
-      get(target, key) {
-        const value = Reflect.get(target, key)
-        if (key !== "promptVersion") return value
-        return new Proxy(value, {
-          get(delegate, name) {
-            const member = Reflect.get(delegate, name)
-            if (name !== "create") return member
-            return async (args: Prisma.PromptVersionCreateArgs) => {
-              creates += 1
-              if (creates === failOn) throw new Error("injected failure")
-              return delegate.create(args)
-            }
-          },
-        })
-      },
-    })
-  }
-  const $transaction = ((fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
-    db.$transaction((tx) => fn(wrap(tx)))) as EditorDb["$transaction"]
-  return { prompt: db.prompt, promptVersion: db.promptVersion, $transaction }
 }
 
 describeDb("editor service: restore and history", () => {

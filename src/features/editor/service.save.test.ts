@@ -6,21 +6,23 @@ MIME: text/typescript
 Type: TypeScript Module
 
 Created: 22/10/2026 08:41 GMT+10
-Last modified: 22/10/2026 08:46 GMT+10
+Last modified: 22/10/2026 09:05 GMT+10
 ---------------
 Tests for saveVersion and autoSaveDocument against a real Postgres (skipped without TEST_DATABASE_URL): a version is
 the saved state, an unchanged save records nothing, autosave records nothing, and every write is scoped to the owner.
 
 Changelog:
+22/10/2026 09:05 GMT+10 | The failing-transaction seam moved to src/test/failing-db.ts, shared with the restore suite
 22/10/2026 08:46 GMT+10 | Three edge cases added after a mutation check let M3 to M5 survive: a title-only save, a
                          content-only save, and saving an earlier state again; two long lines wrapped
 22/10/2026 08:41 GMT+10 | Created (P7S1T2)
 */
 import { randomUUID } from "node:crypto"
 import { afterAll, beforeAll, expect, it } from "vitest"
-import type { Prisma, PrismaClient } from "@prisma/client"
+import type { PrismaClient } from "@prisma/client"
 import { createTestPrompt, createTestUser, describeDb, useTestDatabase } from "@/test/db"
-import { autoSaveDocument, saveVersion, type EditorDb } from "./service"
+import { withFailingVersionCreate } from "@/test/failing-db"
+import { autoSaveDocument, saveVersion } from "./service"
 
 const NOT_FOUND = { success: false, error: "Prompt not found or access denied" }
 
@@ -40,29 +42,6 @@ async function versionState(db: PrismaClient, versionId: number): Promise<[strin
 function versionIdOf(result: Awaited<ReturnType<typeof saveVersion>>): number {
   if (!result.success) throw new Error(`save failed: ${result.error}`)
   return result.data.versionId
-}
-
-/**
- * A db whose transactions hand the callback the real transaction client wrapped in a Proxy whose
- * promptVersion.create throws: an injected seam over the real client, not a module mock.
- */
-function withFailingVersionCreate(db: PrismaClient): EditorDb {
-  const wrap = (tx: Prisma.TransactionClient): Prisma.TransactionClient =>
-    new Proxy(tx, {
-      get(target, key) {
-        const value = Reflect.get(target, key)
-        if (key !== "promptVersion") return value
-        return new Proxy(value, {
-          get(delegate, name) {
-            if (name === "create") return async () => { throw new Error("injected failure") }
-            return Reflect.get(delegate, name)
-          },
-        })
-      },
-    })
-  const $transaction = ((fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
-    db.$transaction((tx) => fn(wrap(tx)))) as EditorDb["$transaction"]
-  return { prompt: db.prompt, promptVersion: db.promptVersion, $transaction }
 }
 
 describeDb("editor service: save and autosave", () => {
