@@ -139,7 +139,7 @@
     *   The main editor area is replaced by Monaco Editor's diff view.
     *   The left side shows the older selected version, and the right side shows the newer one.
     *   Lines that have been removed are highlighted on the left (e.g., a subtle Error Red - `#EF4444` background), and added lines are highlighted on the right (e.g., a subtle Success Green - `#22C55E` background).
-    *   A "Restore this version" button is available for the version being viewed, allowing the user to revert. Clicking it would populate the main editor with the selected version's content and prompt the user to save it as a new version.
+    *   A "Restore this version" button is available for the version being viewed, allowing the user to revert. Clicking it asks "Restore this version?" and only after the user confirms writes the restore: the editor then shows the restored title and content, and the history keeps the replaced text and the restored state as versions.
 *   **Animations:** The transition from the standard editor to the diff view is a quick 150ms cross-fade to maintain performance.
 
 ## Tagging System

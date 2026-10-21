@@ -1,3 +1,25 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/features/prompts/actions.ts
+MIME: text/typescript
+Type: TypeScript
+
+Created: 06/11/2025 14:33 GMT+10
+Last modified: 22/10/2026 08:59 GMT+10
+---------------
+Server actions for prompts: listing by folder, full-text search, creating, reading, renaming, deleting and validating
+prompts; listing, creating and assigning tags; and reading and restoring the version history, which delegate to
+@/features/editor/service.
+
+Changelog:
+22/10/2026 08:59 GMT+10 | P7S1T3: header description tightened
+22/10/2026 08:52 GMT+10 | P7S1T3: restorePromptVersion returns the restored { title, content }; the restore write is
+                         scoped to the user (issue #41)
+22/10/2026 08:50 GMT+10 | P7S1T3: getPromptVersionHistory and restorePromptVersion delegate to listVersions and
+                         restoreVersion in @/features/editor/service; the actions keep their shells; header added
+*/
+
 "use server"
 
 /* eslint-disable max-lines -- RED in docs/rules/code-size-register.md (split, #51); delete with the split */
@@ -18,6 +40,7 @@ import { ActionResult } from "@/types/actions"
 import { PromptListItem, PromptVersionHistoryItem } from "./types"
 import { ensureProfileExists } from "@/lib/ensure-profile"
 import { checkMutationRateLimit } from "@/lib/rate-limit"
+import { listVersions, restoreVersion } from "@/features/editor/service"
 
 export async function getPromptsByFolder(folderId: string, filters?: { query?: string; tagIds?: string[] }) {
   const supabase = createClient()
@@ -581,6 +604,16 @@ export async function assignTagsToPrompt(data: unknown): Promise<ActionResult<vo
   }
 }
 
+/**
+ * List the version history of one of the user's prompts.
+ *
+ * Validates the input and authenticates the user (no rate limit), then calls `listVersions`.
+ *
+ * @param data - Object containing promptId
+ * @returns ActionResult with up to 50 versions, newest first; a not-found failure for a prompt that is not the user's;
+ *   a generic error message on any other failure
+ * @throws The Next.js redirect error, rethrown
+ */
 export async function getPromptVersionHistory(data: unknown): Promise<ActionResult<PromptVersionHistoryItem[]>> {
   try {
     const parsed = getPromptVersionHistorySchema.safeParse(data)
@@ -594,31 +627,7 @@ export async function getPromptVersionHistory(data: unknown): Promise<ActionResu
       return { success: false, error: 'Unauthorized. Please sign in.' }
     }
 
-    const prompt = await db.prompt.findFirst({
-      where: {
-        id: parsed.data.promptId,
-        user_id: user.id,
-      },
-      select: { id: true },
-    })
-
-    if (!prompt) {
-      return { success: false, error: 'Prompt not found or access denied' }
-    }
-
-    const versions = await db.promptVersion.findMany({
-      where: { prompt_id: parsed.data.promptId },
-      select: {
-        id: true,
-        created_at: true,
-        title_snapshot: true,
-        content_snapshot: true,
-      },
-      orderBy: { created_at: 'desc' },
-      take: 50,
-    })
-
-    return { success: true, data: versions }
+    return await listVersions(db, user.id, parsed.data)
   } catch (error) {
     if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
       throw error
@@ -628,7 +637,20 @@ export async function getPromptVersionHistory(data: unknown): Promise<ActionResu
   }
 }
 
-export async function restorePromptVersion(data: unknown): Promise<ActionResult<void>> {
+/**
+ * Restore one of the user's prompts to the state a version holds.
+ *
+ * Validates the input and authenticates the user (no rate limit), then calls `restoreVersion`, which writes the
+ * prompt and its version history in one transaction scoped to the user.
+ *
+ * @param data - Object containing promptId and versionId
+ * @returns ActionResult with the restored title and content; a not-found failure for a prompt that is not the user's
+ *   or a version of another prompt; a generic error message on any other failure
+ * @throws The Next.js redirect error, rethrown
+ */
+export async function restorePromptVersion(
+  data: unknown,
+): Promise<ActionResult<{ title: string | null; content: string }>> {
   try {
     const parsed = restorePromptVersionSchema.safeParse(data)
     if (!parsed.success) {
@@ -641,54 +663,7 @@ export async function restorePromptVersion(data: unknown): Promise<ActionResult<
       return { success: false, error: 'Unauthorized. Please sign in.' }
     }
 
-    const prompt = await db.prompt.findFirst({
-      where: {
-        id: parsed.data.promptId,
-        user_id: user.id,
-      },
-      select: { id: true, title: true, content: true },
-    })
-
-    if (!prompt) {
-      return { success: false, error: 'Prompt not found or access denied' }
-    }
-
-    const version = await db.promptVersion.findFirst({
-      where: {
-        id: parsed.data.versionId,
-        prompt_id: parsed.data.promptId,
-      },
-      select: {
-        title_snapshot: true,
-        content_snapshot: true,
-      },
-    })
-
-    if (!version) {
-      return { success: false, error: 'Version not found' }
-    }
-
-    await db.$transaction(async (tx) => {
-      await tx.promptVersion.create({
-        data: {
-          prompt_id: parsed.data.promptId,
-          diff: '',
-          title_snapshot: prompt.title,
-          content_snapshot: prompt.content,
-        },
-      })
-
-      await tx.prompt.update({
-        where: { id: parsed.data.promptId },
-        data: {
-          title: version.title_snapshot,
-          content: version.content_snapshot,
-          updated_at: new Date(),
-        },
-      })
-    })
-
-    return { success: true, data: undefined }
+    return await restoreVersion(db, user.id, parsed.data)
   } catch (error) {
     if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
       throw error

@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 20/10/2026 16:12 GMT+10 |
+| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 22/10/2026 07:53 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -25,12 +25,12 @@ here once. The task briefs are in [P7S1-task-briefs.md](P7S1-task-briefs.md) and
 today, the code is right; where they disagree about what to build, this document is right. The server half (the action
 shells and the two transactions) is the [Server Contract](P7S1-task-briefs.md#server-contract) of the shared briefs.
 
-The client half is specified by four working reference implementations with 204 passing tests, over the typed fakes of
+The client half is specified by four working reference implementations with 211 passing tests, over the typed fakes of
 `wip/P7S1-test-fakes.ts`: `P7S1-draft-spike.ts` (92 tests: `sync.ts`, `request-timeout.ts`, `draft.ts`, `useDraftSync`),
 `P7S1-loader-spike.ts` (27: `document-cache.ts`, the reducer, `runLoad`, `useDocumentLoader`),
 `P7S1-persistence-spike.ts` (59: the six hooks from `useAutoSave` to `useDocumentPersistence`, `withActionTimeout`) and
-`P7S1-dialog-spike.tsx` (26: `VersionHistoryDialog`, alone and beside the real hooks). `wip/P7S1-mutation-check.py`
-applies 83 deliberate defects to them, one at a time, and every one is killed by at least one test (about 5 minutes;
+`P7S1-dialog-spike.tsx` (33: `VersionHistoryDialog`, alone and beside the real hooks). `wip/P7S1-mutation-check.py`
+applies 90 deliberate defects to them, one at a time, and every one is killed by at least one test (about 5 minutes;
 `--list` names the mutations). The commands are in
 [Level 2](../P7S1-editor-data-integrity.md#level-2-unit-and-postgres-backed-tests) of the PRP's validation loop.
 
@@ -73,7 +73,7 @@ is under `src/features/editor/`.
 | `hooks/useVersionRestore.ts` | T8 | restore, with the flush of unsaved edits; `NEEDS_TITLE_TOAST`, `FLUSH_FAILED_TOAST` | 110 |
 | `hooks/useDocumentPersistence.ts` | T7, T8 | composition of the hooks above | 70 |
 | `components/EditorPane.tsx` | T5 to T8 | composition and JSX; ends shorter than 329 lines | under 329 |
-| `components/VersionHistoryDialog.tsx` | T8 | reads its list in an effect; takes `loadHistory` and `onRestore`; single-flight | 180 |
+| `components/VersionHistoryDialog.tsx` | T8 | reads its list in an effect; takes `loadHistory` and `onRestore`; asks "Restore this version?" first; single-flight | 230 |
 
 ## Types and Interfaces
 
@@ -263,10 +263,9 @@ There is no loaded mark: the identity gate and the abort keep the effect from re
 it ever does, the wipe is followed by the cache entry, which holds the working copy. A cache hit always sets `loading`
 false.
 
-T5 keeps the current raw-draft branch in P5 (`useDocumentLoader.ts:218-228`: it applies any non-empty value that differs
-from the server, with the toast) and changes only where it reads, from `localStorage` directly to `io.getStorage()`,
-which the seam supplies from T5 on. The old `useLocalStorage` writer is still live until T6, and a task must not disable
-a feature. T6 replaces that branch with the draft decision below.
+T5 keeps the current raw-draft branch in P5 (`useDocumentLoader.ts:218-228`), reading `io.getStorage()` instead of
+`localStorage`, because the old `useLocalStorage` writer is live until T6 and a task must not disable a feature. T6
+replaces that branch with the draft decision below.
 
 ## Draft Protocol
 
@@ -341,10 +340,13 @@ shows "Give the document a title first, so your changes are saved before a versi
 because a blank title cannot be autosaved, so the edits exist only in the editor and the restore would replace them.
 
 `VersionHistoryDialog` reads its list in an effect on `open` and `promptId`, through a ref to `loadHistory`, so a new
-function each render does not re-read it, and a result for an opening or a document that is gone is dropped. While any
-restore runs it disables every Restore button, so a second request cannot start, and ignores every request to close,
-which also keeps the editor inert behind the modal; it closes itself when `onRestore` resolves true and stays open when
-it resolves false. The restore's success toast ("Version restored") moves from the dialog into the hook.
+function each render does not re-read it, and a result for an opening or a document that is gone is dropped. Restore on
+a row only asks: `RestoreQuestion`, an `AlertDialog` like the project's other confirmations, asks "Restore this
+version?", and only its Restore button calls `onRestore`; Cancel and Escape close the question alone, and it is dropped
+when the history closes or the document changes (D4). While any restore runs the dialog disables every Restore button,
+so a second request cannot start, and ignores every request to close, which also keeps the editor inert behind the
+modal; it closes itself when `onRestore` resolves true and stays open when it resolves false. The restore's success
+toast ("Version restored") moves from the dialog into the hook.
 
 A request slower than the debounce can be followed by a duplicate write of the same content; the write is idempotent and
 creates no version, so it is accepted. Hooks receive `actions`, `getStorage` and store functions that are stable:
@@ -395,7 +397,7 @@ copy behind it. When the busy state ends the effect re-evaluates: after a succes
 Lint baseline on 20/10/2026 (`npm run lint`): 18 `max-lines-per-function` warnings, among them `EditorPane` (234 lines)
 and three in `useDocumentLoader.ts` (144, 89 and 82). The change adds none, and the loader file ends with none: counted
 as the rule counts them, the spikes' largest functions are `useDocumentLoader` (71 lines), `useVersionSave` (64),
-`VersionHistoryDialog` (49) and the reducer (34).
+`VersionHistoryDialog` (62) and the reducer (34).
 
 Files held to 80% line, function, branch and statement coverage by the per-file command: `sync.ts`,
 `request-timeout.ts`, `draft.ts`, `document-cache.ts`, `use-latest.ts`, `loader-state.ts`, `loader-protocol.ts`,

@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Task Context | 20/10/2026 14:41 GMT+10 | 20/10/2026 16:12 GMT+10 |
+| P7S1 Task Context | 20/10/2026 14:41 GMT+10 | 22/10/2026 07:53 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -78,8 +78,8 @@ path and line against the code before using it.
 
 - file: wip/P7S1-draft-spike.ts, wip/P7S1-loader-spike.ts, wip/P7S1-persistence-spike.ts, wip/P7S1-dialog-spike.tsx,
     their .test.tsx files and wip/P7S1-test-fakes.ts
-  why: the reference implementations of T4 to T8 and the typed fakes they share, 204 tests. See Purpose of the contract
-    for how to adapt them. The mutation check wip/P7S1-mutation-check.py proves the tests notice 83 deliberate defects;
+  why: the reference implementations of T4 to T8 and the typed fakes they share, 211 tests. See Purpose of the contract
+    for how to adapt them. The mutation check wip/P7S1-mutation-check.py proves the tests notice 90 deliberate defects;
     the main session runs it, an agent does not need to.
 
 - file: wip/P7S1-loader-race-diagnostic.test.tsx and wip/P7S1-autosave-timers-probe.test.tsx

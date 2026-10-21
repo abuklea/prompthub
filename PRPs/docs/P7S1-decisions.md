@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Decisions | 20/10/2026 15:36 GMT+10 | 20/10/2026 15:45 GMT+10 |
+| P7S1 Decisions | 20/10/2026 15:36 GMT+10 | 22/10/2026 07:53 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -18,35 +18,36 @@
 ## Purpose
 
 The seven decisions behind [the PRP](../P7S1-editor-data-integrity.md). They are made in the plan so that the executing
-agents do not guess. Four are marked for the developer's confirmation: D1, D2, D4 and D5. Work proceeds on them as
-written, on the session branch with no pull request. The developer confirms or changes each before the branch merges,
-and a change redoes the tasks that build on it: D1 redoes T2 and T3, D2 redoes T4 and T6, D4 redoes T8, and D5 redoes T1
-and the seams of every later test. The interfaces and protocols that implement them are in
-[the contract](P7S1-editor-persistence-contracts.md).
+agents do not guess. Four were put to the developer, who on 22/10/2026 confirmed D1, D2 and D5 as written and D4 with
+one addition, a question before a restore. A later change redoes the tasks that build on a decision: D1 redoes T2 and
+T3, D2 redoes T4 and T6, D4 redoes T8, and D5 redoes T1 and the seams of every later test. The interfaces and protocols
+that implement them are in [the contract](P7S1-editor-persistence-contracts.md).
 
 ## D1 Version model
 
-Confirm: issue #33 delegates this choice to the PRP. A version is the saved state. `saveVersion` updates the prompt row
-and records the new title and content as the snapshot in one transaction, skipping the snapshot when it equals the
-newest version. `restoreVersion` locks the row, records the row as it stands first when the newest version differs from
-it (so a restore never destroys autosaved work), writes the restored state, and records it as a new version unless it
-equals the newest one, which matches the stories document, whose "Reverting to a Version" item says to "save it as a new
-version, preserving the full history" ([Prompt Editor](../../docs/project/PromptHub_02_STORIES_01.md#prompt-editor)).
-History orders by `id desc`: ids are assigned in write order under the row lock, while `created_at` is stamped by each
-app instance's own clock. No schema change; existing rows stay restorable snapshots. A restore snapshots the saved row,
-not text only the browser holds, which is why D4 saves unsaved edits first. Rejected: separate draft columns on `Prompt`
-(a migration, and every reader of `Prompt.content` would disagree with the editor) and snapshot-of-previous, which is
-the defect. This model implements Plan Step 3b ("auto-save updates current content, manual save creates versions",
+Confirmed 22/10/2026, as written: issue #33 delegates this choice to the PRP. A version is the saved state.
+`saveVersion` updates the prompt row and records the new title and content as the snapshot in one transaction,
+skipping the snapshot when it equals the newest version. `restoreVersion` locks the row, records the row as it stands
+first when the newest version differs from it (so a restore never destroys autosaved work), writes the restored state,
+and records it as a new version unless it equals the newest one, which matches the stories document, whose "Reverting
+to a Version" item says to "save it as a new version, preserving the full history"
+([Prompt Editor](../../docs/project/PromptHub_02_STORIES_01.md#prompt-editor)). History orders by `id desc`: ids are
+assigned in write order under the row lock, while `created_at` is stamped by each app instance's own clock. No schema
+change; existing rows stay restorable snapshots. A restore snapshots the saved row, not text only the browser holds,
+which is why D4 saves unsaved edits first. Rejected: separate draft columns on `Prompt` (a migration, and every reader
+of `Prompt.content` would disagree with the editor) and snapshot-of-previous, which is the defect. This model
+implements Plan Step 3b ("auto-save updates current content, manual save creates versions",
 [Phase 5](../../docs/project/PromptHub_06_PLAN_01.md#phase-5-prompt-editor--version-control)).
 
 ## D2 Drafts and the baseline
 
-Confirm: the conflict policy, the legacy rule and the new key. The client tracks `synced`, the title and content last
-known to be on the server. The draft is content only, `{"v":1,"base":"<hash>","content":"..."}` under the new key
-`prompt-v1-<id>`, so a tab or a rollback still running the old code never reads JSON as document text. `useDraftSync`
-writes it while the working content differs from `synced.content`, removes it when they are equal, and owns only the
-values it wrote. The loader removes the values it read and did not apply, and only after their text is safe elsewhere
-(stashed, migrated to v1, or equal to the server's), so a refused write leaves the stored value for the next load.
+Confirmed 22/10/2026, as written: the conflict policy, the legacy rule and the new key. The client tracks `synced`,
+the title and content last known to be on the server. The draft is content only,
+`{"v":1,"base":"<hash>","content":"..."}` under the new key `prompt-v1-<id>`, so a tab or a rollback still running the
+old code never reads JSON as document text. `useDraftSync` writes it while the working content differs from
+`synced.content`, removes it when they are equal, and owns only the values it wrote. The loader removes the values it
+read and did not apply, and only after their text is safe elsewhere (stashed, migrated to v1, or equal to the server's),
+so a refused write leaves the stored value for the next load.
 
 At load a draft is applied when its base matches the hash of the server content. A draft that does not match is a
 conflict and its text is never deleted: the server copy wins, the text is stashed under `prompt-v1-<id>:conflict`, and a
@@ -78,21 +79,26 @@ see the contract), so no ordering guard is needed.
 
 ## D4 Restore
 
-Confirm: the UI document says the restore should "prompt the user to save it as a new version"
-([Screen 3 - State 4: Diff View](../../docs/project/PromptHub_04_UI_01.md#screen-3---state-4-diff-view)), the stories
-say save it; this PRP follows the stories and the current button, which already restores in one click.
+Confirmed 22/10/2026, with one addition. The UI document says the restore should "prompt the user to save it as a new
+version" ([Screen 3 - State 4: Diff View](../../docs/project/PromptHub_04_UI_01.md#screen-3---state-4-diff-view)), the
+stories say save it, and issue #32 expects the editor to show the restored text and the draft to be cleared. This PRP
+follows the stories: the restore is written to the server at once, because with autosave a restore that only filled the
+editor would be saved 500 ms later, replacing the text it displaced before anything recorded it. The addition is the
+developer's: Restore on a version asks "Restore this version?" first, in the project's AlertDialog pattern, with the
+text "Your current text stays in the version history, so you can come back to it." Cancel and Escape close the question
+only and restore nothing, and a question belongs to the opening and the document it was asked in.
 `useVersionRestore` owns the call, so it can pause autosave and be tested without the dialog. `VersionHistoryDialog`
-reads its list when it opens, takes `loadHistory` and `onRestore(versionId)`, disables every Restore button while a
-restore runs, ignores requests to close meanwhile, and closes itself only when the restore succeeded.
-`restorePromptVersion` returns `{ title, content }`, and `applyServerState(promptId, row)` replaces title, content,
-`promptData`, `synced` and `lastSaved` of the open document, or only the cache entry of a document the editor has left.
-Before the request, `handleRestore` saves unsaved edits of a titled document through `autoSavePrompt` and aborts if that
-fails, so the restore snapshots them; with a blank title and unsaved edits it refuses and says why, because a blank
-title cannot be autosaved and the restore would replace the only copy.
+reads its list when it opens, takes `loadHistory` and `onRestore(versionId)`, asks before it restores, disables every
+Restore button while a restore runs, ignores requests to close meanwhile, and closes itself only when the restore
+succeeded. `restorePromptVersion` returns `{ title, content }`, and `applyServerState(promptId, row)` replaces title,
+content, `promptData`, `synced` and `lastSaved` of the open document, or only the cache entry of a document the editor
+has left. Before the request, `handleRestore` saves unsaved edits of a titled document through `autoSavePrompt` and
+aborts if that fails, so the restore snapshots them; with a blank title and unsaved edits it refuses and says why,
+because a blank title cannot be autosaved and the restore would replace the only copy.
 
 ## D5 Test seams
 
-Confirm: adds three devDependencies and departs from the wording of #37 and #45.
+Confirmed 22/10/2026, as written: adds three devDependencies and departs from the wording of #37 and #45.
 [The testing rules](../../docs/rules/testing.md#rules) forbid mocking a module of this repository, so the issues' "auth
 stubbed at the `createClient` boundary" is not followed. Server logic moves to `src/features/editor/service.ts`, which
 takes `(db, userId, input)`; the actions stay thin shells with the same validation, authentication and rate limits they

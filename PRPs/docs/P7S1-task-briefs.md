@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Task Briefs | 20/10/2026 12:38 GMT+10 | 20/10/2026 16:12 GMT+10 |
+| P7S1 Task Briefs | 20/10/2026 12:38 GMT+10 | 22/10/2026 07:53 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -142,6 +142,7 @@ is recorded as a regression test, not as a red.
 | #36 and the busy flags | T7 Step 2 | the Step 1 extraction, which keeps the stale closure and has no `finally` | one title confirmation saves once with the confirmed title and sets the working title; a rejected save or autosave resets its flag; a second Ctrl+S is ignored; autosave is paused during a save; a save that completes after a switch does not force the other tab's dirty flag |
 | #32 client | T8 Step 2 | the Step 1 `handleRestore`, which calls the action and updates nothing | after `handleRestore` the loader shows the restored row, `synced` equals it, the draft is gone and the cache entry is replaced; unsaved edits are saved first and the restore is aborted if that fails; a blank title with unsaved edits is refused; a restore that completes after a switch or an unmount is safe |
 | History list never loads (new bug) | T8 Step 2 | the Step 1 dialog, which still reads the list inside `onOpenChange` | the list loads when the parent sets `open` (the control case with a bare Radix dialog shows why it did not); a late result is dropped; a failed read says so; every Restore button is disabled while a restore runs; Escape and Close are ignored meanwhile |
+| Restore asks first (decision D4) | T8 Step 2 | the Step 1 dialog, which restores on the first click | a click on Restore asks "Restore this version?" and sends nothing; Cancel and Escape drop the question and leave the history open; confirming restores the version that was asked about, once; a question does not outlive its opening or its document |
 
 Regression tests (green on arrival, written in the step named): ownership in T2 Step 2 and in T3 Step 2 (the current
 code already scopes by user). T7 Step 2: S-1 through the real handlers, the tab and cache metadata, Strict Mode. T8 Step
@@ -318,6 +319,7 @@ tests by then: `wip/P7S1-loader-race-diagnostic.test.tsx`,
 `wip/P7S1-test-fakes.ts`, `wip/P7S1-mutation-check.py` and `wip/P7S1-vitest.diag.config.ts`. The main session, not this
 agent, amends dev-review #38 (it already lists "repeat across two tabs"; the new flows are a cold open, an open after
 visiting Settings, the conflict toast's "Restore my text" including a click while the editor is still starting up, the
-History list, Escape during a restore, and the Discard prompt on closing the tab of a titled, autosaved, never-saved
-document, finding F-9) and comments on #37, #41, #44 (drafts now live under `prompt-v1-<id>`,
-`prompt-v1-<id>:conflict` and, until migrated, `prompt-<id>`; a `prompt-` prefix purge covers all), #45 and #53.
+History list, the "Restore this version?" question and Cancel on it, Escape during a restore, and the Discard prompt on
+closing the tab of a titled, autosaved, never-saved document, finding F-9) and comments on #37, #41, #44 (drafts now
+live under `prompt-v1-<id>`, `prompt-v1-<id>:conflict` and, until migrated, `prompt-<id>`; a `prompt-` prefix purge
+covers all), #45 and #53.

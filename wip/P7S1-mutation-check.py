@@ -7,7 +7,7 @@ MIME: text/x-python
 Type: Python script (research tooling, not part of the application)
 
 Created: 20/10/2026 14:15 GMT+10
-Last modified: 20/10/2026 15:45 GMT+10
+Last modified: 22/10/2026 07:53 GMT+10
 ---------------
 Mutation check for the P7S1 reference implementations. It applies one deliberate defect at a time to a spike
 (wip/P7S1-draft-spike.ts, -loader-spike.ts, -persistence-spike.ts or -dialog-spike.tsx), runs the four spike suites and
@@ -24,6 +24,7 @@ Usage:
 Exit status: 0 when every mutation was killed, 1 when one survived, broke the file or did not match.
 
 Changelog:
+22/10/2026 07:53 GMT+10 | 90 mutations: H16 to H22 for the restore question (decision D4); H10 follows the renamed row prop
 20/10/2026 15:45 GMT+10 | 83 mutations: P32, P33, D13, D14, L12, L13; the save and restore guards are shared constants
 20/10/2026 14:27 GMT+10 | Docstring: the check proves the reference tests and does not run against adapted files
 20/10/2026 14:15 GMT+10 | Created from the per-suite scratch scripts of the research session; adds the history dialog (H)
@@ -659,8 +660,8 @@ MUTATIONS = [
         'H10',
         'dialog',
         'only the clicked row is disabled while a restore runs',
-        old='onClick={() => onRestore(item.id)} disabled={busy}',
-        new='onClick={() => onRestore(item.id)} disabled={restoring}',
+        old='onClick={() => onAsk(item.id)} disabled={busy}',
+        new='onClick={() => onAsk(item.id)} disabled={restoring}',
     ),
     Mutation(
         'H11',
@@ -696,6 +697,55 @@ MUTATIONS = [
         'an untitled snapshot shows no title',
         old='{item.title_snapshot || "[Untitled Doc]"}',
         new='{item.title_snapshot}',
+    ),
+    Mutation(
+        'H16',
+        'dialog',
+        'Restore on a row restores at once, without the question (decision D4)',
+        old='onAsk={setConfirmingId}',
+        new='onAsk={handleRestore}',
+    ),
+    Mutation(
+        'H17',
+        'dialog',
+        'the question never closes: Cancel, Escape and a confirmed restore leave it open',
+        old='onCancel={() => setConfirmingId(null)}',
+        new='onCancel={() => {}}',
+    ),
+    Mutation(
+        'H18',
+        'dialog',
+        'confirming restores the first version instead of the one that was asked about',
+        old='if (confirmingId !== null) handleRestore(confirmingId)',
+        new='if (confirmingId !== null && load.status === "ready") handleRestore(load.items[0].id)',
+    ),
+    Mutation(
+        'H19',
+        'dialog',
+        'a question survives a change of document',
+        old='  }, [open, promptId])\n',
+        new='  }, [open])\n',
+    ),
+    Mutation(
+        'H20',
+        'dialog',
+        'a question survives its parent closing the history, and returns when it reopens',
+        old='  }, [open, promptId])\n',
+        new='  }, [promptId])\n',
+    ),
+    Mutation(
+        'H21',
+        'dialog',
+        'the question does not ask "Restore this version?"',
+        old='<AlertDialogTitle>Restore this version?</AlertDialogTitle>',
+        new='<AlertDialogTitle>Are you sure?</AlertDialogTitle>',
+    ),
+    Mutation(
+        'H22',
+        'dialog',
+        'the question has no Cancel',
+        old='<AlertDialogCancel>Cancel</AlertDialogCancel>',
+        new='',
     ),
 ]
 

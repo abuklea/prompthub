@@ -118,7 +118,8 @@
     │   │   └── store.ts      # Zustand store for folder tree state
     │   └── editor/
     │       ├── components/   # EditorPane.tsx, VersionHistory.tsx
-    │       ├── actions.ts    # savePromptVersion server action
+    │       ├── actions.ts    # saveNewVersion, autoSavePrompt server actions
+    │       ├── service.ts    # save and restore logic taking (db, userId, input)
     │       └── ...
     ├── components/           # Shared, primitive UI components (from shadcn/ui)
     │   └── ui/               # Button.tsx, Card.tsx, etc.
@@ -214,23 +215,25 @@
     - I want a side-by-side "diff" view to compare two versions.
 - **Technical Requirements:**
     - Integrate the Monaco Editor for the editing experience.
-    - Implement auto-saving of the current draft to the browser's `localStorage`.
-    - When a user manually saves, a new version must be created by calculating a diff from the previous version.
+    - Keep unsaved text in the browser per document, and autosave the current title and content to the server without creating a version.
+    - When a user manually saves, the prompt is written and the saved title and content are recorded as a new version, unless the newest version already holds exactly that state.
     - The diff view must be implemented using Monaco Editor's built-in diffing capabilities.
 - **Implementation Approach:**
     1.  **Editor Component:** Create an `Editor.tsx` component that dynamically imports `@monaco-editor/react` to avoid SSR issues.
-    2.  **Auto-Saving:** Use a `useEffect` hook with debouncing to save the editor's content to `localStorage` under a key like `draft-prompt-${promptId}`.
-    3.  **Manual Save:** The "Save" button will call a Server Action `saveNewVersion(promptId, newContent)`.
-        -   This action fetches the latest `content` from the `Prompts` table.
-        -   It uses a library like `diff-match-patch` to compute the diff between the old and new content.
-        -   It creates a new entry in `PromptVersions` with the `diff`.
-        -   It updates the `content` and `updated_at` fields in the `Prompts` table.
-    4.  **Version History:** A "History" button opens a panel that lists all `PromptVersions` for the current prompt.
-    5.  **Diff View:** Selecting two versions from the history panel will switch the Monaco editor into its diff mode, feeding it the content of the two versions (reconstructed by applying patches).
+    2.  **Auto-Saving:** The editor keeps unsaved text in the browser per document, and a debounced call to the `autoSavePrompt` Server Action writes the current title and content to the `Prompts` table. Autosave records no `PromptVersions` entry.
+    3.  **Manual Save:** The "Save" button calls the Server Action `saveNewVersion({ promptId, newTitle, newContent })`.
+        -   It writes the title, content and `updated_at` of the `Prompts` row, scoped to the signed-in user, in one transaction with the version.
+        -   It records the saved title and content as a new `PromptVersions` entry (`title_snapshot`, `content_snapshot`), unless the newest version already holds exactly that state. In that case it adds nothing and returns that version's id.
+    4.  **Version History:** A "History" button opens a panel that lists the 50 newest `PromptVersions` for the current prompt, newest first, from the `getPromptVersionHistory` Server Action.
+    5.  **Restore:** The panel's "Restore this version" button asks "Restore this version?" and only then calls `restorePromptVersion({ promptId, versionId })`. Holding the prompt row lock, it records the current unsaved row as a version when the newest version differs from it, writes the restored title and content to the prompt, records the restored state as a version unless the newest version already holds it, and returns the restored `{ title, content }`, which the editor then shows.
+    6.  **Diff View:** Selecting two versions from the history panel will switch the Monaco editor into its diff mode, feeding it the `content_snapshot` of the two versions.
 - **API (Server Actions):**
-    - `getPromptDetails(promptId: string): Promise<Prompt & { versions: PromptVersion[] }>`
-    - `saveNewVersion(promptId: string, newContent: string): Promise<{ success: boolean }>`
-    - `revertToVersion(promptId: string, versionId: number): Promise<{ success: boolean }>`
+    - `getPromptDetails({ promptId }): ActionResult<Prompt>` (in `features/prompts/actions.ts`; it does not include versions)
+    - `saveNewVersion({ promptId, newTitle, newContent }): ActionResult<{ versionId: number }>`
+    - `autoSavePrompt({ promptId, title, content }): ActionResult<void>`
+    - `getPromptVersionHistory({ promptId }): ActionResult<PromptVersionHistoryItem[]>` (in `features/prompts/actions.ts`)
+    - `restorePromptVersion({ promptId, versionId }): ActionResult<{ title: string | null, content: string }>` (in `features/prompts/actions.ts`)
+- **Server logic:** `features/editor/service.ts` holds `saveVersion`, `autoSaveDocument`, `restoreVersion` and `listVersions`, each taking `(db, userId, input)`. The actions validate and authenticate (`saveNewVersion` also rate-limits), then call them.
 - **Data Models Involved:** `Prompts`, `PromptVersions`.
 
 ## 4. Data Architecture
@@ -300,9 +303,11 @@ model Prompt {
 }
 
 model PromptVersion {
-  id         Int       @id @default(autoincrement())
-  diff       String    // Stores the patch from diff-match-patch
-  created_at DateTime  @default(now())
+  id               Int       @id @default(autoincrement())
+  title_snapshot   String?   // The prompt title in this version
+  content_snapshot String    @default("") // The prompt content in this version
+  diff             String    @default("") // Legacy column, no longer computed
+  created_at       DateTime  @default(now())
 
   prompt_id  String
   prompt     Prompt    @relation(fields: [prompt_id], references: [id], onDelete: Cascade)
@@ -348,8 +353,11 @@ The internal API is composed of Next.js Server Actions. All actions must perform
     - `updatePrompt(promptId: string, data: { title?: string, content?: string }): Promise<Prompt>`: Updates prompt details.
     - `deletePrompt(promptId: string): Promise<{ success: boolean }>`: Deletes a prompt.
 - **`features/editor/actions.ts`**
-    - `saveNewVersion(promptId: string, newContent: string): Promise<PromptVersion>`: Creates a new prompt version.
-    - `getPromptVersions(promptId: string): Promise<PromptVersion[]>`: Fetches the version history for a prompt.
+    - `saveNewVersion({ promptId, newTitle, newContent }): ActionResult<{ versionId: number }>`: Saves the prompt and records the saved state as a version, unless the newest version already holds it.
+    - `autoSavePrompt({ promptId, title, content }): ActionResult<void>`: Saves the prompt without recording a version.
+- **`features/prompts/actions.ts`** (version history)
+    - `getPromptVersionHistory({ promptId }): ActionResult<PromptVersionHistoryItem[]>`: Fetches the 50 newest versions of a prompt, newest first.
+    - `restorePromptVersion({ promptId, versionId }): ActionResult<{ title: string | null, content: string }>`: Restores the prompt to a version and records the working copy and the restored state in the history.
 
 ### 5.2 External Integrations
 - **Supabase:**

@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 - Editor Data Integrity | 20/10/2026 11:52 GMT+10 | 20/10/2026 16:12 GMT+10 |
+| P7S1 - Editor Data Integrity | 20/10/2026 11:52 GMT+10 | 22/10/2026 07:53 GMT+10 |
 
 ## Table of Contents
 - [Goal](#goal)
@@ -76,20 +76,20 @@ untitled documents should autosave; a rename from the document list not reaching
 then writes the old title back; a failed autosave that is only logged; and `Prompt.folder_id` being nullable while the
 cached document type assumes a folder. The last four become follow-up issues, listed in the REPORT. Closing the tab of
 a titled, autosaved, never-saved document offers "Discard", which deletes it (register finding F-9, read from the code
-and not reproduced): a tab-close path outside this PRP, filed as a bug of its own with the INITIAL report.
+and not reproduced): a tab-close path outside this PRP, filed as the bug #74.
 
 ## What
 
 | Defect | Today | After | Issue |
 |---|---|---|---|
-| Empty or wiped editor on a fresh mount | The load effect starts with an empty user id, is aborted when the id resolves, and `loadedRef` stops the reload | Loading waits for the user id (a failed or slow lookup settles as anonymous) and shows "Loading prompt..." meanwhile; the editor mounts only for a ready document; an aborted load owns nothing | new, filed with the INITIAL report |
+| Empty or wiped editor on a fresh mount | The load effect starts with an empty user id, is aborted when the id resolves, and `loadedRef` stops the reload | Loading waits for the user id (a failed or slow lookup settles as anonymous) and shows "Loading prompt..." meanwhile; the editor mounts only for a ready document; an aborted load owns nothing | #72 |
 | Restore does not reload the editor | `handleVersionRestored` resets a ref that no effect watches; the next keystroke autosaves the old content over the restore | `restorePromptVersion` returns the restored row and the editor applies it, replacing the cache entry and clearing the draft; unsaved edits of a titled document are saved first | #32 |
 | History records the wrong state | The snapshot is the row as read at save time, which autosave has already overwritten | A version is the saved state; an unchanged save adds nothing; restore snapshots the row it replaces | #33 |
 | Stale draft wins | Any non-empty draft that differs from the server wins; empty content is never stored; nothing clears it after an autosave | A draft exists only while the working content differs from the last confirmed server content, carries a hash of the content it was based on, and is applied only when the server content still matches; a draft that loses is stashed, offered once and never deleted | #34 |
 | Autosave writes without an edit | Every input change to the hook schedules a write | A write is scheduled only when title or content differ from the last loaded, saved, restored or autosaved values of that document | #35 |
 | Set-title dialog reopens | `setTimeout(() => handleSave())` runs a closure that still holds the blank title | The confirmed title is passed to the save and becomes the working title | #36 |
 | A completion changes the wrong document, or a flag sticks | Results are applied to whichever document is open; a rejected action leaves its busy flag set; a navigation orphans the queued actions, whose promises never settle | Each completion is applied by the id it started with and reports whether the document is still open; flags reset in `finally`; every request is abandoned after 30 seconds | found in review |
-| The history list never loads | The list is read inside the dialog's `onOpenChange`, which Radix does not call when the parent sets `open` | The list is read in an effect when the dialog opens; every Restore button is disabled while a restore runs, and the dialog stays open meanwhile | new, filed with the INITIAL report |
+| The history list never loads | The list is read inside the dialog's `onOpenChange`, which Radix does not call when the parent sets `open` | The list is read in an effect when the dialog opens; Restore on a version asks "Restore this version?" first; every Restore button is disabled while a restore runs, and the dialog stays open meanwhile | #73 |
 | No tests for any of this | 29 pure tests | Postgres-backed tests in CI and hook and component tests; each defect has a test that failed before its fix | #37 |
 
 ### Success Criteria
@@ -112,8 +112,9 @@ and not reproduced): a tab-close path outside this PRP, filed as a bug of its ow
   document unchanged and updates only its own cache entry; a rejected action resets its busy flag
 - [ ] A server action or document fetch that never settles is abandoned after 30 seconds: its busy flag resets and the
   next edit is saved
-- [ ] The History button lists the document's saved versions, newest first; while a restore runs every Restore button is
-  disabled and Escape or the Close button leaves the dialog open
+- [ ] The History button lists the document's saved versions, newest first; Restore on a version asks "Restore this
+  version?" first, and Cancel or Escape drops the question and restores nothing; while a restore runs every Restore
+  button is disabled and Escape or the Close button leaves the dialog open
 - [ ] The footer reads "Unsaved changes" while the working copy differs from the server and "Saved <time>" otherwise
 - [ ] Saving an untitled document needs one confirmation of the title, which then is the document's title
 - [ ] `npm test` runs the Postgres-backed tests in CI against a service container and reports them as skipped when
@@ -124,20 +125,19 @@ and not reproduced): a tab-close path outside this PRP, filed as a bug of its ow
 ## Decisions
 
 Seven decisions shape the plan. [The decisions document](docs/P7S1-decisions.md) has the full text of each, with the
-alternatives rejected. Four are marked for the developer's confirmation: D1, D2, D4 and D5. They are made here so the
-executing agents do not guess, and work proceeds on them as written, on the session branch with no pull request. The
-developer confirms or changes each before the branch merges, and a change redoes the tasks that build on it; the INITIAL
-report carries them forward.
+alternatives rejected. Four were put to the developer, who on 22/10/2026 confirmed D1, D2 and D5 as written and D4 with
+one addition, a question before a restore. They were made here so the executing agents do not guess; a later change
+redoes the tasks that build on a decision.
 
-| Decision | What it fixes | Confirm |
+| Decision | What it fixes | Developer, 22/10/2026 |
 |---|---|---|
-| [D1 Version model](docs/P7S1-decisions.md#d1-version-model) | A version is the saved state; a restore snapshots the row it replaces; history orders by `id desc` | yes: #33 delegates it |
-| [D2 Drafts](docs/P7S1-decisions.md#d2-drafts-and-the-baseline) | Content-only envelope under `prompt-v1-<id>` with a content-hash base; a losing draft is stashed and offered once; the legacy raw draft is read once | yes: conflict policy, legacy rule, new key |
-| [D3 Autosave](docs/P7S1-decisions.md#d3-autosave) | A write is due only when title or content differ from the baseline of that document; paused during a save or restore | no |
-| [D4 Restore](docs/P7S1-decisions.md#d4-restore) | `useVersionRestore` owns the call and saves unsaved edits first; the dialog loads its list on open and stays open meanwhile | yes: the UI document says "prompt to save" |
-| [D5 Test seams](docs/P7S1-decisions.md#d5-test-seams) | `service.ts` takes `(db, userId, input)`; Postgres-backed tests; jsdom; a guarded database URL; no module mocks | yes: three devDependencies, departs from #37 and #45 |
-| [D6 Loader protocol](docs/P7S1-decisions.md#d6-the-loader-protocol) | Identity gate, one reducer, atomic `ready`, editor mounts only when ready; no cache for the anonymous identity | no |
-| [D7 Async completions](docs/P7S1-decisions.md#d7-async-completions) | Captured ids, the boolean from `markSynced` and `applyServerState`, `finally`, a 30-second limit, stale-callback guards | no |
+| [D1 Version model](docs/P7S1-decisions.md#d1-version-model) | A version is the saved state; a restore snapshots the row it replaces; history orders by `id desc` | confirmed as written |
+| [D2 Drafts](docs/P7S1-decisions.md#d2-drafts-and-the-baseline) | Content-only envelope under `prompt-v1-<id>` with a content-hash base; a losing draft is stashed and offered once; the legacy raw draft is read once | confirmed as written |
+| [D3 Autosave](docs/P7S1-decisions.md#d3-autosave) | A write is due only when title or content differ from the baseline of that document; paused during a save or restore | not put to the developer |
+| [D4 Restore](docs/P7S1-decisions.md#d4-restore) | `useVersionRestore` owns the call and saves unsaved edits first; Restore asks "Restore this version?" first; the dialog loads its list on open and stays open meanwhile | confirmed, with the question |
+| [D5 Test seams](docs/P7S1-decisions.md#d5-test-seams) | `service.ts` takes `(db, userId, input)`; Postgres-backed tests; jsdom; a guarded database URL; no module mocks | confirmed as written |
+| [D6 Loader protocol](docs/P7S1-decisions.md#d6-the-loader-protocol) | Identity gate, one reducer, atomic `ready`, editor mounts only when ready; no cache for the anonymous identity | not put to the developer |
+| [D7 Async completions](docs/P7S1-decisions.md#d7-async-completions) | Captured ids, the boolean from `markSynced` and `applyServerState`, `finally`, a 30-second limit, stale-callback guards | not put to the developer |
 
 ## All Needed Context
 
@@ -152,9 +152,9 @@ The module map with line budgets, every TypeScript interface, the loader, draft 
 view, the write-ordering rules and the coverage scope are in [the contract](docs/P7S1-editor-persistence-contracts.md);
 the server shells and transactions are its server half, in
 [the Server Contract](docs/P7S1-task-briefs.md#server-contract). The client half is specified by four working reference
-implementations in `wip/` with 204 passing tests (`P7S1-draft-spike`, `P7S1-loader-spike`, `P7S1-persistence-spike`,
+implementations in `wip/` with 211 passing tests (`P7S1-draft-spike`, `P7S1-loader-spike`, `P7S1-persistence-spike`,
 `P7S1-dialog-spike`) over shared typed fakes (`P7S1-test-fakes`); the executing agents adapt them.
-`wip/P7S1-mutation-check.py` applies 83 deliberate defects to them one at a time and reports whether a test fails for
+`wip/P7S1-mutation-check.py` applies 90 deliberate defects to them one at a time and reports whether a test fails for
 each. This document and those are one specification; where they disagree, the contract wins on interfaces and the
 decisions document wins on decisions.
 
@@ -207,11 +207,12 @@ T4 touches only new files and runs in a worktree, or after T3, because agents sh
 intentionally failing tests. The `documentation-manager` also runs after T1, T3, T5 and T6, dispatched by the main
 session with the changed-file list and the drift rows that
 [the register](../wip/P7S1-research-drift.md#register) assigns to that task, so each document is corrected with the
-behaviour that made it false. The main session provisions the test database before it dispatches T1, T2 or T3, alone
-creates the issues, amends dev-review #38 (a cold open, an open after visiting Settings, the conflict toast, "Restore my
-text" clicked while the editor is still starting up, Escape during a restore, and closing the tab of a titled,
-autosaved, never-saved document to look for "Discard" are the new flows), comments on #37, #41, #44, #45 and #53, and
-files the follow-ups.
+behaviour that made it false. The main session provisions the test database before it dispatches T1, T2 or T3, and
+alone edits issues: it amends dev-review #38 (a cold open, an open after visiting Settings, the conflict toast,
+"Restore my text" clicked while the editor is still starting up, the "Restore this version?" question and Cancel on it,
+Escape during a restore, and closing the tab of a titled, autosaved, never-saved document to look for "Discard" are the
+new flows), comments on #37, #41, #44, #45 and #53, and files the follow-ups. The INITIAL report created the issues:
+#72 and #73 under epic #31, the tasks #75 to #83, and #74 beside the epic.
 
 ## Validation Loop
 
@@ -245,9 +246,9 @@ npm test
 # a database-backed file needs TEST_DATABASE_URL exported as above:
 npx vitest run --coverage --coverage.include=src/features/editor/service.ts --coverage.reporter=json-summary
 
-# The reference implementations, until the main session removes them after T9 (204 tests, type-clean):
+# The reference implementations, until the main session removes them after T9 (211 tests, type-clean):
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-draft-spike.test.tsx wip/P7S1-loader-spike.test.tsx wip/P7S1-persistence-spike.test.tsx wip/P7S1-dialog-spike.test.tsx
-# 83 deliberate defects, one at a time: each must be KILLED by a test (about 5 minutes)
+# 90 deliberate defects, one at a time: each must be KILLED by a test (about 5 minutes)
 python3 wip/P7S1-mutation-check.py
 ```
 
@@ -259,7 +260,8 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/db DIRECT_URL=postgresql://us
 
 There is no end-to-end runner and cloud sessions have no browser tooling, so the browser checks are reported as not run
 and belong to dev-review #38: untitled save through the dialog; edit and autosave; version save; the History list;
-restore an older version and edit; Escape during a pending restore; clear and reload; open documents without editing
+restore an older version (Cancel the question once, then confirm) and edit; Escape during a pending restore; clear and
+reload; open documents without editing
 and confirm "Recently updated" is unchanged; a cold open and an open after visiting Settings; a draft conflict and its
 "Restore my text" action, also clicked while the editor is still starting up; the same edit in two tabs; closing the tab
 of a titled, autosaved, never-saved document and looking for "Discard" (F-9). They run on `npm run dev` port 3010 or the
@@ -291,6 +293,8 @@ Docker stack.
 - Do not reintroduce `isTransitioning`, the ownership ref flags or a loaded mark; consume `ready`
 - Do not remember the user id across mounts: a remembered id outlives a change of session
 - Do not read the history list inside the dialog's `onOpenChange`; Radix does not call it when the parent sets `open`
+- Do not restore on the first click: Restore asks "Restore this version?" first, and a question never outlives its
+  opening or its document
 - Do not apply a response for document A to the state of document B; pass the id and use the boolean that `markSynced`
   and `applyServerState` return, and do not read the open document at completion time to decide where a result belongs
 - Do not leave a busy flag to the success path; reset it in a `finally`, and do not await a server action or the
@@ -313,9 +317,8 @@ Agents:
 - `senior-frontend-engineer` (Tasks 4-8)
 - `documentation-manager` (Task 9, plus the syncs after Tasks 1, 3, 5 and 6)
 Notes:
-- Decisions D1, D2, D4 and D5 are the developer's to confirm; work proceeds on them as written and they are confirmed or
-  changed before the branch merges
-- The reference implementations in wip/ (204 tests, 83 mutations each killed by a test) specify Tasks 4 to 8; the main
+- Decisions D1, D2 and D5 were confirmed as written and D4 with a question before a restore, on 22/10/2026
+- The reference implementations in wip/ (211 tests, 90 mutations each killed by a test) specify Tasks 4 to 8; the main
   session deletes them after Task 9
 - Tasks 5, 7 and 8 are dispatched in two halves, Step 1 and then Steps 2 and 3; Tasks 5 and 7 are the riskiest
 - Browser verification is #38 and cannot be run by an agent
