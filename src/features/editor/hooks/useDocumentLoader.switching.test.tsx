@@ -7,13 +7,14 @@ MIME: text/typescript
 Type: TypeScript React test (Vitest, jsdom)
 
 Created: 22/10/2026 09:10 GMT+10
-Last modified: 22/10/2026 09:36 GMT+10
+Last modified: 22/10/2026 09:50 GMT+10
 ---------------
 The document loader across document switches and the cache: a switch wipes the old document and loads the new one, a
 cache hit is ready at once, late responses of a document already left are ignored, readiness holds on every render, the
 Monaco guard names only the applied document, and an emptied promptId wipes.
 
 Changelog:
+22/10/2026 09:50 GMT+10 | A promptId that goes empty while its fetch is pending ends loading (T5 review follow-up)
 22/10/2026 09:36 GMT+10 | Removed the raw-draft cases, superseded by decision D2 and the S-7 cases of
                          useDocumentLoader.draft.test.tsx (P7S1T6 step 1)
 22/10/2026 09:10 GMT+10 | Created from the P7S1 loader spike suite, with the raw-draft cases (P7S1T5 step 2)
@@ -165,5 +166,20 @@ describe("useDocumentLoader switching documents", () => {
     expect(result.current.content).toBe("")
     expect(result.current.synced).toBeNull()
     expect(result.current.monacoPromptIdRef.current).toBeNull()
+  })
+
+  it("a promptId that goes empty while its fetch is pending ends loading, and the late result is dropped", async () => {
+    const t = makeIo()
+    const { result, rerender } = mount(t.io, A)
+    await t.resolveUser()
+    expect(result.current.loading).toBe(true)
+
+    rerender({ promptId: "", io: t.io })
+    expect(result.current.loading).toBe(false)
+
+    await t.resolveFetch(A, serverRow(A, "Late title", "Late content"))
+    expect(result.current.loading).toBe(false)
+    expect(result.current.content).toBe("")
+    expect(result.current.synced).toBeNull()
   })
 })

@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript React Hook
 
 Created: 17/07/2026 10:00 GMT+10
-Last modified: 22/10/2026 09:39 GMT+10
+Last modified: 22/10/2026 09:51 GMT+10
 ---------------
 Loads the open document on the identity-gate protocol (contract: Loader Protocol). The user is looked up on every
 mount and the load waits for it; the document and its baseline arrive in one reducer action, so `ready` is true only in
@@ -15,6 +15,7 @@ renders whose title, content and promptData belong to `promptId`. Completions of
 dismissed when its effect cleans up (the document is left or the editor unmounts).
 
 Changelog:
+22/10/2026 09:51 GMT+10 | markSynced and applyServerState require the document to be applied, not only open (T5 review)
 22/10/2026 09:39 GMT+10 | The load effect owns its conflict toasts and dismisses them on cleanup (P7S1T6)
 22/10/2026 09:14 GMT+10 | Rewritten on the identity-gate protocol: useIdentity, ready, synced, markSynced,
                          applyServerState; adopts document-cache.ts; the ownership ref flags and the transition
@@ -163,11 +164,13 @@ export function useDocumentLoader({ promptId, io }: UseDocumentLoaderOptions): D
         lastSaved: now,
         promptData: version ? versioned(entry.promptData, next, now) : entry.promptData,
       }))
-      if (next.promptId !== promptIdRef.current) return false
+      // Reason: `promptIdRef` names the open document and `monacoPromptIdRef` the one whose content is applied (null
+      // while it loads), so a completion that lands while the open document re-fetches changes nothing.
+      if (next.promptId !== promptIdRef.current || next.promptId !== monacoPromptIdRef.current) return false
       dispatch({ type: "synced", next, version, now })
       return true
     },
-    [promptIdRef, userIdRef]
+    [promptIdRef, monacoPromptIdRef, userIdRef]
   )
 
   const applyServerState = useCallback(
@@ -180,11 +183,11 @@ export function useDocumentLoader({ promptId, io }: UseDocumentLoaderOptions): D
         lastSaved: now,
         promptData: versioned(entry.promptData, row, now),
       }))
-      if (id !== promptIdRef.current) return false
+      if (id !== promptIdRef.current || id !== monacoPromptIdRef.current) return false
       dispatch({ type: "serverState", promptId: id, row, now })
       return true
     },
-    [promptIdRef, userIdRef]
+    [promptIdRef, monacoPromptIdRef, userIdRef]
   )
 
   return {
