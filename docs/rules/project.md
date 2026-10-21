@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Project Rules | 07/11/2025 12:46 GMT+10 | 22/10/2026 08:22 GMT+10 |
+| Project Rules | 07/11/2025 12:46 GMT+10 | 22/10/2026 09:03 GMT+10 |
 
 ## Table of Contents
 - [Project Variables](#project-variables)
@@ -133,6 +133,7 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
 | Components | PascalCase.tsx | `ResizablePanelsLayout.tsx` |
 | Hooks, stores | `use-*.ts` or `useX.ts`, matching the neighbouring files | `use-tab-store.ts` |
 | Server actions | `actions.ts` per feature | `src/features/auth/actions.ts` |
+| Server logic | `service.ts` per feature: functions taking `(db, userId, input)`, no `"use server"` directive, called only by actions, tested against a real Postgres | `src/features/editor/service.ts` |
 | Schemas, types | `schemas.ts`, `types.ts` per feature | `src/features/editor/schemas.ts` |
 
 - Use `// Reason:` comments for non-obvious logic. Source headers follow `docs/rules/documentation.md`.

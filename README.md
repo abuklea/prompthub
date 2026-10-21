@@ -7,7 +7,7 @@ PromptHub is a web application for storing, organizing and managing AI prompts, 
 -   **Nested Folder Organization:** Structure your prompts in a hierarchical folder system for easy navigation.
 -   **Full-Text Search:** Search prompt titles and content through a GIN-indexed Postgres `tsvector` column (English configuration).
 -   **Rich Prompt Editor:** Create and edit prompts in a VS Code-like environment powered by the Monaco Editor.
--   **Version History:** Each save stores a snapshot (title and content) of the previous version, and a version can be restored.
+-   **Version History:** A manual save records the saved title and content as a version, unless the newest version already holds that state; autosave records none. A restore keeps the unsaved text as a version when it differs from the newest one, writes the restored state, and records that state as a version unless the newest version already holds it.
 -   **Tagging System:** Organize and filter prompts using descriptive tags.
 -   **Authentication and Per-User Data:** Users sign in with Supabase Authentication, and server actions filter queries by the signed-in user. Row Level Security is optional defence-in-depth (step 6). Known gaps in input validation and ownership checks are tracked in [#41](https://github.com/abuklea/prompthub/issues/41).
 
