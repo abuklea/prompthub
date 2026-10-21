@@ -2,7 +2,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Tools and MCP Servers | 07/11/2025 12:46 GMT+10 | 19/10/2026 23:07 GMT+10 |
+| Tools and MCP Servers | 07/11/2025 12:46 GMT+10 | 22/10/2026 09:52 GMT+10 |
 
 ## Table of Contents
 - [MCP Servers](#mcp-servers)
@@ -10,8 +10,9 @@
 
 ## MCP Servers
 
-MCP servers are configured per developer: the repository has no `.mcp.json`. The developer's machine runs `serena`,
-`chrome-devtools`, `seqthk` and `time`. When one is unavailable, say so and continue with built-in tools.
+`.mcp.json` ships `serena` (HTTP on `localhost:9121`, started separately) and `chrome-devtools` (attaches to a browser
+on `localhost:9222`); `seqthk` and `time` are configured per developer. A local-scope server of the same name overrides
+the project one. When one is unavailable, say so and continue with built-in tools.
 
 1. ALWAYS track work in GitHub Issues per `github-issues.md`. `archon` is legacy and read-only: use it only to export
    tasks and records for the Archon import (#29).
