@@ -6,12 +6,13 @@ MIME: text/x-typescript
 Type: TypeScript React Component
 
 Created: 06/11/2025 00:00 GMT+10
-Last modified: 08/11/2025 13:12 GMT+10
+Last modified: 22/10/2026 09:16 GMT+10
 ---------------
 Main header component with branding, navigation, and user controls.
 Includes tab-based navigation buttons for Settings and Profile pages.
 
 Changelog:
+22/10/2026 09:16 GMT+10 | Imports clearDocumentCache from the document-cache module (P7S1T5)
 08/11/2025 13:12 GMT+10 | Added Settings and Profile navigation buttons for tab system
 */
 
@@ -20,7 +21,7 @@ Changelog:
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { signOut } from "@/features/auth/actions"
-import { clearDocumentCache } from "@/features/editor/components/EditorPane"
+import { clearDocumentCache } from "@/features/editor/document-cache"
 import { useTabStore } from "@/stores/use-tab-store"
 import { Settings, User as UserIcon } from "lucide-react"
 import Link from "next/link"
