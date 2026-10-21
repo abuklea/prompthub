@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Project Rules | 07/11/2025 12:46 GMT+10 | 19/10/2026 23:12 GMT+10 |
+| Project Rules | 07/11/2025 12:46 GMT+10 | 22/10/2026 08:22 GMT+10 |
 
 ## Table of Contents
 - [Project Variables](#project-variables)
@@ -54,8 +54,8 @@ files where they conflict. `[TODO: …]` marks a decision not made yet: ask, or 
 
 ```text
 src/            app/ routes, components/ (ui/ and layout/), features/<name>/ (actions, schemas, components, hooks),
-                lib/ (db, supabase clients, rate-limit, ensure-profile), stores/ (Zustand), hooks/, types/, styles/,
-                middleware.ts
+                lib/ (db, supabase clients, rate-limit, ensure-profile), stores/ (Zustand), hooks/,
+                test/ (shared test helpers and fakes), types/, styles/, middleware.ts
 prisma/         schema.prisma and migrations/
 docs/           rules/ (agent rules), guides/, project/ (specs), review/, plans/
 PRPs/           PRP specs, templates/, reports/ (INITIAL and REPORT), docs/, complete/
@@ -75,7 +75,7 @@ public/         static assets; public/monaco-editor is copied at install and git
 | Frontend | Next.js 14 (App Router), React 18, TypeScript (strict), Tailwind CSS, Shadcn/UI (new-york), Framer Motion |
 | Backend | Supabase Auth + PostgreSQL accessed through Prisma; Next.js Server Actions; one route handler (`src/app/auth/sign-out`) |
 | State | Zustand (global), React Hook Form + Zod (forms), local React state |
-| Tests | Vitest (`src/**/*.test.ts`, node environment); coverage scope in `vitest.config.ts` |
+| Tests | Vitest (`src/**/*.test.{ts,tsx}`); node environment, jsdom per file via `// @vitest-environment jsdom` on the first line; database suites run against a disposable local Postgres behind `TEST_DATABASE_URL` and skip without it; coverage scope in `vitest.config.ts` |
 | Build | `npm run build` (`prisma generate && next build`); Vercel hosting |
 | Local | `npm run dev` on port 3010; `docker-compose.yml` runs Postgres, GoTrue, an nginx gateway and the app |
 
@@ -178,6 +178,7 @@ Names and purposes (template: `.env.example`; CI supplies placeholders):
 | `SUPABASE_URL` | Optional server-side Supabase URL, read before `NEXT_PUBLIC_SUPABASE_URL` (`src/lib/supabase/server.ts`); the Docker stack points it at the gateway |
 | `SUPABASE_SERVICE_ROLE_KEY` | Reserved for admin tasks such as seeding (technical spec); no code under `src/` reads it today |
 | `DATABASE_URL`, `DIRECT_URL` | Prisma pooled and direct connections (`prisma/schema.prisma`) |
+| `TEST_DATABASE_URL` | Optional disposable Postgres for database tests (`src/test/db.ts`): loopback host, a database name containing "test", no `host`, `hostaddr` or `port` query parameter. Unset skips those suites; unset in GitHub Actions throws. CI supplies a `postgres:17-alpine` service |
 | `TEST_USER_EMAIL`, `TEST_USER_PASSWORD` | The primary test user, supplied at runtime from the git-ignored `.env.test`; NEVER committed |
 
 ## Architecture Constraints

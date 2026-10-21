@@ -2,7 +2,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Testing Rules | 07/11/2025 12:46 GMT+10 | 19/10/2026 23:05 GMT+10 |
+| Testing Rules | 07/11/2025 12:46 GMT+10 | 22/10/2026 08:22 GMT+10 |
 
 ## Table of Contents
 - [Test-Driven Development](#test-driven-development)
@@ -26,7 +26,8 @@ known-correct fixtures.
 | Layer | Covers |
 |---|---|
 | Unit | Pure logic, exhaustively: boundaries, error paths, every branch. Fast, deterministic, most of the value. |
-| Integration | Where two seams meet and their contract is easy to get wrong. |
+| Integration | Where two seams meet and their contract is easy to get wrong, including code against a real disposable database, which skips when none is configured and refuses a non-local one. |
+| Component | Hooks and components in a simulated DOM: state, events and rendered structure, never layout. |
 | End-to-end | Only what nothing else can see: real rendering, layout, media, network, user gestures. Wait on an observable condition, never a sleep. |
 | Manual | Real devices, hardware and deployed environments. The developer runs these; each one gets a `type: dev-review` issue. |
 

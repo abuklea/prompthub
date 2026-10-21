@@ -82,7 +82,9 @@ one touch disjoint files. An agent with `isolation: worktree` works in a fresh g
 - Run `{{INSTALL_CMD}}` from the worktree root before any gate. Git-ignored build output and media are absent: report
   any suite that needs them as not run, with that reason; never skip it silently.
 - No env file is copied in. `npx prisma validate` fails without `DATABASE_URL` and `DIRECT_URL`: pass the placeholder
-  values `.github/workflows/ci.yml` sets. Report a check that needs a real database or Supabase project as not run.
+  values `.github/workflows/ci.yml` sets. Report a check that needs a real database or Supabase project as not run,
+  except one that needs only Postgres: it runs when the dispatch supplies `TEST_DATABASE_URL` (loopback host, a
+  database name containing "test"), and you create no role or database. Without it, report the check as not run.
 - A language-server MCP such as Serena is rooted at the main checkout, not your worktree. Never edit through it
   there, and confirm anything you act on with Read in your worktree: its reads show the main checkout.
 - Commit in your worktree only when your prompt says so; the dispatcher merges it. Finish with `git status` clean.
