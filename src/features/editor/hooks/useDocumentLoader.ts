@@ -6,20 +6,22 @@ MIME: text/typescript
 Type: TypeScript React Hook
 
 Created: 17/07/2026 10:00 GMT+10
-Last modified: 17/07/2026 10:00 GMT+10
+Last modified: 22/10/2026 08:57 GMT+10
 ---------------
 Custom hook for loading prompt documents with caching, user-scoping, and
 transition guards. Extracted from EditorPane.tsx (F5 decomposition).
 
 Changelog:
+22/10/2026 08:57 GMT+10 | Takes an injected DocumentLoaderIo for the fetch, user lookup and storage (P7S1T5 step 1)
 17/07/2026 10:00 GMT+10 | Extracted from EditorPane.tsx to reduce file size (F5)
 */
 
 import { useEffect, useState, useRef, useCallback } from "react"
-import { getPromptDetails } from "@/features/prompts/actions"
-import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import type { Prompt } from "@prisma/client"
+import type { DocumentLoaderIo } from "../loader-protocol"
+
+export type { DocumentLoaderIo } from "../loader-protocol"
 
 export type PromptWithFolder = Prompt & {
   folder: {
@@ -87,6 +89,8 @@ export function setDocumentCacheEntry(
 
 interface UseDocumentLoaderOptions {
   promptId: string
+  /** The fetch, user lookup and storage; pass a stable object, since a new identity re-runs the load effects. */
+  io: DocumentLoaderIo
 }
 
 interface DocumentLoaderState {
@@ -109,7 +113,7 @@ interface DocumentLoaderState {
   resetLoadedRef: () => void
 }
 
-export function useDocumentLoader({ promptId }: UseDocumentLoaderOptions): DocumentLoaderState {
+export function useDocumentLoader({ promptId, io }: UseDocumentLoaderOptions): DocumentLoaderState {
   const [promptData, setPromptData] = useState<PromptWithFolder | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -127,12 +131,10 @@ export function useDocumentLoader({ promptId }: UseDocumentLoaderOptions): Docum
 
   useEffect(() => {
     async function loadUserId() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      setCurrentUserId(user?.id || "anonymous")
+      setCurrentUserId(await io.getUserId())
     }
     loadUserId()
-  }, [])
+  }, [io])
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -193,7 +195,7 @@ export function useDocumentLoader({ promptId }: UseDocumentLoaderOptions): Docum
         return
       }
 
-      const result = await getPromptDetails({ promptId })
+      const result = await io.fetchPrompt(promptId)
 
       if (abortController.signal.aborted) {
         setLoading(false)
@@ -216,8 +218,9 @@ export function useDocumentLoader({ promptId }: UseDocumentLoaderOptions): Docum
         titlePromptIdRef.current = promptId
 
         const localStorageKey = `prompt-${promptId}`
-        const storedContent = typeof window !== "undefined"
-          ? (localStorage.getItem(localStorageKey) || "")
+        const storage = io.getStorage()
+        const storedContent = storage
+          ? (storage.getItem(localStorageKey) || "")
           : ""
 
         if (storedContent && storedContent !== data.content) {
@@ -239,7 +242,7 @@ export function useDocumentLoader({ promptId }: UseDocumentLoaderOptions): Docum
     return () => {
       abortController.abort()
     }
-  }, [promptId, currentUserId])
+  }, [promptId, currentUserId, io])
 
   useEffect(() => {
     if (promptId && !loading && loadedRef.current === promptId) {

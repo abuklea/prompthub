@@ -6,13 +6,14 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 17/07/2026 10:00 GMT+10
+Last modified: 22/10/2026 08:57 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
 Features: Auto-save (500ms debounce), localStorage persistence, manual save (Ctrl+S).
 
 Changelog:
+22/10/2026 08:57 GMT+10 | Defines the module-level loaderIo and passes it to useDocumentLoader (P7S1T5 step 1)
 17/07/2026 10:00 GMT+10 | F5: Extracted VersionHistoryDialog and useDocumentLoader to reduce file size
 11/11/2025 21:15 GMT+10 | CRITICAL P0 CACHE CONTAMINATION FIX: Added titlePromptIdRef to prevent cache updates with stale title from previous document
 11/11/2025 20:35 GMT+10 | CRITICAL P0 DATA DESTRUCTION FIX #2: Read localStorage directly to prevent stale localContent contamination during restoration
@@ -45,7 +46,13 @@ import { useLocalStorage } from "@/features/editor/hooks/useLocalStorage"
 import {
   useDocumentLoader,
   setDocumentCacheEntry,
+  type DocumentLoaderIo,
 } from "@/features/editor/hooks/useDocumentLoader"
+import { getPromptDetails } from "@/features/prompts/actions"
+import { createClient } from "@/lib/supabase/client"
+import { withTimeout } from "@/features/editor/request-timeout"
+import { ANONYMOUS } from "@/features/editor/document-cache"
+import { getBrowserStorage } from "@/features/editor/draft"
 import { VersionHistoryDialog } from "./VersionHistoryDialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -59,6 +66,24 @@ export { hydrateDocumentCache, clearDocumentCache } from "@/features/editor/hook
 interface EditorPaneProps {
   promptId: string
   tabId: string
+}
+
+/**
+ * The loader's real io. Module-level, so its identity never changes and a re-render cannot re-run the load effects.
+ * The user id is looked up on every mount and never remembered.
+ */
+const loaderIo: DocumentLoaderIo = {
+  fetchPrompt: (promptId) => withTimeout(getPromptDetails({ promptId })),
+  getUserId: async () => {
+    try {
+      const { data } = await createClient().auth.getUser()
+      return data.user?.id ?? ANONYMOUS
+    } catch {
+      // Reason: a failed lookup must not leave the identity unset; it falls back to the uncached anonymous identity.
+      return ANONYMOUS
+    }
+  },
+  getStorage: getBrowserStorage,
 }
 
 export function EditorPane({ promptId, tabId }: EditorPaneProps) {
@@ -83,7 +108,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
     setContent,
     setLastSaved,
     resetLoadedRef,
-  } = useDocumentLoader({ promptId })
+  } = useDocumentLoader({ promptId, io: loaderIo })
 
   const [saving, setSaving] = useState(false)
   const [autoSaving, setAutoSaving] = useState(false)
