@@ -40,7 +40,7 @@ After a UI change, check it in the running app per `.claude/AGENT-CONTRACT.md#br
 
 ## Where this codebase breaks
 
-Switching tabs and documents is the fragile path. Content has bled between documents through `useLocalStorage` saving on a key change, `EditorPane` state surviving a switch, and cache writes during the transition (P5S5), and `PromptList` looped renders by deriving state inside a map (P5S4). When you touch the tab store (`src/stores/use-tab-store.ts`), the editor hooks (`src/features/editor/hooks/`, where `useDocumentLoader.ts` keeps the document cache), `EditorPane` or the workspace listing cache (`src/features/workspace/cache.ts`), state the ordering your change relies on, and in the browser switch quickly between two documents and confirm each keeps its own content.
+Switching tabs and documents is the fragile path. Content has bled between documents through `useLocalStorage` saving on a key change, `EditorPane` state surviving a switch, and cache writes during the transition (P5S5), and `PromptList` looped renders by deriving state inside a map (P5S4). When you touch the tab store (`src/stores/use-tab-store.ts`), the editor hooks (`src/features/editor/hooks/`, where `useDocumentLoader.ts` loads the open document through `loader-protocol.ts` and `loader-state.ts`, and `document-cache.ts` keeps the document cache), `EditorPane` or the workspace listing cache (`src/features/workspace/cache.ts`), state the ordering your change relies on, and in the browser switch quickly between two documents and confirm each keeps its own content.
 
 ## External documentation
 

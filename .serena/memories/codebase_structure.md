@@ -71,9 +71,11 @@ PromptHub/
 ### EditorPane.tsx (src/features/editor/components/)
 **Purpose**: Main document editor with caching, auto-save, and tab integration  
 **Critical Patterns**:
-- User-scoped document cache (Map with userId validation)
-- Four critical refs for race prevention (loadedRef, contentPromptIdRef, promptIdRef, isTransitioning)
-- 500ms auto-save with transition guards
+- User-scoped document cache in `src/features/editor/document-cache.ts` (userId validation, none for the anonymous
+  identity), written by EditorPane and updated by the loader
+- Document loading by `useDocumentLoader` on the identity-gate protocol (`loader-protocol.ts`, `loader-state.ts`): the
+  `ready` token replaces the ownership refs and the transition lock; `promptIdRef` and `monacoPromptIdRef` remain
+- 500ms auto-save, disabled until `ready`
 - localStorage persistence with cross-contamination prevention
 - Null title handling with getDisplayTitle utility
 

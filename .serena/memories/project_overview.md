@@ -45,6 +45,11 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 2. **P0T2**: Fixed ownership ref timing in cache hit path to prevent race conditions
 3. **P0T3**: Implemented isTransitioning lock to guard cache updates during document transitions
 
+P0T2 and P0T3 are superseded: `useDocumentLoader` now runs the identity-gate protocol (P7S1T5). The document and its
+baseline are applied in one reducer action, the `ready` token says when title, content and promptData belong to
+`promptId`, and the ownership refs and the transition lock are gone. The cache lives in
+`src/features/editor/document-cache.ts`.
+
 **P1 Priority Fixes**:
 4. **P1T4**: Disabled auto-save during document transitions
 5. **P1T5**: Changed title type to string|null throughout system with getDisplayTitle utility
