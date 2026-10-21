@@ -8,15 +8,17 @@ MIME: text/typescript
 Type: TypeScript React test (research spike, not part of the suite)
 
 Created: 20/10/2026 14:14 GMT+10
-Last modified: 20/10/2026 15:45 GMT+10
+Last modified: 22/10/2026 07:53 GMT+10
 ---------------
-Proves the history dialog of wip/P7S1-dialog-spike.tsx with the real Radix dialog and Button. The first group drives the
+Proves the history dialog of wip/P7S1-dialog-spike.tsx with the real Radix dialogs and Button. The first group drives the
 dialog with injected fakes: a list that loads when the parent opens the dialog (the defect of the current component), a
-single-flight restore and a dialog that cannot be closed while one runs. The second group mounts the dialog beside the
-real loader and persistence hooks, as EditorPane does, and restores through them. Run with:
+question before a restore (decision D4), a single-flight restore and a dialog that cannot be closed while one runs. The
+second group mounts the dialog beside the real loader and persistence hooks, as EditorPane does, and restores through
+them. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-dialog-spike.test.tsx
 
 Changelog:
+22/10/2026 07:53 GMT+10 | Decision D4: seven tests for the question; the eleven restore tests that clicked Restore once now go through it (restoreRow, restore); the question helper ignores aria-hidden (mutation H20)
 20/10/2026 15:45 GMT+10 | A click on the overlay during a restore is ignored, and closes the dialog after a failed restore
 20/10/2026 14:48 GMT+10 | The flush-before-restore test asserts the autosave request instead of the fake's version rows
 20/10/2026 14:14 GMT+10 | Created
@@ -24,7 +26,7 @@ Changelog:
 
 import { StrictMode, useState } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import type { PromptVersionHistoryItem } from "@/features/prompts/types"
@@ -97,6 +99,7 @@ function Harness({ promptId, loadHistory, onRestore, changes }: HarnessProps) {
   return (
     <>
       <button onClick={() => setOpen(true)}>Open history</button>
+      <button onClick={() => setOpen(false)}>Close from the parent</button>
       <VersionHistoryDialog
         promptId={promptId}
         open={open}
@@ -116,6 +119,18 @@ const pressEscape = () => fireEvent.keyDown(document.body, { key: "Escape" })
 const restoreButtons = () => screen.queryAllByRole("button", { name: /^Restor/ })
 const isOpen = () => screen.queryByRole("dialog") !== null
 const overlay = () => document.querySelector(".fixed.inset-0") as HTMLElement
+/**
+ * The "Restore this version?" question. Radix hides the history behind it while it is open, and hides it behind the history
+ * when both open together, so the query ignores aria-hidden: a question that is in the DOM counts even if no user could reach it.
+ */
+const question = () => screen.queryByRole("alertdialog", { hidden: true })
+const answer = (name: "Restore" | "Cancel") =>
+  fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name }))
+/** What a user does to restore: Restore on a row, then Restore on the question. */
+const restoreRow = (index: number) => {
+  fireEvent.click(restoreButtons()[index])
+  answer("Restore")
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -298,7 +313,7 @@ describe("restore from the dialog", () => {
 
   it("restores the version of the clicked row, once, and closes the dialog when it succeeded", async () => {
     const { r, changes } = await openWithTwoVersions()
-    fireEvent.click(restoreButtons()[1])
+    restoreRow(1)
     expect(r.calls.map((c) => c.versionId)).toEqual([1])
 
     await r.finish(0, true)
@@ -308,7 +323,7 @@ describe("restore from the dialog", () => {
 
   it("while a restore runs, the clicked row reads Restoring and every Restore button is disabled", async () => {
     const { r } = await openWithTwoVersions()
-    fireEvent.click(restoreButtons()[0])
+    restoreRow(0)
 
     const buttons = restoreButtons()
     expect(buttons.map((b) => b.textContent)).toEqual(["Restoring...", "Restore"])
@@ -319,7 +334,7 @@ describe("restore from the dialog", () => {
 
   it("cannot be closed meanwhile: Escape and the Close button are ignored", async () => {
     const { r, changes } = await openWithTwoVersions()
-    fireEvent.click(restoreButtons()[0])
+    restoreRow(0)
     pressEscape()
     fireEvent.click(screen.getByRole("button", { name: "Close" }))
     expect(isOpen()).toBe(true)
@@ -335,7 +350,7 @@ describe("restore from the dialog", () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
-    fireEvent.click(restoreButtons()[0])
+    restoreRow(0)
     fireEvent.pointerDown(overlay())
     expect(isOpen()).toBe(true)
     expect(changes).toEqual([])
@@ -348,14 +363,14 @@ describe("restore from the dialog", () => {
 
   it("a restore that did not succeed leaves the dialog open and the buttons usable again", async () => {
     const { r, changes } = await openWithTwoVersions()
-    fireEvent.click(restoreButtons()[0])
+    restoreRow(0)
     await r.finish(0, false)
     expect(isOpen()).toBe(true)
     expect(changes).toEqual([])
     expect(restoreButtons().map((b) => b.textContent)).toEqual(["Restore", "Restore"])
     expect(restoreButtons().every((b) => !(b as HTMLButtonElement).disabled)).toBe(true)
 
-    fireEvent.click(restoreButtons()[0])
+    restoreRow(0)
     expect(r.calls.map((c) => c.versionId)).toEqual([2, 2])
     pressEscape()
     expect(isOpen()).toBe(true)
@@ -365,11 +380,85 @@ describe("restore from the dialog", () => {
 
   it("can be closed again after a restore did not succeed", async () => {
     const { r, changes } = await openWithTwoVersions()
-    fireEvent.click(restoreButtons()[0])
+    restoreRow(0)
     await r.finish(0, false)
     pressEscape()
     expect(isOpen()).toBe(false)
     expect(changes).toEqual([false])
+  })
+
+  describe("the question before a restore", () => {
+    it("a click on Restore asks 'Restore this version?' and sends nothing", async () => {
+      const { r, changes } = await openWithTwoVersions()
+      fireEvent.click(restoreButtons()[1])
+      expect(screen.getByRole("alertdialog")).toBeTruthy()
+      expect(screen.getByText("Restore this version?")).toBeTruthy()
+      expect(r.calls).toHaveLength(0)
+      expect(changes).toEqual([])
+    })
+
+    it("Cancel drops the question, restores nothing and leaves the history open", async () => {
+      const { r, changes } = await openWithTwoVersions()
+      fireEvent.click(restoreButtons()[0])
+      answer("Cancel")
+      expect(question()).toBeNull()
+      expect(r.calls).toHaveLength(0)
+      expect(changes).toEqual([])
+      expect(isOpen()).toBe(true)
+      expect(restoreButtons().map((b) => b.textContent)).toEqual(["Restore", "Restore"])
+    })
+
+    it("Escape closes the question only, not the history behind it", async () => {
+      const { r, changes } = await openWithTwoVersions()
+      fireEvent.click(restoreButtons()[0])
+      pressEscape()
+      expect(question()).toBeNull()
+      expect(isOpen()).toBe(true)
+      expect(changes).toEqual([])
+      expect(r.calls).toHaveLength(0)
+    })
+
+    it("confirming closes the question and restores the version that was asked about, once", async () => {
+      const { r, changes } = await openWithTwoVersions()
+      fireEvent.click(restoreButtons()[1])
+      answer("Restore")
+      expect(question()).toBeNull()
+      expect(r.calls.map((c) => c.versionId)).toEqual([1])
+
+      await r.finish(0, true)
+      expect(isOpen()).toBe(false)
+      expect(changes).toEqual([false])
+    })
+
+    it("a question about one document is gone when the document changes", async () => {
+      const h = makeHistory()
+      const r = makeRestorer()
+      const view = render(<Harness promptId={A} loadHistory={h.loadHistory} onRestore={r.onRestore} />)
+      openHistory()
+      await h.answer(0, history([1, "Of A", "a"]))
+      fireEvent.click(restoreButtons()[0])
+      expect(question()).not.toBeNull()
+
+      view.rerender(<Harness promptId="other" loadHistory={h.loadHistory} onRestore={r.onRestore} />)
+      expect(question()).toBeNull()
+      await h.answer(1, history([7, "Of other", "o"]))
+      expect(question()).toBeNull()
+      expect(r.calls).toHaveLength(0)
+    })
+
+    it("a history that its parent closes leaves no question behind, and none returns when it reopens", async () => {
+      const { r } = await openWithTwoVersions()
+      fireEvent.click(restoreButtons()[0])
+      expect(question()).not.toBeNull()
+
+      fireEvent.click(screen.getByText("Close from the parent"))
+      expect(question()).toBeNull()
+      expect(isOpen()).toBe(false)
+
+      openHistory()
+      expect(question()).toBeNull()
+      expect(r.calls).toHaveLength(0)
+    })
   })
 })
 
@@ -422,6 +511,11 @@ describe("the dialog beside the real hooks", () => {
     fireEvent.click(screen.getByRole("button", { name }))
     await settle()
   }
+  /** Restore asks first: the first click asks, and the second, on the question, confirms. */
+  const restore = async () => {
+    await click("Restore")
+    await click("Restore")
+  }
   const content = () => screen.getByTestId("content").textContent
   const title = () => screen.getByTestId("title").textContent
 
@@ -444,7 +538,7 @@ describe("the dialog beside the real hooks", () => {
     expect(env.names()).toEqual(["history"])
     expect(screen.getByText("Title: Old title")).toBeTruthy()
 
-    await click("Restore")
+    await restore()
     expect(content()).toBe("old text")
     expect(title()).toBe("Old title")
     expect(isOpen()).toBe(false)
@@ -456,7 +550,7 @@ describe("the dialog beside the real hooks", () => {
     await mount()
     await click("Type")
     await click("History")
-    await click("Restore")
+    await restore()
     expect(env.names()).toEqual(["history", "autosave", "restore"])
     expect(env.inputs("autosave")).toEqual([{ promptId: A, title: "Title", content: "unsaved edit" }])
     expect(content()).toBe("old text")
@@ -467,7 +561,7 @@ describe("the dialog beside the real hooks", () => {
     await click("Blank the title")
     await click("Type")
     await click("History")
-    await click("Restore")
+    await restore()
     expect(toast.error).toHaveBeenCalledWith(NEEDS_TITLE_TOAST)
     expect(env.names()).toEqual(["history"])
     expect(isOpen()).toBe(true)
@@ -479,7 +573,7 @@ describe("the dialog beside the real hooks", () => {
     await mount()
     await click("History")
     const release = env.hold("restore")
-    await click("Restore")
+    await restore()
     expect(restoreButtons().every((b) => (b as HTMLButtonElement).disabled)).toBe(true)
     pressEscape()
     await settle()
@@ -495,14 +589,26 @@ describe("the dialog beside the real hooks", () => {
     await mount()
     await click("History")
     env.failNext("restore")
-    await click("Restore")
+    await restore()
     expect(toast.error).toHaveBeenCalledWith("restore failed")
     expect(isOpen()).toBe(true)
     expect(content()).toBe("server")
 
-    await click("Restore")
+    await restore()
     expect(content()).toBe("old text")
     expect(isOpen()).toBe(false)
+  })
+
+  it("Cancel on the question sends nothing and leaves the editor as it was", async () => {
+    await mount()
+    await click("History")
+    await click("Restore")
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
+    await click("Cancel")
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    expect(env.names()).toEqual(["history"])
+    expect(content()).toBe("server")
+    expect(isOpen()).toBe(true)
   })
 
   it("a failed history read is reported and the list says so", async () => {

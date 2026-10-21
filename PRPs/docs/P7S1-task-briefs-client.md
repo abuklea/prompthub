@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Client Task Briefs | 20/10/2026 13:27 GMT+10 | 20/10/2026 16:12 GMT+10 |
+| P7S1 Client Task Briefs | 20/10/2026 13:27 GMT+10 | 22/10/2026 07:53 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -245,16 +245,18 @@ nothing. A restore that completes after a switch to another document leaves that
 restored document's cache entry; the same after the editor unmounted. A failed or rejected restore keeps the working
 copy, resets `restoring` and resumes autosave; a loader that is not ready restores nothing; a `handleRestore` left over
 from the previous document restores and flushes nothing; an unknown version fails without changing the editor. (b)
-CREATE `VersionHistoryDialog.test.tsx` from `wip/P7S1-dialog-spike.test.tsx` (it renders the real dialog and Button with
-Testing Library; `// @vitest-environment jsdom` on the first line, and JSX works after T1). Against Step 1 the list does
-not load when the parent sets `open` (the control case with a bare Radix dialog shows why), a late result is not
-dropped, a failed read is not reported, the other Restore buttons stay enabled during a restore, and Escape or a click
-on the overlay closes the dialog.
+CREATE `VersionHistoryDialog.test.tsx` from `wip/P7S1-dialog-spike.test.tsx` (it renders the real dialog, AlertDialog
+and Button with Testing Library; `// @vitest-environment jsdom` on the first line, and JSX works after T1). Against
+Step 1 the list does not load when the parent sets `open` (the control case with a bare Radix dialog shows why), a late
+result is not dropped, a failed read is not reported, the other Restore buttons stay enabled during a restore, Escape
+or a click on the overlay closes the dialog, and Restore on a row restores at once instead of asking "Restore this
+version?" (decision D4). The spike tests restore through the question, with the helper `restoreRow`.
 
 Step 3, green: the spike's `useVersionRestore` (`flushUnsaved` with the blank-title refusal, captured ids, `finally`,
 `applyServerState`) and the spike's dialog (`useHistory` in an effect on `open` and `promptId` through `useLatest`,
-`HistoryRow`, the close guard, `disabled` on every row while a restore runs); the Save button is disabled while
-`restoring`. Acceptance: a search of `src/`, outside the changelog lines of file headers, finds no import, use or
+`HistoryRow`, `RestoreQuestion`, an `AlertDialog` whose `confirmingId` is reset in an effect on `open` and `promptId`,
+the close guard, `disabled` on every row while a restore runs); the Save button is disabled while `restoring`.
+Acceptance: a search of `src/`, outside the changelog lines of file headers, finds no import, use or
 comment naming `useLocalStorage`, `hydrateDocumentCache`, `isTransitioning`, `contentPromptIdRef`, `titlePromptIdRef` or
 `resetLoadedRef`, and EditorPane is shorter than 329 lines.
 The dialog is not exempt from coverage: its suite reaches 80%.

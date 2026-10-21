@@ -6,26 +6,39 @@ MIME: text/typescript
 Type: TypeScript React component (research spike, not imported by the application)
 
 Created: 20/10/2026 14:11 GMT+10
-Last modified: 20/10/2026 14:22 GMT+10
+Last modified: 22/10/2026 07:53 GMT+10
 ---------------
 P7S1 research spike for task T8. A standalone version of src/features/editor/components/VersionHistoryDialog.tsx with the
-three changes decided in PRPs/docs/P7S1-editor-persistence-contracts.md. First, the history is read in an effect that
+four changes decided in PRPs/docs/P7S1-editor-persistence-contracts.md. First, the history is read in an effect that
 depends on `open` and `promptId`: the current component reads it inside Dialog's onOpenChange, which Radix calls only
 for a change the dialog itself makes (Escape, the close button, the overlay), never when the parent sets `open`, so the
 list never loads. Second, the server actions are injected, so the component runs in a test without a server. Third, a
 restore is single-flight: every Restore button is disabled while one runs, the dialog cannot be closed meanwhile, and it
-closes itself only when the restore succeeded. The file is split into a hook for the read, a row and the dialog so that
-no function passes the 80-line lint limit. It exists to prove that with wip/P7S1-dialog-spike.test.tsx before P7S1T8
-edits the production component. Run with:
+closes itself only when the restore succeeded. Fourth (decision D4, confirmed 22/10/2026), Restore on a row asks "Restore
+this version?" first, in the project's AlertDialog confirmation pattern: Cancel and Escape close the question only, and
+a question belongs to the opening and the document it was asked in. The file is split into a hook for the read, a row, the
+question and the dialog so that no function passes the 80-line lint limit. It exists to prove that with
+wip/P7S1-dialog-spike.test.tsx before P7S1T8 edits the production component. Run with:
 npx vitest run --config wip/P7S1-vitest.diag.config.ts wip/P7S1-dialog-spike.test.tsx
 
 Changelog:
+22/10/2026 07:53 GMT+10 | Decision D4: Restore asks "Restore this version?" first (RestoreQuestion, confirmingId)
 20/10/2026 14:22 GMT+10 | Split into useHistory, HistoryRow and the dialog (the dialog alone was 82 lines)
 20/10/2026 14:11 GMT+10 | Created
 */
 
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { PromptVersionHistoryItem } from "@/features/prompts/types"
@@ -93,15 +106,16 @@ interface HistoryRowProps {
   busy: boolean
   /** True for the row being restored. */
   restoring: boolean
-  onRestore(versionId: number): void
+  /** Asks to restore this version: the question decides whether it happens. */
+  onAsk(versionId: number): void
 }
 
-function HistoryRow({ item, busy, restoring, onRestore }: HistoryRowProps) {
+function HistoryRow({ item, busy, restoring, onAsk }: HistoryRowProps) {
   return (
     <div className="border rounded-md p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium">{new Date(item.created_at).toLocaleString()}</p>
-        <Button size="sm" onClick={() => onRestore(item.id)} disabled={busy}>
+        <Button size="sm" onClick={() => onAsk(item.id)} disabled={busy}>
           {restoring ? "Restoring..." : "Restore"}
         </Button>
       </div>
@@ -113,10 +127,47 @@ function HistoryRow({ item, busy, restoring, onRestore }: HistoryRowProps) {
   )
 }
 
+interface RestoreQuestionProps {
+  open: boolean
+  onCancel(): void
+  onConfirm(): void
+}
+
+/** "Restore this version?" in the AlertDialog pattern of the project; Cancel and Escape close this layer only. */
+function RestoreQuestion({ open, onCancel, onConfirm }: RestoreQuestionProps) {
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onCancel()
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Restore this version?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Your current text stays in the version history, so you can come back to it.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>Restore</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 export function VersionHistoryDialog({ promptId, open, onOpenChange, loadHistory, onRestore }: VersionHistoryDialogProps) {
   const load = useHistory(open, promptId, loadHistory)
+  const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [restoringId, setRestoringId] = useState<number | null>(null)
   const busy = restoringId !== null
+
+  // Reason: a question belongs to the opening and the document it was asked in; a stale id must never be confirmed.
+  useEffect(() => {
+    setConfirmingId(null)
+  }, [open, promptId])
 
   // Reason: single-flight comes from `disabled={busy}` on every row: React flushes the state of a click before the next
   // click event is dispatched, so a second click reaches a disabled button.
@@ -139,32 +190,41 @@ export function VersionHistoryDialog({ promptId, open, onOpenChange, loadHistory
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Version history</DialogTitle>
-          <DialogDescription>Restore a previous snapshot of this document.</DialogDescription>
-        </DialogHeader>
-        <div className="max-h-[60vh] overflow-auto space-y-2">
-          {(load.status === "idle" || load.status === "loading") && promptId && (
-            <p className="text-sm text-muted-foreground">Loading history...</p>
-          )}
-          {load.status === "failed" && <p className="text-sm text-muted-foreground">{HISTORY_FAILED}.</p>}
-          {load.status === "ready" && load.items.length === 0 && (
-            <p className="text-sm text-muted-foreground">No saved versions yet.</p>
-          )}
-          {load.status === "ready" &&
-            load.items.map((item) => (
-              <HistoryRow
-                key={item.id}
-                item={item}
-                busy={busy}
-                restoring={restoringId === item.id}
-                onRestore={handleRestore}
-              />
-            ))}
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Version history</DialogTitle>
+            <DialogDescription>Restore a previous snapshot of this document.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-auto space-y-2">
+            {(load.status === "idle" || load.status === "loading") && promptId && (
+              <p className="text-sm text-muted-foreground">Loading history...</p>
+            )}
+            {load.status === "failed" && <p className="text-sm text-muted-foreground">{HISTORY_FAILED}.</p>}
+            {load.status === "ready" && load.items.length === 0 && (
+              <p className="text-sm text-muted-foreground">No saved versions yet.</p>
+            )}
+            {load.status === "ready" &&
+              load.items.map((item) => (
+                <HistoryRow
+                  key={item.id}
+                  item={item}
+                  busy={busy}
+                  restoring={restoringId === item.id}
+                  onAsk={setConfirmingId}
+                />
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <RestoreQuestion
+        open={open && confirmingId !== null}
+        onCancel={() => setConfirmingId(null)}
+        onConfirm={() => {
+          if (confirmingId !== null) handleRestore(confirmingId)
+        }}
+      />
+    </>
   )
 }
