@@ -56,8 +56,11 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^16.0.1",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.3.0",
     "@vitest/coverage-v8": "^2.1.9",
     "css-loader": "^7.1.2",
+    "jsdom": "^26.1.0",
     "monaco-editor-webpack-plugin": "^7.1.1",
     "prisma": "^6.19.0",
     "style-loader": "^4.0.0",

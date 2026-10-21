@@ -9,13 +9,29 @@ jobs:
   verify:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: pass
+          POSTGRES_DB: prompthub_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d prompthub_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      # Placeholder values — CI never connects to a database or Supabase; all
-      # clients are constructed lazily inside request handlers, not at build time.
+      # Placeholder values for the build and prisma validate: neither connects to a database or Supabase, because all
+      # clients are constructed lazily inside request handlers, not at build time. Only the database-backed tests
+      # connect, to the throwaway postgres service above, through TEST_DATABASE_URL.
       DATABASE_URL: postgresql://user:pass@localhost:5432/db
       DIRECT_URL: postgresql://user:pass@localhost:5432/db
       NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      TEST_DATABASE_URL: postgresql://user:pass@localhost:5432/prompthub_test
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +48,12 @@ jobs:
 
       - name: Validate Prisma schema
         run: npx prisma validate
+
+      - name: Apply migrations to the test database
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/prompthub_test
+          DIRECT_URL: postgresql://user:pass@localhost:5432/prompthub_test
 
       - name: Lint
         run: npm run lint
