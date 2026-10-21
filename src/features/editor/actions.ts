@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript
 
 Created: 07/11/2025 14:30 GMT+10
-Last modified: 17/07/2026 10:00 GMT+10
+Last modified: 22/10/2026 08:40 GMT+10
 ---------------
-Server actions for prompt editor operations.
-Handles version saving with snapshot-based versioning, atomic transactions, and auto-save.
+Server actions for prompt editor operations: saving a version and autosaving.
+Each action validates its input, authenticates the user and delegates to ./service, which holds the database logic.
 
 Changelog:
+22/10/2026 08:40 GMT+10 | P7S1T2: the save and autosave logic moved to ./service; the actions keep their shells
 17/07/2026 10:00 GMT+10 | F10: Removed dead diff computation; snapshots are now the sole version-storage model
 07/11/2025 16:15 GMT+10 | Added autoSavePrompt action (P5S3bT13)
 07/11/2025 14:30 GMT+10 | Initial creation with saveNewVersion action
@@ -25,16 +26,16 @@ import { saveNewVersionSchema, autoSaveSchema } from "./schemas"
 import { ActionResult } from "@/types/actions"
 import { titleValidationSchema } from "@/features/prompts/schemas"
 import { checkMutationRateLimit } from "@/lib/rate-limit"
+import { autoSaveDocument, saveVersion } from "./service"
 
 /**
- * Save a new version of a prompt with snapshot-based versioning
+ * Save a prompt and record a version.
  *
- * Creates a PromptVersion record with title and content snapshots,
- * then updates the Prompt record with new title and content. Both operations
- * are wrapped in a transaction for atomicity.
+ * Validates the input and the title, authenticates the user, applies the mutation rate limit, then calls
+ * `saveVersion`, which writes the prompt and its version history in one transaction scoped to the user.
  *
  * @param data - Object containing promptId, newTitle, and newContent
- * @returns ActionResult with versionId on success, error message on failure
+ * @returns ActionResult with the versionId on success; a generic error message on any failure
  */
 export async function saveNewVersion(
   data: unknown
@@ -46,11 +47,9 @@ export async function saveNewVersion(
       return { success: false, error: "Invalid input data" }
     }
 
-    const { promptId, newTitle, newContent } = parsed.data
-
     // Step 2: Validate title before saving
     // Reason: Prevent saving with empty or placeholder titles
-    const titleResult = titleValidationSchema.safeParse(newTitle)
+    const titleResult = titleValidationSchema.safeParse(parsed.data.newTitle)
     if (!titleResult.success) {
       return {
         success: false,
@@ -70,48 +69,8 @@ export async function saveNewVersion(
       return { success: false, error: "Too many requests. Please slow down." }
     }
 
-    // Step 4: Fetch current prompt with user isolation
-    // Reason: MUST filter by both id AND user_id to enforce ownership
-    const currentPrompt = await db.prompt.findFirst({
-      where: {
-        id: promptId,
-        user_id: user.id, // Enforce user isolation
-      },
-    })
-
-    if (!currentPrompt) {
-      return { success: false, error: "Prompt not found or access denied" }
-    }
-
-    // Step 5: Execute transaction (atomic operation)
-    // Reason: Both version creation and prompt update must succeed or both fail
-    const result = await db.$transaction(async (tx) => {
-      // Create new version with snapshots
-      const promptVersion = await tx.promptVersion.create({
-        data: {
-          prompt_id: promptId,
-          title_snapshot: currentPrompt.title,
-          content_snapshot: currentPrompt.content,
-        },
-      })
-
-      // Update prompt with new content.
-      // Reason: user-scoped write (defence-in-depth) — updateMany allows the
-      // composite (id, user_id) predicate that update() cannot express.
-      await tx.prompt.updateMany({
-        where: { id: promptId, user_id: user.id },
-        data: {
-          title: newTitle,
-          content: newContent,
-          updated_at: new Date(),
-        },
-      })
-
-      return promptVersion
-    })
-
-    // Step 6: Return success with versionId
-    return { success: true, data: { versionId: result.id } }
+    // Step 4: Save, scoped to the authenticated user
+    return await saveVersion(db, user.id, parsed.data)
   } catch (error) {
     // Reason: NEXT_REDIRECT must be re-thrown for Next.js navigation
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {
@@ -125,7 +84,7 @@ export async function saveNewVersion(
 /**
  * Auto-save prompt title and content without creating a version
  *
- * Updates the prompt title, content, and updated_at timestamp only.
+ * Updates the prompt title, content, and updated_at timestamp only, through `autoSaveDocument`.
  * Does NOT create a PromptVersion record (silent background save).
  * Used for debounced auto-save while editing.
  *
@@ -142,8 +101,6 @@ export async function autoSavePrompt(
       return { success: false, error: "Invalid input data" }
     }
 
-    const { promptId, title, content } = parsed.data
-
     // Step 2: Get authenticated user
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -151,27 +108,8 @@ export async function autoSavePrompt(
       return { success: false, error: "Unauthorized. Please sign in." }
     }
 
-    // Step 3: Update prompt title and content (no version creation)
-    // Reason: MUST filter by both id AND user_id to enforce ownership
-    const result = await db.prompt.updateMany({
-      where: {
-        id: promptId,
-        user_id: user.id, // Enforce user isolation (RLS)
-      },
-      data: {
-        title: title,
-        content: content,
-        updated_at: new Date(),
-      },
-    })
-
-    // Step 4: Check if prompt was found and updated
-    if (result.count === 0) {
-      return { success: false, error: "Prompt not found or access denied" }
-    }
-
-    // Step 5: Return success
-    return { success: true, data: undefined }
+    // Step 3: Update the prompt, scoped to the authenticated user (no version creation)
+    return await autoSaveDocument(db, user.id, parsed.data)
   } catch (error) {
     // Reason: NEXT_REDIRECT must be re-thrown for Next.js navigation
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {
