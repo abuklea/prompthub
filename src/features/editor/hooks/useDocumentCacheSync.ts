@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript React Hook
 
 Created: 22/10/2026 10:06 GMT+10
-Last modified: 22/10/2026 10:06 GMT+10
+Last modified: 22/10/2026 10:22 GMT+10
 ---------------
 Keeps the open document's cache entry and its tab's metadata (title, folder, dirty flag, promotion of a preview tab)
 in step with the working copy, while the document is ready.
 
 Changelog:
+22/10/2026 10:22 GMT+10 | Adopted the reference form: one readiness guard for the entry and the tab (P7S1T7 step 3)
 22/10/2026 10:06 GMT+10 | Extracted unchanged from EditorPane.tsx (P7S1T7 step 1)
 */
 
@@ -42,34 +43,16 @@ export function useDocumentCacheSync({ promptId, tabId, loader }: UseDocumentCac
   const { ready, synced, promptData, title, content, lastSaved, currentUserId } = loader
 
   useEffect(() => {
-    if (!ready || !synced) return
-
-    if (promptData && promptId) {
-      const isDirty = content !== promptData.content
-
-      setDocumentCacheEntry(currentUserId, promptId, {
-        promptData,
-        title: title ?? null,
-        content,
-        lastSaved,
-        synced,
-      })
-
-      const currentTab = useTabStore.getState().tabs.find((t) => t.id === tabId)
-      if (isDirty && currentTab?.isPreview) {
-        promotePreviewTab(tabId)
-      }
-
-      updateTab(tabId, {
-        title: getDisplayTitle(title),
-        folderId: promptData.folder.id,
-        isDirty,
-      })
-    }
+    // Reason: only a ready document is written, so the cache never holds one document's text under another's id.
+    if (!ready || !promptData || !synced) return
+    const isDirty = content !== promptData.content
+    setDocumentCacheEntry(currentUserId, promptId, { promptData, title, content, lastSaved, synced })
     // Reason: the tab list is read with getState, never as a dependency: a dependency on `tabs` looped this effect,
     // because updateTab changes the list (EditorPane changelog 08/11/2025 13:45).
+    const tab = useTabStore.getState().tabs.find((t) => t.id === tabId)
+    if (isDirty && tab?.isPreview) promotePreviewTab(tabId)
+    updateTab(tabId, { title: getDisplayTitle(title), folderId: promptData.folder.id, isDirty })
   }, [
-    title, content, promptData, promptId, tabId, updateTab,
-    promotePreviewTab, lastSaved, currentUserId, ready, synced,
+    ready, promptData, synced, title, content, lastSaved, currentUserId, promptId, tabId, updateTab, promotePreviewTab,
   ])
 }

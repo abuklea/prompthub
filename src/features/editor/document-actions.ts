@@ -6,18 +6,21 @@ MIME: text/typescript
 Type: TypeScript
 
 Created: 22/10/2026 10:06 GMT+10
-Last modified: 22/10/2026 10:06 GMT+10
+Last modified: 22/10/2026 10:22 GMT+10
 ---------------
-The server actions the editor's persistence hooks call, as an injected interface (contract: Types and Interfaces).
-EditorPane builds the real implementation as a module-level constant; the hooks import no server code, so a test
-can drive them from a fake server.
+The server actions the editor's persistence hooks call, as an injected interface (contract: Types and Interfaces),
+and `withActionTimeout`, which limits each of them to the request timeout. EditorPane builds the real implementation
+as a module-level constant; the hooks import no server code, so a test can drive them from a fake server.
 
 Changelog:
+22/10/2026 10:22 GMT+10 | withActionTimeout limits each action with withTimeout (P7S1T7 step 3)
+22/10/2026 10:17 GMT+10 | withActionTimeout added as a pass-through stub for the red run (P7S1T7 step 2)
 22/10/2026 10:06 GMT+10 | Created with the DocumentActions interface (P7S1T7 step 1)
 */
 
 import type { ActionResult } from "@/types/actions"
 import type { PromptVersionHistoryItem } from "@/features/prompts/types"
+import { withTimeout } from "./request-timeout"
 
 /**
  * The four document actions the editor sends. Implementations resolve with an `ActionResult`; a failure is reported as
@@ -53,4 +56,20 @@ export interface DocumentActions {
    * @returns The version list on success; an error message otherwise.
    */
   getPromptVersionHistory(input: { promptId: string }): Promise<ActionResult<PromptVersionHistoryItem[]>>
+}
+
+/**
+ * Limits each of the four actions to the request timeout, so a request orphaned in Next's action queue rejects and the
+ * handler awaiting it resets its busy flag. The request itself is not cancelled; its late result is ignored.
+ * @param actions - The actions to limit.
+ * @param ms - The limit in milliseconds; `REQUEST_TIMEOUT_MS` when omitted.
+ * @returns Actions that resolve as `actions` do within the limit and reject with `REQUEST_TIMED_OUT` after it.
+ */
+export function withActionTimeout(actions: DocumentActions, ms?: number): DocumentActions {
+  return {
+    saveNewVersion: (input) => withTimeout(actions.saveNewVersion(input), ms),
+    autoSavePrompt: (input) => withTimeout(actions.autoSavePrompt(input), ms),
+    restorePromptVersion: (input) => withTimeout(actions.restorePromptVersion(input), ms),
+    getPromptVersionHistory: (input) => withTimeout(actions.getPromptVersionHistory(input), ms),
+  }
 }

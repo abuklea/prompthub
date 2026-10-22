@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 22/10/2026 10:07 GMT+10
+Last modified: 22/10/2026 10:22 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
@@ -14,6 +14,7 @@ Composes the document loader with useDocumentPersistence: autosave against the b
 drafts, the cache and tab metadata, and the manual save (Ctrl+S).
 
 Changelog:
+22/10/2026 10:22 GMT+10 | documentActions runs each action under the request timeout (withActionTimeout, P7S1T7)
 22/10/2026 10:07 GMT+10 | Save, autosave, draft and cache/tab logic moved into useDocumentPersistence and its hooks;
                          module-level documentActions injects the real actions (P7S1T7 step 1)
 22/10/2026 09:41 GMT+10 | Drafts written by useDraftSync in place of the old local-storage hook; autosave takes the
@@ -47,7 +48,7 @@ import { saveNewVersion, autoSavePrompt } from "@/features/editor/actions"
 import { SetTitleDialog } from "@/features/prompts/components/SetTitleDialog"
 import { useDocumentLoader, type DocumentLoaderIo } from "@/features/editor/hooks/useDocumentLoader"
 import { useDocumentPersistence } from "@/features/editor/hooks/useDocumentPersistence"
-import type { DocumentActions } from "@/features/editor/document-actions"
+import { withActionTimeout } from "@/features/editor/document-actions"
 import { getPromptDetails, getPromptVersionHistory, restorePromptVersion } from "@/features/prompts/actions"
 import { createClient } from "@/lib/supabase/client"
 import { withTimeout } from "@/features/editor/request-timeout"
@@ -84,15 +85,12 @@ const loaderIo: DocumentLoaderIo = {
 }
 
 /**
- * The real document actions, injected into the persistence hooks. Module-level, so its identity never changes and
- * the handlers built from it are not rebuilt on every render.
+ * The real document actions, each under the request timeout, injected into the persistence hooks. Module-level, so
+ * its identity never changes and the handlers built from it are not rebuilt on every render.
  */
-const documentActions: DocumentActions = {
-  saveNewVersion,
-  autoSavePrompt,
-  restorePromptVersion,
-  getPromptVersionHistory,
-}
+const documentActions = withActionTimeout({
+  saveNewVersion, autoSavePrompt, restorePromptVersion, getPromptVersionHistory,
+})
 
 export function EditorPane({ promptId, tabId }: EditorPaneProps) {
   const triggerPromptRefetch = useUiStore((s) => s.triggerPromptRefetch)

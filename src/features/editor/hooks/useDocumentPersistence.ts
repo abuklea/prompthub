@@ -6,13 +6,14 @@ MIME: text/typescript
 Type: TypeScript React Hook
 
 Created: 22/10/2026 10:07 GMT+10
-Last modified: 22/10/2026 10:07 GMT+10
+Last modified: 22/10/2026 10:22 GMT+10
 ---------------
-Composes the editor's persistence hooks over one document loader: the browser draft (useDraftSync), the server
-autosave (useServerAutoSave), the cache entry and tab metadata (useDocumentCacheSync) and the manual save
-(useVersionSave).
+Composes the editor's persistence hooks over one document loader: the browser draft (useDraftSync), the cache entry
+and tab metadata (useDocumentCacheSync), the manual save (useVersionSave) and the server autosave
+(useServerAutoSave), which pauses while a manual save runs.
 
 Changelog:
+22/10/2026 10:22 GMT+10 | The manual save's saving flag pauses the autosave; useVersionSave takes blocked (P7S1T7)
 22/10/2026 10:07 GMT+10 | Created from the persistence logic extracted from EditorPane.tsx (P7S1T7 step 1)
 */
 
@@ -42,7 +43,7 @@ export interface UseDocumentPersistenceOptions {
 export interface DocumentPersistence {
   /** True while a manual save runs. */
   saving: boolean
-  /** True while the last autosave started has not completed. */
+  /** True while any autosave request is in flight. */
   autoSaving: boolean
   /** Whether the set-title dialog is open. */
   showSetTitleDialog: boolean
@@ -54,7 +55,7 @@ export interface DocumentPersistence {
   /** Saves a version of the working copy, or opens the set-title dialog when the working title is not valid. */
   handleSave(): void
   /**
-   * Makes the confirmed title the working title, closes the dialog and starts a save.
+   * Makes the confirmed title the working title, closes the dialog and saves with that title.
    * @param title - The title the user confirmed.
    */
   handleSetTitle(title: string): void
@@ -67,12 +68,12 @@ export interface DocumentPersistence {
  */
 export function useDocumentPersistence(options: UseDocumentPersistenceOptions): DocumentPersistence {
   const { promptId, tabId, loader, actions, getStorage } = options
-  // Reason: the hooks run in the order EditorPane ran their code (draft, autosave, cache, manual save), so their
-  // effects keep the order they had there.
   useDraftSync({ promptId, ready: loader.ready, content: loader.content, synced: loader.synced, getStorage })
-  const { autoSaving } = useServerAutoSave({ promptId, loader, actions })
   useDocumentCacheSync({ promptId, tabId, loader })
-  const version = useVersionSave({ promptId, tabId, loader, actions })
+  // Reason: nothing blocks a save until the restore moves into a hook of its own (P7S1T8), which passes `restoring`.
+  const version = useVersionSave({ promptId, tabId, loader, actions, blocked: false })
+  // Reason: the manual save comes first because its `saving` pauses the autosave.
+  const { autoSaving } = useServerAutoSave({ promptId, loader, actions, busy: version.saving })
 
   return {
     saving: version.saving,
