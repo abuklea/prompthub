@@ -6,13 +6,16 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 22/10/2026 09:41 GMT+10
+Last modified: 22/10/2026 10:07 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
-Features: autosave against the baseline (500ms debounce), browser drafts (useDraftSync), manual save (Ctrl+S).
+Composes the document loader with useDocumentPersistence: autosave against the baseline (500ms debounce), browser
+drafts, the cache and tab metadata, and the manual save (Ctrl+S).
 
 Changelog:
+22/10/2026 10:07 GMT+10 | Save, autosave, draft and cache/tab logic moved into useDocumentPersistence and its hooks;
+                         module-level documentActions injects the real actions (P7S1T7 step 1)
 22/10/2026 09:41 GMT+10 | Drafts written by useDraftSync in place of the old local-storage hook; autosave takes the
                          baseline (P7S1T6)
 22/10/2026 09:17 GMT+10 | Renders from viewState and saveStatus, gates on loader.ready, records saves with markSynced;
@@ -38,20 +41,17 @@ Changelog:
 
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useState, useCallback } from "react"
 import { useUiStore } from "@/stores/use-ui-store"
-import { useTabStore } from "@/stores/use-tab-store"
 import { saveNewVersion, autoSavePrompt } from "@/features/editor/actions"
-import { titleValidationSchema } from "@/features/prompts/schemas"
 import { SetTitleDialog } from "@/features/prompts/components/SetTitleDialog"
-import { getDisplayTitle } from "@/features/prompts/utils"
-import { useAutoSave } from "@/features/editor/hooks/useAutoSave"
-import { useDraftSync } from "@/features/editor/hooks/useDraftSync"
 import { useDocumentLoader, type DocumentLoaderIo } from "@/features/editor/hooks/useDocumentLoader"
-import { getPromptDetails } from "@/features/prompts/actions"
+import { useDocumentPersistence } from "@/features/editor/hooks/useDocumentPersistence"
+import type { DocumentActions } from "@/features/editor/document-actions"
+import { getPromptDetails, getPromptVersionHistory, restorePromptVersion } from "@/features/prompts/actions"
 import { createClient } from "@/lib/supabase/client"
 import { withTimeout } from "@/features/editor/request-timeout"
-import { ANONYMOUS, setDocumentCacheEntry } from "@/features/editor/document-cache"
+import { ANONYMOUS } from "@/features/editor/document-cache"
 import { getBrowserStorage } from "@/features/editor/draft"
 import { saveStatus, viewState } from "@/features/editor/sync"
 import { VersionHistoryDialog } from "./VersionHistoryDialog"
@@ -59,7 +59,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Editor } from "@/features/editor"
-import { toast } from "sonner"
 
 interface EditorPaneProps {
   promptId: string
@@ -84,138 +83,28 @@ const loaderIo: DocumentLoaderIo = {
   getStorage: getBrowserStorage,
 }
 
+/**
+ * The real document actions, injected into the persistence hooks. Module-level, so its identity never changes and
+ * the handlers built from it are not rebuilt on every render.
+ */
+const documentActions: DocumentActions = {
+  saveNewVersion,
+  autoSavePrompt,
+  restorePromptVersion,
+  getPromptVersionHistory,
+}
+
 export function EditorPane({ promptId, tabId }: EditorPaneProps) {
-  const { triggerPromptRefetch, updatePromptTitle } = useUiStore()
-  const { updateTab, promotePreviewTab } = useTabStore()
-
-  const {
-    promptData,
-    title,
-    content,
-    loading,
-    error,
-    lastSaved,
-    synced,
-    ready,
-    currentUserId,
-    monacoPromptIdRef,
-    setTitle,
-    setContent,
-    markSynced,
-  } = useDocumentLoader({ promptId, io: loaderIo })
-
-  const [saving, setSaving] = useState(false)
-  const [autoSaving, setAutoSaving] = useState(false)
-  const [showSetTitleDialog, setShowSetTitleDialog] = useState(false)
+  const triggerPromptRefetch = useUiStore((s) => s.triggerPromptRefetch)
+  const loader = useDocumentLoader({ promptId, io: loaderIo })
+  const { title, content, loading, error, lastSaved, synced, ready, monacoPromptIdRef, setTitle, setContent } = loader
   const [historyOpen, setHistoryOpen] = useState(false)
-
-  useDraftSync({ promptId, ready, content, synced, getStorage: getBrowserStorage })
-
-  const handleAutoSave = useCallback(
-    async (pid: string, t: string | null, c: string) => {
-      setAutoSaving(true)
-      const result = await autoSavePrompt({ promptId: pid, title: t || "", content: c })
-      if (result.success) {
-        markSynced({ promptId: pid, title: t, content: c })
-        updatePromptTitle(pid, t || "")
-      } else {
-        console.error("[EditorPane] Auto-save FAILED for:", pid, result.error)
-      }
-      setAutoSaving(false)
-    },
-    [updatePromptTitle, markSynced]
-  )
-
-  useAutoSave({
-    title,
-    content,
-    promptId: ready ? promptId : null,
-    baseline: synced,
-    onSave: handleAutoSave,
-  })
-
-  // Update cache and tab metadata when title or content changes
-  useEffect(() => {
-    if (!ready || !synced) return
-
-    if (promptData && promptId) {
-      const isDirty = content !== promptData.content
-
-      setDocumentCacheEntry(currentUserId, promptId, {
-        promptData,
-        title: title ?? null,
-        content,
-        lastSaved,
-        synced,
-      })
-
-      const currentTab = useTabStore.getState().tabs.find((t) => t.id === tabId)
-      if (isDirty && currentTab?.isPreview) {
-        promotePreviewTab(tabId)
-      }
-
-      updateTab(tabId, {
-        title: getDisplayTitle(title),
-        folderId: promptData.folder.id,
-        isDirty,
-      })
-    }
-  }, [
-    title, content, promptData, promptId, tabId, updateTab,
-    promotePreviewTab, lastSaved, currentUserId, ready, synced,
-  ])
-
-  const handleSave = useCallback(async () => {
-    if (!promptId) return
-
-    const titleResult = titleValidationSchema.safeParse(title)
-    if (!titleResult.success) {
-      setShowSetTitleDialog(true)
-      return
-    }
-
-    setSaving(true)
-    const result = await saveNewVersion({
-      promptId,
-      newTitle: title,
-      newContent: content,
-    })
-
-    if (result.success) {
-      toast.success("Version saved successfully")
-      markSynced({ promptId, title, content }, { version: true })
-      updateTab(tabId, { isDirty: false, isNewDocument: false })
-      triggerPromptRefetch()
-    } else {
-      toast.error(result.error, { duration: 6000 })
-    }
-    setSaving(false)
-  }, [promptId, title, content, tabId, updateTab, triggerPromptRefetch, markSynced])
-
-  const handleSetTitle = useCallback(
-    (newTitle: string) => {
-      setTitle(newTitle)
-      setShowSetTitleDialog(false)
-      setTimeout(() => handleSave(), 0)
-    },
-    [handleSave, setTitle]
-  )
+  const { saving, autoSaving, showSetTitleDialog, setShowSetTitleDialog, handleSave, handleSetTitle } =
+    useDocumentPersistence({ promptId, tabId, loader, actions: documentActions, getStorage: getBrowserStorage })
 
   const handleVersionRestored = useCallback(() => {
     triggerPromptRefetch()
   }, [triggerPromptRefetch])
-
-  // Keyboard listener for Ctrl+S
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault()
-        handleSave()
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [handleSave])
 
   const view = viewState({ promptId, error, loading, ready })
   const status = saveStatus({ autoSaving, working: { title, content }, synced })
