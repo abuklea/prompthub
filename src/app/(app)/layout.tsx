@@ -12,6 +12,7 @@ import { TabbedEditorContainer } from "@/features/tabs/components/TabbedEditorCo
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TabCleanupProvider } from "@/components/layout/TabCleanupProvider";
 import { WorkspacePreloader } from "@/components/layout/WorkspacePreloader";
+import { ActiveTabFolderSync } from "@/features/tabs/components/ActiveTabFolderSync";
 
 export default async function AppLayout() {
   const supabase = createClient();
@@ -25,6 +26,7 @@ export default async function AppLayout() {
     <TabCleanupProvider>
       <div className="flex flex-col h-screen">
         <WorkspacePreloader />
+        <ActiveTabFolderSync />
         <Header user={data.user} />
 
         <TooltipProvider delayDuration={700}>

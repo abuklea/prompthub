@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: React Component (TypeScript)
 
 Created: 08/11/2025 13:08 GMT+10
-Last modified: 08/11/2025 15:16 GMT+10
+Last modified: 22/10/2026 14:39 GMT+10
 ---------------
 Component for displaying and managing the list of prompts in a folder.
 Now uses tab system for opening documents instead of selectedPrompt.
 
 Changelog:
+22/10/2026 14:39 GMT+10 | Active-tab folder sync moved to useActiveTabFolderSync, hosted by ActiveTabFolderSync (#95)
 08/11/2025 15:16 GMT+10 | Added ErrorBoundary to prevent application crashes from render errors (P5S4T3)
 08/11/2025 15:11 GMT+10 | CRITICAL FIX: Moved activeTab calculation outside map using useMemo to prevent infinite render loop (P5S4T1)
 08/11/2025 13:39 GMT+10 | Added single-click (preview) vs double-click (permanent) tab behavior
@@ -46,7 +47,6 @@ export function PromptList() {
     prompts,
     setPrompts,
     selectPrompt,
-    selectFolder,
   } = useUiStore()
   const openTab = useTabStore(state => state.openTab)
   const setActiveTab = useTabStore(state => state.setActiveTab)
@@ -174,22 +174,6 @@ export function PromptList() {
     () => tabs.find(t => t.id === activeTabId),
     [tabs, activeTabId]
   )
-
-  // Reason: Keep folder/document browser synchronized with active editor tab selection
-  useEffect(() => {
-    if (activeTab?.type !== 'document' || !activeTab.promptId) {
-      return
-    }
-
-    selectPrompt(activeTab.promptId)
-
-    const promptFromStore = prompts.find((prompt) => prompt.id === activeTab.promptId)
-    const resolvedFolderId = activeTab.folderId || promptFromStore?.folder_id
-
-    if (resolvedFolderId && resolvedFolderId !== selectedFolder) {
-      selectFolder(resolvedFolderId)
-    }
-  }, [activeTab, prompts, selectedFolder, selectFolder, selectPrompt])
 
   if (!selectedFolder) {
     return (
