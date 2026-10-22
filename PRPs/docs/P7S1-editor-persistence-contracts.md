@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 22/10/2026 11:00 GMT+10 |
+| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 22/10/2026 11:48 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -18,7 +18,7 @@
 
 ## Purpose
 
-This is the shared contract for [the PRP](../P7S1-editor-data-integrity.md). Nine tasks are dispatched to separate
+This is the shared contract for [the PRP](../complete/P7S1-editor-data-integrity.md). Nine tasks are dispatched to separate
 agents that cannot see one another's work, so every interface, state transition and rule they must agree on is written
 here once. The task briefs are in [P7S1-task-briefs.md](P7S1-task-briefs.md) and
 [P7S1-task-briefs-client.md](P7S1-task-briefs-client.md). Where this document and the code disagree about what exists
@@ -32,7 +32,7 @@ The client half is specified by four working reference implementations with 211 
 `P7S1-dialog-spike.tsx` (33: `VersionHistoryDialog`, alone and beside the real hooks). `wip/P7S1-mutation-check.py`
 applies 90 deliberate defects to them, one at a time, and every one is killed by at least one test (about 5 minutes;
 `--list` names the mutations). The commands are in
-[Level 2](../P7S1-editor-data-integrity.md#level-2-unit-and-postgres-backed-tests) of the PRP's validation loop.
+[Level 2](../complete/P7S1-editor-data-integrity.md#level-2-unit-and-postgres-backed-tests) of the PRP's validation loop.
 
 Adapt a spike, do not rewrite it from this text. Split its code into the modules of the Module Map, replace its
 `./P7S1-*-spike` imports with the real modules and its fake seams with the ones the brief names, and keep the behaviour.

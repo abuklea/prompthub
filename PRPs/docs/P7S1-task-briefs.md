@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Task Briefs | 20/10/2026 12:38 GMT+10 | 22/10/2026 07:53 GMT+10 |
+| P7S1 Task Briefs | 20/10/2026 12:38 GMT+10 | 22/10/2026 11:48 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -19,7 +19,7 @@
 
 ## Purpose
 
-The per-task detail for [the PRP](../P7S1-editor-data-integrity.md). Interfaces, the protocols and the budgets are in
+The per-task detail for [the PRP](../complete/P7S1-editor-data-integrity.md). Interfaces, the protocols and the budgets are in
 [the contract](P7S1-editor-persistence-contracts.md), and the references, trees, gotchas and database environment that
 every task shares are in [the task context](P7S1-task-context.md); neither is repeated. This file holds the server
 contract, the red-to-green map and the briefs of T1, T2, T3 and T9; the client briefs T4 to T8 are in

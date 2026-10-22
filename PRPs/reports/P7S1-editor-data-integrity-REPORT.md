@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 - Editor Data Integrity - COMPLETION REPORT | 22/10/2026 11:11 GMT+10 | 22/10/2026 11:31 GMT+10 |
+| P7S1 - Editor Data Integrity - COMPLETION REPORT | 22/10/2026 11:11 GMT+10 | 22/10/2026 11:48 GMT+10 |
 
 ## Table of Contents
 - [Overview](#overview)
@@ -31,11 +31,12 @@
 
 ## Overview
 
-[The PRP](../P7S1-editor-data-integrity.md) set out to make every path by which the editor reads or writes a document
+[The PRP](../complete/P7S1-editor-data-integrity.md) set out to make every path by which the editor reads or writes a document
 trustworthy: nine tasks (P7S1T1 to P7S1T9, issues #75 to #83) under epic #31. The code for all nine is written, tested
 and committed on branch `ccr-788f6ed9-dwd9ms`, and every CI gate that can run in this environment passes. No browser
 flow has been run, because the cloud session has no browser tooling; those flows are dev-review #38 and decide whether
-the epic closes. The PRP Status in the footer is therefore `REVIEW`, not `COMPLETE`.
+the epic closes. The PRP Status in the footer is `COMPLETE` and the PRP is archived, at the developer's instruction
+on 22/10/2026; the rules tie `COMPLETE` to a closed epic, and #31 stays open until #38 passes.
 
 Delivered, by part:
 
@@ -518,7 +519,8 @@ Documents that turned out to be wrong, beyond the rows the register lists: the P
 `editor-env.ts` and line budgets that fifteen files exceed (above), and the contract's module map still carries those
 budgets. The INITIAL report says the reference implementations have 204 tests and 83 mutations, where the PRP and the
 contract say 211 and 90 after later reviews. The INITIAL report is a historical record and I left it alone. The PRP
-footer read `PRP Status: TODO` until the commit that adds this report, which sets it to `REVIEW`.
+footer read `PRP Status: TODO` until the commit that adds this report, which set it to `REVIEW`, and it was set to
+`COMPLETE` afterwards (see [Issues](#issues)).
 
 After the main session deletes the 13 `wip/` files, seven documents still cite them: the PRP, the INITIAL report,
 `PRPs/docs/P7S1-task-briefs.md`, `P7S1-task-briefs-client.md`, `P7S1-task-context.md`, the contract, and the drift
@@ -537,20 +539,21 @@ should untitled documents autosave), #92 (a nullable folder breaks the cache and
 legacy draft read, decision D2). Comments were posted on
 #37, #41, #44, #45 and #53 by the two sessions, as the PRP planned.
 
-The PRP Status is `REVIEW` because `docs/rules/documentation-prp.md#field-formats` ties it to the epic: `COMPLETE` is
-for a closed epic. The prp-workflow skill's closing steps (set the PRP footer to `COMPLETE`, archive the PRP to
-`PRPs/complete/`) apply once #31 closes, and they are not done.
+The PRP Status is `COMPLETE`, and the PRP is in `PRPs/complete/`, because the developer said so on 22/10/2026 (the
+answer was "Footer values only"). `docs/rules/documentation-prp.md#field-formats` ties `COMPLETE` to a closed epic, and
+epic #31 is still open: it closes after the browser checks in #38 pass, so the footer and the epic disagree until then.
+The tasks and the epic remain `status: in-review` on the tracker; nothing was closed.
 
 ### Left for the main session
 
 Remove the 13 `wip/` files (done after this report) and decide what to do with the citations above; set #83 to `status: in-review`; keep #31
-and the bug issues open for #38; set the PRP's footer to `COMPLETE` and archive it when #31 closes; open a pull request so that CI
+and the bug issues open for #38; close #31 when #38 passes; open a pull request so that CI
 runs the 29 database-backed tests on this tree; and run the board sync from a local login (GraphQL is blocked in cloud
 sessions).
 
 ----
 **Report Status**: FINAL
-**PRP Status**: REVIEW
+**PRP Status**: COMPLETE
 **PRP ID**: P7S1
 **GitHub Issues**: #31 (PRP epic); tasks #75-#83 (P7S1T1-P7S1T9), in review; bugs #32-#36, #72, #73 fixed in code, open until #38; #37 delivered; #74 open outside the epic; dev-review #38 open, blocked; follow-ups #89-#93
 **PRP Document**: P7S1-editor-data-integrity
@@ -562,7 +565,7 @@ sessions).
 **Next PRP**: P7S2 - Server-side security hardening
 **Notes**:
 - Code and tests complete; every browser flow is unverified and belongs to dev-review #38, which keeps epic #31 open
-- PRP Status is REVIEW until #31 closes; the PRP is then set to COMPLETE and moved to PRPs/complete/
+- PRP Status is COMPLETE and the PRP is archived at the developer's instruction (22/10/2026) although epic #31 stays open for #38
 - Lint 15 warnings (baseline 18, none added); size audit PASS with the one registered RED file; build passes
 - Per-file coverage at least 84.61% on every measure for all 19 files in scope; lines 100% for 18 of the 19
 - Accepted: two tabs or devices stay last-writer-wins; a false draft conflict is offered, not lost

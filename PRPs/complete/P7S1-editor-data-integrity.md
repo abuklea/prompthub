@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 - Editor Data Integrity | 20/10/2026 11:52 GMT+10 | 22/10/2026 11:17 GMT+10 |
+| P7S1 - Editor Data Integrity | 20/10/2026 11:52 GMT+10 | 22/10/2026 11:48 GMT+10 |
 
 ## Table of Contents
 - [Goal](#goal)
@@ -48,7 +48,7 @@ dev-review #38. A November 2025 note
 not been shown to be the same defect.
 
 The independent reviews of this plan found five more defects of the same class by reading the code, none reproduced end
-to end; the evidence is in [the register](../wip/P7S1-research-drift.md#findings-that-are-defects-not-drift) (F-2, F-7,
+to end; the evidence is in [the register](../../wip/P7S1-research-drift.md#findings-that-are-defects-not-drift) (F-2, F-7,
 F-8). A save or autosave that completes after the user switched documents is applied to the open one. A rejected server
 action leaves "Saving..." or the Save button stuck, because neither handler has a `finally`. The editor mounts on
 `loading` alone (`EditorPane.tsx:244`) and `Editor.tsx:137-142` applies the `value` of the render that mounted it, so in
@@ -124,34 +124,34 @@ and not reproduced): a tab-close path outside this PRP, filed as the bug #74.
 
 ## Decisions
 
-Seven decisions shape the plan. [The decisions document](docs/P7S1-decisions.md) has the full text of each, with the
+Seven decisions shape the plan. [The decisions document](../docs/P7S1-decisions.md) has the full text of each, with the
 alternatives rejected. Four were put to the developer, who on 22/10/2026 confirmed D1, D2 and D5 as written and D4 with
 one addition, a question before a restore. They were made here so the executing agents do not guess; a later change
 redoes the tasks that build on a decision.
 
 | Decision | What it fixes | Developer, 22/10/2026 |
 |---|---|---|
-| [D1 Version model](docs/P7S1-decisions.md#d1-version-model) | A version is the saved state; a restore snapshots the row it replaces; history orders by `id desc` | confirmed as written |
-| [D2 Drafts](docs/P7S1-decisions.md#d2-drafts-and-the-baseline) | Content-only envelope under `prompt-v1-<id>` with a content-hash base; a losing draft is stashed and offered once; the legacy raw draft is read once | confirmed as written |
-| [D3 Autosave](docs/P7S1-decisions.md#d3-autosave) | A write is due only when title or content differ from the baseline of that document; paused during a save or restore | not put to the developer |
-| [D4 Restore](docs/P7S1-decisions.md#d4-restore) | `useVersionRestore` owns the call and saves unsaved edits first; Restore asks "Restore this version?" first; the dialog loads its list on open and stays open meanwhile | confirmed, with the question |
-| [D5 Test seams](docs/P7S1-decisions.md#d5-test-seams) | `service.ts` takes `(db, userId, input)`; Postgres-backed tests; jsdom; a guarded database URL; no module mocks | confirmed as written |
-| [D6 Loader protocol](docs/P7S1-decisions.md#d6-the-loader-protocol) | Identity gate, one reducer, atomic `ready`, editor mounts only when ready; no cache for the anonymous identity | not put to the developer |
-| [D7 Async completions](docs/P7S1-decisions.md#d7-async-completions) | Captured ids, the boolean from `markSynced` and `applyServerState`, `finally`, a 30-second limit, stale-callback guards | not put to the developer |
+| [D1 Version model](../docs/P7S1-decisions.md#d1-version-model) | A version is the saved state; a restore snapshots the row it replaces; history orders by `id desc` | confirmed as written |
+| [D2 Drafts](../docs/P7S1-decisions.md#d2-drafts-and-the-baseline) | Content-only envelope under `prompt-v1-<id>` with a content-hash base; a losing draft is stashed and offered once; the legacy raw draft is read once | confirmed as written |
+| [D3 Autosave](../docs/P7S1-decisions.md#d3-autosave) | A write is due only when title or content differ from the baseline of that document; paused during a save or restore | not put to the developer |
+| [D4 Restore](../docs/P7S1-decisions.md#d4-restore) | `useVersionRestore` owns the call and saves unsaved edits first; Restore asks "Restore this version?" first; the dialog loads its list on open and stays open meanwhile | confirmed, with the question |
+| [D5 Test seams](../docs/P7S1-decisions.md#d5-test-seams) | `service.ts` takes `(db, userId, input)`; Postgres-backed tests; jsdom; a guarded database URL; no module mocks | confirmed as written |
+| [D6 Loader protocol](../docs/P7S1-decisions.md#d6-the-loader-protocol) | Identity gate, one reducer, atomic `ready`, editor mounts only when ready; no cache for the anonymous identity | not put to the developer |
+| [D7 Async completions](../docs/P7S1-decisions.md#d7-async-completions) | Captured ids, the boolean from `markSynced` and `applyServerState`, `finally`, a 30-second limit, stale-callback guards | not put to the developer |
 
 ## All Needed Context
 
 References with the reason each matters, the current and desired trees, the verified gotchas and the database
-environment are in [the task context](docs/P7S1-task-context.md). The red-to-green map and the briefs of T1, T2, T3 and
-T9 are in [the task briefs](docs/P7S1-task-briefs.md), and the client briefs T4 to T8 are in
-[the client briefs](docs/P7S1-task-briefs-client.md). Read the section for your task, and read the source it cites.
+environment are in [the task context](../docs/P7S1-task-context.md). The red-to-green map and the briefs of T1, T2, T3 and
+T9 are in [the task briefs](../docs/P7S1-task-briefs.md), and the client briefs T4 to T8 are in
+[the client briefs](../docs/P7S1-task-briefs-client.md). Read the section for your task, and read the source it cites.
 
 ## Implementation Blueprint
 
 The module map with line budgets, every TypeScript interface, the loader, draft and completion protocols, the editor
-view, the write-ordering rules and the coverage scope are in [the contract](docs/P7S1-editor-persistence-contracts.md);
+view, the write-ordering rules and the coverage scope are in [the contract](../docs/P7S1-editor-persistence-contracts.md);
 the server shells and transactions are its server half, in
-[the Server Contract](docs/P7S1-task-briefs.md#server-contract). The client half is specified by four working reference
+[the Server Contract](../docs/P7S1-task-briefs.md#server-contract). The client half is specified by four working reference
 implementations in `wip/` with 211 passing tests (`P7S1-draft-spike`, `P7S1-loader-spike`, `P7S1-persistence-spike`,
 `P7S1-dialog-spike`) over shared typed fakes (`P7S1-test-fakes`); the executing agents adapt them.
 `wip/P7S1-mutation-check.py` applies 90 deliberate defects to them one at a time and reports whether a test fails for
@@ -185,8 +185,8 @@ autosave off: the client never writes when it does not know what the server hold
 
 Nine tasks, each 2 to 4 hours, each ending with every gate green and no feature disabled, so every commit is a working
 state. One agent per task writes its tests first and watches them fail for the stated reason (the red-to-green map). The
-briefs are in [the task briefs](docs/P7S1-task-briefs.md#briefs) and
-[the client briefs](docs/P7S1-task-briefs-client.md#briefs). The hours add up to 30. Each client task adapts a working
+briefs are in [the task briefs](../docs/P7S1-task-briefs.md#briefs) and
+[the client briefs](../docs/P7S1-task-briefs-client.md#briefs). The hours add up to 30. Each client task adapts a working
 reference implementation with passing, type-clean tests, which is what keeps T5 to T8 at the 4-hour limit; T5, T7 and T8
 are dispatched in two halves, Step 1 (green, committed by the main session) and then Steps 2 and 3, so that no agent
 exhausts its turn budget in the middle of a red state.
@@ -206,7 +206,7 @@ exhausts its turn budget in the middle of a red state.
 T4 touches only new files and runs in a worktree, or after T3, because agents sharing a checkout would see one another's
 intentionally failing tests. The `documentation-manager` also runs after T1, T3, T5 and T6, dispatched by the main
 session with the changed-file list and the drift rows that
-[the register](../wip/P7S1-research-drift.md#register) assigns to that task, so each document is corrected with the
+[the register](../../wip/P7S1-research-drift.md#register) assigns to that task, so each document is corrected with the
 behaviour that made it false. The main session provisions the test database before it dispatches T1, T2 or T3, and
 alone edits issues: it amends dev-review #38 (a cold open, an open after visiting Settings, the conflict toast,
 "Restore my text" clicked while the editor is still starting up, the "Restore this version?" question and Cancel on it,
@@ -303,7 +303,7 @@ Docker stack.
 - Do not widen into P7S2, #44, #48 or #53; file what you find
 
 ----
-**PRP Status**: REVIEW
+**PRP Status**: COMPLETE
 **PRP ID**: P7S1
 **PRP Document**: P7S1-editor-data-integrity
 **Tasks**: 9 tasks (P7S1T1 - P7S1T9)
@@ -321,7 +321,8 @@ Notes:
 - The reference implementations in wip/ (211 tests, 90 mutations each killed by a test) specified Tasks 4 to 8 and were
   removed after Task 9; the last commit that holds them is 9f7caf4 (`git show 9f7caf4:wip/P7S1-loader-spike.ts`)
 - All nine tasks are committed and in review; the completion report is PRPs/reports/P7S1-editor-data-integrity-REPORT.md;
-  the PRP is set to COMPLETE and archived when epic #31 closes, after dev-review #38
+  the PRP was set to COMPLETE and archived by the developer's instruction on 22/10/2026, while epic #31 stays open for
+  dev-review #38
 - Tasks 5, 7 and 8 are dispatched in two halves, Step 1 and then Steps 2 and 3; Tasks 5 and 7 are the riskiest
 - Browser verification is #38 and cannot be run by an agent
 - Accepted: two tabs or devices stay last-writer-wins; a false draft conflict after a lost autosave response is offered,

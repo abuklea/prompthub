@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Client Task Briefs | 20/10/2026 13:27 GMT+10 | 22/10/2026 07:53 GMT+10 |
+| P7S1 Client Task Briefs | 20/10/2026 13:27 GMT+10 | 22/10/2026 11:48 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -17,7 +17,7 @@
 
 ## Purpose
 
-The briefs of the client tasks T4 to T8 of [the PRP](../P7S1-editor-data-integrity.md). References, trees, gotchas and
+The briefs of the client tasks T4 to T8 of [the PRP](../complete/P7S1-editor-data-integrity.md). References, trees, gotchas and
 the database environment are in [the task context](P7S1-task-context.md), the red-to-green map is in
 [P7S1-task-briefs.md](P7S1-task-briefs.md#red-to-green-map), and every interface, protocol and rule is in
 [the contract](P7S1-editor-persistence-contracts.md); none is repeated here. Each task has a

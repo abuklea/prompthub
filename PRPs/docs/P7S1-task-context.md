@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Task Context | 20/10/2026 14:41 GMT+10 | 22/10/2026 07:53 GMT+10 |
+| P7S1 Task Context | 20/10/2026 14:41 GMT+10 | 22/10/2026 11:48 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -14,7 +14,7 @@
 
 ## Purpose
 
-What every task of [the PRP](../P7S1-editor-data-integrity.md) shares: the sources to read and why, the current and
+What every task of [the PRP](../complete/P7S1-editor-data-integrity.md) shares: the sources to read and why, the current and
 desired file trees, the verified gotchas and the database environment. The per-task briefs are in
 [P7S1-task-briefs.md](P7S1-task-briefs.md#briefs) (T1, T2, T3 and T9) and
 [P7S1-task-briefs-client.md](P7S1-task-briefs-client.md#briefs) (T4 to T8); every interface and protocol is in

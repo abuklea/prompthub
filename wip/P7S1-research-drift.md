@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Research Drift Register | 20/10/2026 11:58 GMT+10 | 22/10/2026 11:05 GMT+10 |
+| P7S1 Research Drift Register | 20/10/2026 11:58 GMT+10 | 22/10/2026 11:49 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -14,7 +14,7 @@
 ## Purpose
 
 This is the drift register [the documentation rules](../docs/rules/documentation.md#drift-review) require for the
-feature area of [the PRP](../PRPs/P7S1-editor-data-integrity.md). Each row cites both sides, names the side that is
+feature area of [the PRP](../PRPs/complete/P7S1-editor-data-integrity.md). Each row cites both sides, names the side that is
 right, and names the task or documentation sync that fixes it, so a document is corrected with the behaviour that made
 it false. The syncs are run by the `documentation-manager` after T1, T3, T5 and T6, and T9 verifies that nothing is
 left. The REPORT confirms each row fixed or filed. Every citation was opened during research on 20/10/2026; a markdown

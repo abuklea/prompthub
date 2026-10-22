@@ -60,7 +60,8 @@ browser drafts are now written only by `useDraftSync` (P7S1T6).
 
 ## Active PRPs (Product Requirements & Planning)
 
-- **P7S1**: Editor data integrity (`PRPs/P7S1-editor-data-integrity.md`); progress is tracked in GitHub issue #31
+- None in flight. Last completed: **P7S1**, editor data integrity (`PRPs/complete/P7S1-editor-data-integrity.md`, report in
+  `PRPs/reports/P7S1-editor-data-integrity-REPORT.md`); its browser checks are tracked in GitHub issue #38
 
 ## Core Features
 

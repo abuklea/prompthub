@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Decisions | 20/10/2026 15:36 GMT+10 | 22/10/2026 07:53 GMT+10 |
+| P7S1 Decisions | 20/10/2026 15:36 GMT+10 | 22/10/2026 11:48 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -17,7 +17,7 @@
 
 ## Purpose
 
-The seven decisions behind [the PRP](../P7S1-editor-data-integrity.md). They are made in the plan so that the executing
+The seven decisions behind [the PRP](../complete/P7S1-editor-data-integrity.md). They are made in the plan so that the executing
 agents do not guess. Four were put to the developer, who on 22/10/2026 confirmed D1, D2 and D5 as written and D4 with
 one addition, a question before a restore. A later change redoes the tasks that build on a decision: D1 redoes T2 and
 T3, D2 redoes T4 and T6, D4 redoes T8, and D5 redoes T1 and the seams of every later test. The interfaces and protocols
