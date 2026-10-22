@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 22/10/2026 07:53 GMT+10 |
+| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 22/10/2026 11:00 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -66,7 +66,11 @@ is under `src/features/editor/`.
 | `hooks/useAutoSave.ts` | T6 | debounce with a baseline, `AUTOSAVE_DELAY_MS` | 60 |
 | `hooks/useDraftSync.ts` | T6 | the only draft writer | 90 |
 | `document-actions.ts` | T7 | `DocumentActions` and `withActionTimeout` | 40 |
-| `src/test/editor-env.ts` | T7 | `makeEnv` (the fake server with holds, one-shot failures and a request log) and the render helpers the persistence suites share (`open`, `goTo`, `type`, `settle`, `tick`, `pressCtrlS`, `useSession`) | 260 |
+| `src/test/editor-env.ts` | T7 | `makeEnv` (the fake server with holds, one-shot failures and a request log) and `listItem` | 260 |
+| `src/test/editor-session.ts` | T7 | the render helpers the persistence suites share (`useSession`, `open`, `goTo`, `typeContent`, `setTitle`, `settle`, `tick`, `pressCtrlS`, `tabOf`, `resetEditorWorld`) | 190 |
+| `src/test/draft-world.ts` | T6 | the draft-protocol world: `openLoader`, `openEditor`, `typeText`, `autosaveSucceeds` and the storage readers | 170 |
+| `src/test/history-dialog.tsx` | T8 | the history dialog harness: `makeHistory`, `makeRestorer`, `askRestore`, `answer`, `restoreRow` | 200 |
+| `src/test/failing-db.ts` | T3 | `withFailingVersionCreate`, the failing-transaction seam both service suites share | 60 |
 | `hooks/useDocumentCacheSync.ts` | T7 | cache entry and tab metadata | 60 |
 | `hooks/useVersionSave.ts` | T7 | manual save, title dialog state, Ctrl+S | 150 |
 | `hooks/useServerAutoSave.ts` | T7 | the autosave handler | 90 |
@@ -263,9 +267,9 @@ There is no loaded mark: the identity gate and the abort keep the effect from re
 it ever does, the wipe is followed by the cache entry, which holds the working copy. A cache hit always sets `loading`
 false.
 
-T5 keeps the current raw-draft branch in P5 (`useDocumentLoader.ts:218-228`), reading `io.getStorage()` instead of
-`localStorage`, because the old `useLocalStorage` writer is live until T6 and a task must not disable a feature. T6
-replaces that branch with the draft decision below.
+T5 kept the raw-draft branch that `useDocumentLoader.ts` had at the base of this PRP in P5, reading `io.getStorage()`
+instead of `localStorage`, because the old `useLocalStorage` writer was live until T6 and a task must not disable a
+feature. T6 replaced that branch with the draft decision below.
 
 ## Draft Protocol
 
