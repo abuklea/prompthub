@@ -74,8 +74,11 @@ services:
       - "3010:3010"
     volumes:
       - ./docker/gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    # Reason: nginx resolves the upstream hostnames at start-up and exits when `app` is not yet resolvable.
     depends_on:
       auth:
+        condition: service_healthy
+      app:
         condition: service_healthy
 
   # ── Next.js Application ────────────────────────────────────────
@@ -98,6 +101,18 @@ services:
       NEXT_PUBLIC_SUPABASE_URL: "http://localhost:3010"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: *anon-key
       SUPABASE_SERVICE_ROLE_KEY: *service-key
+    # The runner image has no curl or wget, so probe with node. `prisma migrate deploy` runs before the server
+    # starts: start_period covers it. Any response below 500 counts as up (the root redirects to the login page).
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/', {redirect: 'manual'}).then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
 
 volumes:
   pgdata:
