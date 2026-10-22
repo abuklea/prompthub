@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 - Editor Data Integrity | 20/10/2026 11:52 GMT+10 | 22/10/2026 07:53 GMT+10 |
+| P7S1 - Editor Data Integrity | 20/10/2026 11:52 GMT+10 | 22/10/2026 11:17 GMT+10 |
 
 ## Table of Contents
 - [Goal](#goal)
@@ -303,7 +303,7 @@ Docker stack.
 - Do not widen into P7S2, #44, #48 or #53; file what you find
 
 ----
-**PRP Status**: TODO
+**PRP Status**: REVIEW
 **PRP ID**: P7S1
 **PRP Document**: P7S1-editor-data-integrity
 **Tasks**: 9 tasks (P7S1T1 - P7S1T9)
@@ -318,8 +318,10 @@ Agents:
 - `documentation-manager` (Task 9, plus the syncs after Tasks 1, 3, 5 and 6)
 Notes:
 - Decisions D1, D2 and D5 were confirmed as written and D4 with a question before a restore, on 22/10/2026
-- The reference implementations in wip/ (211 tests, 90 mutations each killed by a test) specify Tasks 4 to 8; the main
-  session deletes them after Task 9
+- The reference implementations in wip/ (211 tests, 90 mutations each killed by a test) specified Tasks 4 to 8 and were
+  removed after Task 9; the last commit that holds them is 9f7caf4 (`git show 9f7caf4:wip/P7S1-loader-spike.ts`)
+- All nine tasks are committed and in review; the completion report is PRPs/reports/P7S1-editor-data-integrity-REPORT.md;
+  the PRP is set to COMPLETE and archived when epic #31 closes, after dev-review #38
 - Tasks 5, 7 and 8 are dispatched in two halves, Step 1 and then Steps 2 and 3; Tasks 5 and 7 are the riskiest
 - Browser verification is #38 and cannot be run by an agent
 - Accepted: two tabs or devices stay last-writer-wins; a false draft conflict after a lost autosave response is offered,
