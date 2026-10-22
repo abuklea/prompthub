@@ -61,18 +61,20 @@ useEffect(() => {
 useAutoSave({
   title,
   content,
-  // Disabled until the content belongs to promptId
-  promptId: ready ? promptId : null,
-  delay: 500,
-  onSave: handleAutoSave
+  // Disabled until the content belongs to promptId, and while a manual save or a restore runs
+  promptId: ready && !busy ? promptId : null,
+  // A write is due only while the working copy differs from what the server holds
+  baseline: synced,
+  onSave: handleAutoSave // read through a ref; (promptId, title, content) are those at the time the timer fired
 })
 ```
 
-**Auto-Save Rules**:
-- ALWAYS disable it until `ready`
-- ALWAYS use promptIdRef to verify current document
-- ALWAYS validate title before saving
-- Use 500ms debounce (configurable via delay param)
+**Auto-Save Rules** (`useAutoSave.ts`, armed by `useServerAutoSave.ts`):
+- ALWAYS disable it until `ready` (a null `promptId` cancels a pending write)
+- ALWAYS pass the baseline: nothing is written on mount or for an edit reverted to the baseline
+- A blank or null title is never autosaved
+- The write completes through `markSynced` with the document it started with, never the one open now
+- 500ms debounce (`AUTOSAVE_DELAY_MS`, configurable via the `delay` option)
 
 ### 5. Null Title Handling Pattern (P1T5)
 
@@ -219,8 +221,8 @@ const AUTO_SAVE_DELAY = 500
 EditorPane.tsx
 SetTitleDialog.tsx
 
-// Utilities: camelCase.ts
-diff-utils.ts
+// Utilities: camelCase.ts or kebab-case.ts
+document-cache.ts
 getDisplayTitle.ts
 
 // Actions/Schemas: descriptive.ts

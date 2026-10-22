@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Research Drift Register | 20/10/2026 11:58 GMT+10 | 22/10/2026 07:53 GMT+10 |
+| P7S1 Research Drift Register | 20/10/2026 11:58 GMT+10 | 22/10/2026 11:05 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -47,6 +47,36 @@ document is cited by its heading anchor, a source file by line.
 | DR-21 | `README.md:10` says each save stores a snapshot (title and content) of the previous version | After T2 a version is the saved state (decision D1) and a restore snapshots the row it replaces | The code | Documentation sync after T3; T9 verifies |
 | DR-22 | The JSDoc of `saveNewVersion` (`src/features/editor/actions.ts:30-34`) describes a version created first and the prompt updated second | After T2 the update comes first, then the version, in `service.ts`, which the action calls | The code | T2, in the same change |
 
+### Closing notes
+
+Reconciled by T9 on 22/10/2026 against HEAD 4f1822e. Each row was re-checked against the code and the document it names;
+"fixed" cites where.
+
+| ID | Closing note |
+|---|---|
+| DR-1 | Fixed: the re-export and its comment are gone from `EditorPane.tsx` (header changelog: "no cache re-exports", T5 step 3, 78389b2); the sync d2a3038 confirmed it |
+| DR-2 | Fixed: `hydrateDocumentCache` no longer exists (78389b2); `updateDocumentCacheEntry` now lives in `document-cache.ts` and `useDocumentLoader.ts` calls it |
+| DR-3 | Fixed: the module-load `clear()` is gone because the cache is the new `src/features/editor/document-cache.ts` (created in 893669c) and the loader rewrite (78389b2) removed the old map |
+| DR-4 | Fixed in ffa14ed: sections 3.3, 4.1 and 5.1 of `docs/project/PromptHub_05_TECH_01.md` describe the draft key `prompt-v1-<promptId>`, `saveNewVersion`, `autoSavePrompt`, `restorePromptVersion`, `getPromptVersionHistory` and the legacy `diff` column; no `diff-match-patch` or `revertToVersion` remains outside the plan and review records |
+| DR-5 | Fixed in 9a1933b: the stories, the UI document (Screen 3 - State 2) and the MVP document name the server autosave and the "Saving...", "Unsaved changes", "Saved <time>" footer |
+| DR-6 | Fixed in ffa14ed: Screen 3 - State 4 of `docs/project/PromptHub_04_UI_01.md` describes the "Restore this version?" question and the write after it |
+| DR-7 | Fixed in 35ab2ed: [Stack](../docs/rules/project.md#stack) names `src/**/*.test.{ts,tsx}`, jsdom per file and `TEST_DATABASE_URL` |
+| DR-8 | Fixed in 35ab2ed: the QA agent `description` and Method name `.test.{ts,tsx}`, jsdom per file and the disposable Postgres (mirrored into `.gemini/` in d6661d6) |
+| DR-9 | Fixed in 35ab2ed: [Test Layers](../docs/rules/testing.md#test-layers) lists code against a real disposable database under Integration and hooks and components under Component |
+| DR-10 | Fixed in 5377a86: `.github/workflows/ci.yml` runs a `postgres:17-alpine` service and supplies `TEST_DATABASE_URL`; the comment says only the database-backed tests connect |
+| DR-11 | Fixed in 35ab2ed: [Worktrees](../.claude/AGENT-CONTRACT.md#worktrees) names `TEST_DATABASE_URL`, the loopback host and the database-name rule (mirrored into `.gemini/` in d6661d6) |
+| DR-12 | Fixed in 51d6f8b: the register row reads 674 and `wc -l src/features/prompts/actions.ts` prints 674; the file's `max-lines` disable comment cites the register; `bash scripts/audit-code-size.sh --summary` reports RED 1, with a decision, 0 without |
+| DR-13 | Fixed by T9: `README.md` has a Testing section |
+| DR-14 | Fixed in 5377a86: `vitest.config.ts` no longer lists `src/lib/diff-utils.ts` (its changelog says so) |
+| DR-15 | Fixed in 5377a86 (`.env.example` has `TEST_DATABASE_URL`) and 35ab2ed ([Environment variables](../docs/rules/project.md#environment-variables)) |
+| DR-16 | Fixed in d2a3038 (cache sentence) and 9a1933b (`useLocalStorage` removed, the draft and loader modules named) in `.claude/agents/senior-frontend-engineer.md`; mirrored into `.gemini/` in d6661d6 |
+| DR-17 | Reported, not a document fix: issues #37 and #45 are GitHub text, not repository files. Owner: the main session comments on #37 and #45; the developer edits the acceptance of #45. Not verified from here |
+| DR-18 | Fixed in ffa14ed: [Files and documents](../docs/rules/project.md#files-and-documents) lists `service.ts` per feature |
+| DR-19 | Fixed in d2a3038 (flags), 9a1933b (`useLocalStorage`, drafts) and d6661d6 (`project_overview.md`); T9 corrected the remaining Auto-Save rules (`promptIdRef`, no baseline) in `code_style_conventions.md` and the stale layout, `diff-utils.ts` and dependency tree in `codebase_structure.md`. Left as a record: the P5S4bT1 worked example and lessons in `task_completion_workflow.md` |
+| DR-20 | Fixed in 35ab2ed: [Layout](../docs/rules/project.md#layout) lists `test/` under `src/` |
+| DR-21 | Fixed in ffa14ed: `README.md:10` says a version is the saved state, a save of an unchanged state adds none and a restore keeps the unsaved text; checked against `service.ts` by T9 |
+| DR-22 | Fixed in 49a70e8: the JSDoc of `saveNewVersion` (`src/features/editor/actions.ts`) says the action calls `saveVersion`, which writes the prompt and its version in one transaction |
+
 ## Not drift
 
 Historical records are not edited: the PRPs and reports under `PRPs/` (for example the P5S5 documents that name
@@ -61,15 +91,15 @@ removed), and a `prompt-` prefix purge covers all three, so the main session com
 
 | ID | Finding | Evidence | Disposition |
 |---|---|---|---|
-| F-1 | A fresh mount of `EditorPane` can end with an empty editor, or wipe a loaded document, depending on whether the user-id lookup or the fetch finishes first | `wip/P7S1-loader-race-diagnostic.test.tsx`: user id first, fetch first and Strict Mode all end empty; switching documents on a mounted instance loads | #72, filed with the INITIAL report; fixed by T5, T6 and T7 |
-| F-2 | The footer shows "Unsaved" for a freshly loaded, unmodified document because the database load path never sets `lastSaved` | `useDocumentLoader.ts:212-233` | Fixed in T5 (`lastSaved` from `updated_at`, and the footer derived from the baseline so a restored draft reads "Unsaved changes") |
-| F-3 | A failed autosave is logged to the console only; there is no retry and the footer keeps showing the last success | `EditorPane.tsx:106` | Follow-up issue, medium, after the REPORT |
-| F-4 | A rename from the document list updates only the list store, so the open editor keeps the old title and its next autosave writes it back | `DocumentToolbar.tsx:158-172`; `useDocumentLoader.ts` holds the title in state | Follow-up issue, medium, after the REPORT |
-| F-5 | Untitled documents are never autosaved, so their text lives only in the browser draft and the cache until the first manual save | `useAutoSave.ts:64` | Product question for the developer; follow-up issue |
-| F-6 | `Prompt.folder_id` and `folder` are nullable, but `PromptWithFolder` has a non-null `folder` and the cache effect reads `promptData.folder.id`, which throws for an unfiled prompt | `prisma/schema.prisma:44-45`; `EditorPane.tsx:154` | Pre-existing and out of scope; follow-up issue |
-| F-7 | A save or autosave that completes after a switch to another document is applied to the open one, a rejected action leaves its busy flag set, and a navigation orphans the queued server actions, so a busy flag can stay set for good | `EditorPane.tsx:103`, `190` (unconditional state updates), `98-109`, `173-204` (no `finally`); `node_modules/next/dist/shared/lib/router/action-queue.js:121-135` (a navigation marks the pending action discarded) and `:60-71` (`handleResult` then returns before `runRemainingActions`) | Found by review, reproduced by reading only; fixed by T4 (`withTimeout`), T5 (the fetch), T7 and T8 with the tests in `wip/P7S1-persistence-spike.test.tsx` as reference |
-| F-8 | The history dialog never loads its list: `VersionHistoryDialog` reads it inside the dialog's `onOpenChange`, which Radix calls only for a change the dialog makes itself, and `EditorPane` sets `open` from its History button | `VersionHistoryDialog.tsx:39-52` and `:72`; `EditorPane.tsx:303`; the first case of `wip/P7S1-dialog-spike.test.tsx` (a controlled Radix dialog reports nothing when the parent sets `open`). The browser behaviour is unverified | #73, filed with the INITIAL report; fixed by T8 |
-| F-9 | Closing the tab of a titled document that autosave persisted but that was never saved by hand offers "Discard", which deletes the document | `DocumentToolbar.tsx:95` sets `isNewDocument`; `EditorPane.tsx:199` clears it only in a manual save; `use-tab-store.ts:139-142` (`shouldConfirmClose`); `DocumentTab.tsx:111-112` (the close prompt) and `:133-137` (the Discard handler calls `deletePrompt`). Read from the code, not reproduced | #74, filed with the INITIAL report; outside P7S1 (a tab-close path), added to dev-review #38 |
+| F-1 | A fresh mount of `EditorPane` can end with an empty editor, or wipe a loaded document, depending on whether the user-id lookup or the fetch finishes first | `wip/P7S1-loader-race-diagnostic.test.tsx`: user id first, fetch first and Strict Mode all end empty; switching documents on a mounted instance loads | #72, filed with the INITIAL report; fixed by T5, T6 and T7. Closed (T9): fixed; covered by `useDocumentLoader.fresh-mount.test.tsx` and `useDocumentLoader.switching.test.tsx`, which pass |
+| F-2 | The footer shows "Unsaved" for a freshly loaded, unmodified document because the database load path never sets `lastSaved` | `useDocumentLoader.ts:212-233` | Fixed in T5 (`lastSaved` from `updated_at`, and the footer derived from the baseline so a restored draft reads "Unsaved changes"). Closed (T9): fixed; `loader-protocol.ts` sets `lastSaved` from `updated_at` |
+| F-3 | A failed autosave is logged to the console only; there is no retry and the footer keeps showing the last success | `EditorPane.tsx:106` | Follow-up issue, medium, after the REPORT. Open (T9): `useServerAutoSave.ts` still only logs a failed write, with no retry; the main session files the follow-up |
+| F-4 | A rename from the document list updates only the list store, so the open editor keeps the old title and its next autosave writes it back | `DocumentToolbar.tsx:158-172`; `useDocumentLoader.ts` holds the title in state | Follow-up issue, medium, after the REPORT. Open (T9): `DocumentToolbar.tsx` still calls only `updatePromptTitle` on a rename; the main session files the follow-up |
+| F-5 | Untitled documents are never autosaved, so their text lives only in the browser draft and the cache until the first manual save | `useAutoSave.ts:64` | Product question for the developer; follow-up issue. Open (T9): `needsAutoSave` in `sync.ts` still requires a non-blank title, which is decision D3 as built; the developer decides |
+| F-6 | `Prompt.folder_id` and `folder` are nullable, but `PromptWithFolder` has a non-null `folder` and the cache effect reads `promptData.folder.id`, which throws for an unfiled prompt | `prisma/schema.prisma:44-45`; `EditorPane.tsx:154` | Pre-existing and out of scope; follow-up issue. Open (T9): `useDocumentCacheSync.ts:54` still reads `promptData.folder.id`; the main session files the follow-up |
+| F-7 | A save or autosave that completes after a switch to another document is applied to the open one, a rejected action leaves its busy flag set, and a navigation orphans the queued server actions, so a busy flag can stay set for good | `EditorPane.tsx:103`, `190` (unconditional state updates), `98-109`, `173-204` (no `finally`); `node_modules/next/dist/shared/lib/router/action-queue.js:121-135` (a navigation marks the pending action discarded) and `:60-71` (`handleResult` then returns before `runRemainingActions`) | Found by review, reproduced by reading only; fixed by T4 (`withTimeout`), T5 (the fetch), T7 and T8 with the tests in `wip/P7S1-persistence-spike.test.tsx` as reference. Closed (T9): fixed; `useServerAutoSave.ts` and `useVersionSave.ts` apply a completion by the document it started with and reset their busy state in `finally`, with the `useServerAutoSave`, `useVersionSave` and `useDocumentLoader.completions` suites. The navigation-orphaned action case rests on `withActionTimeout`, read from code |
+| F-8 | The history dialog never loads its list: `VersionHistoryDialog` reads it inside the dialog's `onOpenChange`, which Radix calls only for a change the dialog makes itself, and `EditorPane` sets `open` from its History button | `VersionHistoryDialog.tsx:39-52` and `:72`; `EditorPane.tsx:303`; the first case of `wip/P7S1-dialog-spike.test.tsx` (a controlled Radix dialog reports nothing when the parent sets `open`). The browser behaviour is unverified | #73, filed with the INITIAL report; fixed by T8. Closed (T9): fixed in code (`VersionHistoryDialog.tsx` loads its list in an effect on `open`; the `VersionHistoryDialog` suites pass); the browser behaviour stays unverified until dev-review #38 |
+| F-9 | Closing the tab of a titled document that autosave persisted but that was never saved by hand offers "Discard", which deletes the document | `DocumentToolbar.tsx:95` sets `isNewDocument`; `EditorPane.tsx:199` clears it only in a manual save; `use-tab-store.ts:139-142` (`shouldConfirmClose`); `DocumentTab.tsx:111-112` (the close prompt) and `:133-137` (the Discard handler calls `deletePrompt`). Read from the code, not reproduced | #74, filed with the INITIAL report; outside P7S1 (a tab-close path), added to dev-review #38. Open (T9): `DocumentToolbar.tsx:95` still sets `isNewDocument` and only `useVersionSave.ts` clears it; tracked in #74 |
 
 ----
 **PRP Status**: TODO
@@ -77,8 +107,8 @@ removed), and a `prompt-` prefix purge covers all three, so the main session com
 **PRP Document**: P7S1-editor-data-integrity
 **Tasks**: 9 tasks (P7S1T1 - P7S1T9)
 **Phase**: Phase 7 - Hardening (Editor data integrity)
-**Implementation Status**: RESEARCH COMPLETE - 22 drift rows open, fixed by T1-T3, T5, T6 and their syncs; T9 verifies
-**Testing Status**: NOT YET TESTED - the probes and the four spike suites (211 tests) run under the diag config only
+**Implementation Status**: RECONCILED by T9 - DR-1 to DR-16 and DR-18 to DR-22 fixed; DR-17 reported to the main session; F-1, F-2, F-7 and F-8 fixed, F-3 to F-6 and F-9 open
+**Testing Status**: the production suites pass (356 tests with `TEST_DATABASE_URL`); the probes and the four spike suites run under the diag config only
 **Notes**:
 - Rows DR-17 and findings F-3 to F-6 and F-9 are handled by the main session, not by a task
 - The probe and spike files (four spikes, their tests, the typed fakes, the mutation check, two probes and the diag
