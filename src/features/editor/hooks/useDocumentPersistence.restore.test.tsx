@@ -7,7 +7,7 @@ MIME: text/typescript
 Type: TypeScript React test (Vitest, jsdom)
 
 Created: 22/10/2026 10:38 GMT+10
-Last modified: 22/10/2026 10:51 GMT+10
+Last modified: 22/10/2026 11:31 GMT+10
 ---------------
 The version restore through the persistence hook (contract: Async Completions and Failures, decision D4): the
 restored row replaces the working copy, the baseline, promptData, the cache entry and the tab and list titles; unsaved
@@ -18,6 +18,7 @@ the real loader over the fake server; assertions read the requests the server re
 show.
 
 Changelog:
+22/10/2026 11:31 GMT+10 | Restoring a version that has no title (review finding)
 22/10/2026 10:51 GMT+10 | A restore that fails after its edits were saved leaves them as the baseline (mutation finding)
 22/10/2026 10:38 GMT+10 | Created (P7S1T8 step 2)
 */
@@ -201,6 +202,20 @@ describe("restore into the editor", () => {
     expect(await restoreNow(hook, 1)).toBe(true)
     expect(env.names()).toEqual(["restore"])
     expect(hook.result.current.loader).toMatchObject({ title: "Old title", content: "old text" })
+  })
+
+  it("restoring a version that has no title leaves the document untitled and the list title empty", async () => {
+    useUiStore.setState({ prompts: [listItem(A, "Title")] })
+    env.state.versions.push({ id: 2, promptId: A, title: null, content: "untitled text" })
+    env.state.nextVersionId = 3
+    const hook = await open(env)
+    expect(await restoreNow(hook, 2)).toBe(true)
+    await settle()
+
+    expect(hook.result.current.loader).toMatchObject({ title: null, content: "untitled text" })
+    expect(hook.result.current.loader.synced).toEqual({ promptId: A, title: null, content: "untitled text" })
+    expect(useUiStore.getState().prompts.find((p) => p.id === A)?.title).toBe("")
+    expect(tabOf("tab-A")).toMatchObject({ isDirty: false })
   })
 
   it("a second restore while one runs is refused and sends nothing", async () => {

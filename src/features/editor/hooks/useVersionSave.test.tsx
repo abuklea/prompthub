@@ -7,7 +7,7 @@ MIME: text/typescript
 Type: TypeScript React test (Vitest, jsdom)
 
 Created: 22/10/2026 10:17 GMT+10
-Last modified: 22/10/2026 10:17 GMT+10
+Last modified: 22/10/2026 11:31 GMT+10
 ---------------
 The manual save, mostly through useDocumentPersistence composed with the real loader over the fake server (contract:
 Async Completions and Failures): Ctrl+S, Cmd+S and the Save button save a version and record it; a blank or placeholder
@@ -17,6 +17,7 @@ save while blocked and a save for a document that is not ready send nothing. Ass
 received and what the hooks show.
 
 Changelog:
+22/10/2026 11:31 GMT+10 | Ctrl+S prevents the browser's own save dialog (review mutation V17)
 22/10/2026 10:17 GMT+10 | Created (P7S1T7 step 2)
 */
 
@@ -69,6 +70,21 @@ describe("manual save", () => {
     expect(tabOf("tab-A")).toMatchObject({ isDirty: false, isNewDocument: false })
     expect(useUiStore.getState().promptRefetchTrigger).toBe(1)
     expect(persistence.saving).toBe(false)
+  })
+
+  it("Ctrl+S prevents the browser's own save dialog, and other keys are left alone", async () => {
+    await open(env)
+    const press = (init: KeyboardEventInit) => {
+      const event = new KeyboardEvent("keydown", { cancelable: true, ...init })
+      act(() => {
+        window.dispatchEvent(event)
+      })
+      return event.defaultPrevented
+    }
+    expect(press({ key: "s", ctrlKey: true })).toBe(true)
+    expect(press({ key: "s", metaKey: true })).toBe(true)
+    expect(press({ key: "s" })).toBe(false)
+    expect(press({ key: "a", ctrlKey: true })).toBe(false)
   })
 
   it("the Save button handler does the same as Ctrl+S", async () => {

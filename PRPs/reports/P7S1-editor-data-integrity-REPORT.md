@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 - Editor Data Integrity - COMPLETION REPORT | 22/10/2026 11:11 GMT+10 | 22/10/2026 11:17 GMT+10 |
+| P7S1 - Editor Data Integrity - COMPLETION REPORT | 22/10/2026 11:11 GMT+10 | 22/10/2026 11:31 GMT+10 |
 
 ## Table of Contents
 - [Overview](#overview)
@@ -58,8 +58,8 @@ Delivered, by part:
    this version?" before it restores, and the removal of the superseded code (T8).
 8. A documentation and `wip/` sweep and a README Testing section (T9, plus the syncs that followed T1, T3, T5 and T6).
 
-The gate figures below were measured on 22/10/2026 on a tree whose source is that of HEAD `9f7caf4`; that commit changes
-only one PRP document, so the source is the same as at `851479d`.
+The gate figures below were measured on 22/10/2026 on the final tree, after the last two tests were added (a review
+follow-up: the Ctrl+S default is prevented, and a version with no title restores).
 
 ## Implementation Summary
 
@@ -221,8 +221,8 @@ cluster through `TEST_DATABASE_URL`; the URL is not recorded here.
 | `npx prisma validate` | `The schema at prisma/schema.prisma is valid` |
 | `npm run lint` | 0 errors, 15 `max-lines-per-function` warnings |
 | `npx tsc --noEmit` | exit 0, no output |
-| `npm test` without `TEST_DATABASE_URL` | `Test Files  29 passed \| 2 skipped (31)`, `Tests  327 passed \| 29 skipped (356)` |
-| `npm test` with `TEST_DATABASE_URL` | `Test Files  31 passed (31)`, `Tests  356 passed (356)` |
+| `npm test` without `TEST_DATABASE_URL` | `Test Files  29 passed \| 2 skipped (31)`, `Tests  329 passed \| 29 skipped (358)` |
+| `npm test` with `TEST_DATABASE_URL` | `Test Files  31 passed (31)`, `Tests  358 passed (358)` |
 | `bash scripts/audit-code-size.sh --summary` | source GREEN 96, YELLOW 3, RED 1; test GREEN 37, YELLOW 2, RED 0; `RESULT: PASS - every RED file has a recorded decision.` |
 | `npm run build` | exit 0; all routes compiled; First Load JS shared by all 87.5 kB |
 | gitleaks | not run: CI only |
@@ -234,7 +234,7 @@ source file is `src/features/prompts/actions.ts` (674 lines, registered). The tw
 (322 lines) and `useDocumentPersistence.restore.test.tsx` (398). The largest new source file is
 `VersionHistoryDialog.tsx` (254 lines) and the largest helper is `src/test/loader-world.ts` (257).
 
-The suite had 29 tests in five files before this PRP; it now has 356 tests in 31 files. The 29 skipped tests without a
+The suite had 29 tests in five files before this PRP; it now has 358 tests in 31 files. The 29 skipped tests without a
 database are the 26 in `service.save.test.ts` and `service.restore.test.ts` (both files skipped) and 3 in
 `src/test/db.test.ts`, which otherwise runs (`40 passed | 3 skipped`). I did not run the CI service container: it ran
 for the first time on PR #88, where, per the dispatching prompt, migrations applied and 182 tests passed with the
@@ -358,8 +358,9 @@ dialog, never in the browser.
 
 ## Files Changed
 
-`git diff --name-status 19209f4 HEAD` lists 83 files: 49 added, 33 modified, 1 deleted, with 9,285 insertions and 1,028
-deletions. All 49 additions are under `src/` (26 test files, 8 test helpers and 15 source files). Line counts are from
+`git diff --name-status 19209f4 9f7caf4` lists 83 files: 49 added, 33 modified, 1 deleted, with 9,285 insertions and
+1,028 deletions. The commits after `9f7caf4` add this report, edit the PRP footer, delete the 13 `wip/` files and add two
+tests. All 49 additions are under `src/` (26 test files, 8 test helpers and 15 source files). Line counts are from
 `wc -l` at HEAD.
 
 Server and API (3):
@@ -415,7 +416,7 @@ Test helpers, all NEW and not measured for coverage (8):
 | `src/test/history-dialog.tsx` | 197 |
 | `src/test/failing-db.ts` | 56 |
 
-Tests, all NEW (26 files, 327 tests; the 29 earlier tests are unchanged):
+Tests, all NEW (26 files, 329 tests; the 29 earlier tests are unchanged):
 
 | File | Tests | Lines |
 |---|---|---|
@@ -517,7 +518,7 @@ Documents that turned out to be wrong, beyond the rows the register lists: the P
 `editor-env.ts` and line budgets that fifteen files exceed (above), and the contract's module map still carries those
 budgets. The INITIAL report says the reference implementations have 204 tests and 83 mutations, where the PRP and the
 contract say 211 and 90 after later reviews. The INITIAL report is a historical record and I left it alone. The PRP
-footer still reads `PRP Status: TODO`; I did not edit the PRP.
+footer read `PRP Status: TODO` until the commit that adds this report, which sets it to `REVIEW`.
 
 After the main session deletes the 13 `wip/` files, seven documents still cite them: the PRP, the INITIAL report,
 `PRPs/docs/P7S1-task-briefs.md`, `P7S1-task-briefs-client.md`, `P7S1-task-context.md`, the contract, and the drift
@@ -543,7 +544,7 @@ for a closed epic. The prp-workflow skill's closing steps (set the PRP footer to
 ### Left for the main session
 
 Remove the 13 `wip/` files (done after this report) and decide what to do with the citations above; set #83 to `status: in-review`; keep #31
-and the bug issues open for #38; set the PRP's footer and archive it when #31 closes; open a pull request so that CI
+and the bug issues open for #38; set the PRP's footer to `COMPLETE` and archive it when #31 closes; open a pull request so that CI
 runs the 29 database-backed tests on this tree; and run the board sync from a local login (GraphQL is blocked in cloud
 sessions).
 
@@ -557,7 +558,7 @@ sessions).
 **Phase**: Phase 7 - Hardening (Editor data integrity)
 **Dependencies**: None
 **Implementation Status**: COMPLETE (P7S1)
-**Testing Status**: COMPLETE (356/356 tests passed with a database; 327 passed and 29 skipped without; no browser run)
+**Testing Status**: COMPLETE (358/358 tests passed with a database; 329 passed and 29 skipped without; no browser run)
 **Next PRP**: P7S2 - Server-side security hardening
 **Notes**:
 - Code and tests complete; every browser flow is unverified and belongs to dev-review #38, which keeps epic #31 open
