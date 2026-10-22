@@ -5,16 +5,12 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 
 ## Current Development State
 
-**Branch**: master (18 commits ahead of origin/master)  
-**Last Major Commit**: db81a3b - "fix: P5S4 - Critical cache contamination and race condition bugs resolved"  
-**Working Tree**: Clean  
-**Primary Test User**: allan@formationmedia.net / *.Password123  
 **Archon Project ID**: d449f266-1f36-47ad-bd2d-30f1a0f5e999
 
 ## Technology Stack
 
 **Frontend**:
-- Next.js 14.2.3 (Pages Router)
+- Next.js 14.2.35 (App Router)
 - React 18.3.1
 - TypeScript 5.4.5
 - Tailwind CSS 3.4.3
@@ -24,7 +20,7 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 **Backend**:
 - Supabase (PostgreSQL + Auth + Storage + RLS)
 - Prisma 6.19.0 (ORM)
-- Next.js API routes
+- Next.js Server Actions (one route handler: `src/app/auth/sign-out`)
 
 **State Management**:
 - Zustand 4.5.2 (global state)
@@ -45,6 +41,12 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 2. **P0T2**: Fixed ownership ref timing in cache hit path to prevent race conditions
 3. **P0T3**: Implemented isTransitioning lock to guard cache updates during document transitions
 
+P0T2 and P0T3 are superseded: `useDocumentLoader` now runs the identity-gate protocol (P7S1T5). The document and its
+baseline are applied in one reducer action, the `ready` token says when title, content and promptData belong to
+`promptId`, and the ownership refs and the transition lock are gone. The cache lives in
+`src/features/editor/document-cache.ts`. The localStorage saves of P0T1 came from the removed `useLocalStorage` hook;
+browser drafts are now written only by `useDraftSync` (P7S1T6).
+
 **P1 Priority Fixes**:
 4. **P1T4**: Disabled auto-save during document transitions
 5. **P1T5**: Changed title type to string|null throughout system with getDisplayTitle utility
@@ -58,16 +60,17 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 
 ## Active PRPs (Product Requirements & Planning)
 
-- **P5S4**: Fix cache, render loop, and security issues
-- **P5S4e**: Improved document naming and save workflow
+- None in flight. Last completed: **P7S1**, editor data integrity (`PRPs/complete/P7S1-editor-data-integrity.md`, report in
+  `PRPs/reports/P7S1-editor-data-integrity-REPORT.md`); its browser checks are tracked in GitHub issue #38
 
 ## Core Features
 
 1. **Document Management**: Create, edit, save versions of AI prompts
 2. **Folder Organization**: Hierarchical folder structure for organizing prompts
 3. **Tabbed Editor**: Multi-document tabs with preview/permanent states
-4. **Auto-Save**: 500ms debounce with localStorage persistence
-5. **Version History**: Git-style diffs for version tracking
+4. **Auto-Save**: 500ms debounce to the server (`autoSavePrompt`), written only when the title or content differ from
+   what the server holds; a content-only browser draft (`prompt-v1-<promptId>`) is the safety net
+5. **Version History**: a full title and content snapshot per saved version; restore writes the chosen snapshot back
 6. **User Authentication**: Supabase Auth with JWT and RLS policies
 7. **Full-Text Search**: PostgreSQL tsvector for prompt search
 

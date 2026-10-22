@@ -6,274 +6,198 @@ MIME: text/typescript
 Type: TypeScript React Hook
 
 Created: 17/07/2026 10:00 GMT+10
-Last modified: 17/07/2026 10:00 GMT+10
+Last modified: 22/10/2026 09:51 GMT+10
 ---------------
-Custom hook for loading prompt documents with caching, user-scoping, and
-transition guards. Extracted from EditorPane.tsx (F5 decomposition).
+Loads the open document on the identity-gate protocol (contract: Loader Protocol). The user is looked up on every
+mount and the load waits for it; the document and its baseline arrive in one reducer action, so `ready` is true only in
+renders whose title, content and promptData belong to `promptId`. Completions of saves and restores are applied through
+`markSynced` and `applyServerState`, which change React state only for the open document. A load's conflict toasts are
+dismissed when its effect cleans up (the document is left or the editor unmounts).
 
 Changelog:
+22/10/2026 09:51 GMT+10 | markSynced and applyServerState require the document to be applied, not only open (T5 review)
+22/10/2026 09:39 GMT+10 | The load effect owns its conflict toasts and dismisses them on cleanup (P7S1T6)
+22/10/2026 09:14 GMT+10 | Rewritten on the identity-gate protocol: useIdentity, ready, synced, markSynced,
+                         applyServerState; adopts document-cache.ts; the ownership ref flags and the transition
+                         effect are removed (P7S1T5 step 3)
+22/10/2026 08:57 GMT+10 | Takes an injected DocumentLoaderIo for the fetch, user lookup and storage (P7S1T5 step 1)
 17/07/2026 10:00 GMT+10 | Extracted from EditorPane.tsx to reduce file size (F5)
 */
 
-import { useEffect, useState, useRef, useCallback } from "react"
-import { getPromptDetails } from "@/features/prompts/actions"
-import { createClient } from "@/lib/supabase/client"
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
+import type { Dispatch, MutableRefObject, SetStateAction } from "react"
 import { toast } from "sonner"
-import type { Prompt } from "@prisma/client"
+import { useLatest } from "@/hooks/use-latest"
+import { ANONYMOUS, updateDocumentCacheEntry } from "../document-cache"
+import { runLoad, type DocumentLoaderIo } from "../loader-protocol"
+import { initialLoaderState, loaderReducer, versioned, type LoaderState } from "../loader-state"
+import type { DocFields, SyncedState } from "../sync"
 
-export type PromptWithFolder = Prompt & {
-  folder: {
-    id: string
-    name: string
-  }
-}
+export type { DocumentLoaderIo } from "../loader-protocol"
 
-type CacheEntry = {
-  userId: string
-  promptData: PromptWithFolder
-  title: string | null
-  content: string
-  lastSaved: Date | null
-}
+/** How long the user lookup may take before the loader settles on the anonymous identity. */
+export const IDENTITY_TIMEOUT_MS = 10_000
 
-const documentCache = new Map<string, CacheEntry>()
-documentCache.clear()
-
-type PromptWithOptionalFolder = Prompt & {
-  folder: {
-    id: string
-    name: string
-  } | null
-}
-
-export function hydrateDocumentCache(userId: string, prompts: PromptWithOptionalFolder[]) {
-  prompts.forEach((prompt) => {
-    documentCache.set(`${userId}-${prompt.id}`, {
-      userId,
-      promptData: {
-        ...prompt,
-        folder: prompt.folder ?? { id: "", name: "Unfiled" },
-      },
-      title: prompt.title,
-      content: prompt.content,
-      lastSaved: prompt.updated_at,
-    })
-  })
-}
-
-export function clearDocumentCache() {
-  documentCache.clear()
-}
-
-export function updateDocumentCacheEntry(
-  userId: string,
-  promptId: string,
-  entry: Partial<Omit<CacheEntry, "userId">>
-) {
-  const key = `${userId}-${promptId}`
-  const existing = documentCache.get(key)
-  if (existing) {
-    documentCache.set(key, { ...existing, ...entry })
-  }
-}
-
-export function setDocumentCacheEntry(
-  userId: string,
-  promptId: string,
-  entry: Omit<CacheEntry, "userId">
-) {
-  documentCache.set(`${userId}-${promptId}`, { userId, ...entry })
-}
-
-interface UseDocumentLoaderOptions {
-  promptId: string
-}
-
-interface DocumentLoaderState {
-  promptData: PromptWithFolder | null
-  title: string | null
-  content: string
-  loading: boolean
-  error: string
-  lastSaved: Date | null
+/** What the loader gives the editor: its state plus the readiness token, the guards and the completion API. */
+export interface DocumentLoader extends LoaderState {
+  /** The identity this mount settled on; "" while the lookup is pending. */
   currentUserId: string
-  isTransitioning: React.MutableRefObject<boolean>
-  contentPromptIdRef: React.MutableRefObject<string | null>
-  monacoPromptIdRef: React.MutableRefObject<string | null>
-  titlePromptIdRef: React.MutableRefObject<string | null>
-  promptIdRef: React.MutableRefObject<string | null>
-  setPromptData: React.Dispatch<React.SetStateAction<PromptWithFolder | null>>
-  setTitle: React.Dispatch<React.SetStateAction<string | null>>
-  setContent: React.Dispatch<React.SetStateAction<string>>
-  setLastSaved: React.Dispatch<React.SetStateAction<Date | null>>
-  resetLoadedRef: () => void
+  /** True only in renders whose title, content and promptData belong to `promptId`. */
+  ready: boolean
+  /** The Monaco onChange guard: the document whose content the editor holds, or null while none is applied. */
+  monacoPromptIdRef: MutableRefObject<string | null>
+  /** The open document; null after unmount. Read in handlers only. */
+  promptIdRef: MutableRefObject<string | null>
+  /** Sets the working title. */
+  setTitle: Dispatch<SetStateAction<string | null>>
+  /** Sets the working content. */
+  setContent: Dispatch<SetStateAction<string>>
+  /**
+   * Records a confirmed server write for one document: the baseline, `lastSaved` and, for a saved version,
+   * `promptData`. Its cache entry is updated first, whichever document is open.
+   * @param next - The document and the fields the server now holds.
+   * @param options - `version: true` for a saved version, which also stamps `promptData`.
+   * @returns True when the document is the open one and React state changed; false otherwise.
+   */
+  markSynced(next: SyncedState, options?: { version?: boolean }): boolean
+  /**
+   * Replaces the working copy, `promptData` and the baseline with the row a restore wrote; same contract as markSynced.
+   * @param promptId - The restored document.
+   * @param row - The title and content the server now holds.
+   * @returns True when the document is the open one and React state changed; false otherwise.
+   */
+  applyServerState(promptId: string, row: DocFields): boolean
 }
 
-export function useDocumentLoader({ promptId }: UseDocumentLoaderOptions): DocumentLoaderState {
-  const [promptData, setPromptData] = useState<PromptWithFolder | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [title, setTitle] = useState<string | null>(null)
-  const [content, setContent] = useState("")
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string>("")
+/** Options of `useDocumentLoader`. */
+export interface UseDocumentLoaderOptions {
+  /** The document to open; "" for none. */
+  promptId: string
+  /** The fetch, user lookup and storage; read through a ref, so a new object neither restarts nor loses a load. */
+  io: DocumentLoaderIo
+}
 
-  const loadedRef = useRef<string | null>(null)
-  const contentPromptIdRef = useRef<string | null>(null)
-  const promptIdRef = useRef<string | null>(null)
-  const isTransitioning = useRef(false)
-  const monacoPromptIdRef = useRef<string | null>(null)
-  const titlePromptIdRef = useRef<string | null>(null)
-
+/**
+ * Resolves the user once per mount; the first answer wins, so a late lookup never changes the identity. A rejected
+ * lookup, or none within `IDENTITY_TIMEOUT_MS`, settles as `ANONYMOUS`.
+ */
+function useIdentity(ioRef: MutableRefObject<DocumentLoaderIo>): string {
+  const [userId, setUserId] = useState("")
   useEffect(() => {
-    async function loadUserId() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      setCurrentUserId(user?.id || "anonymous")
+    let settled = false
+    const settle = (id: string) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      setUserId(id)
     }
-    loadUserId()
-  }, [])
-
-  useEffect(() => {
-    const abortController = new AbortController()
-
-    async function loadPrompt() {
-      if (!promptId) {
-        setPromptData(null)
-        setTitle(null)
-        setContent("")
-        setError("")
-        loadedRef.current = null
-        contentPromptIdRef.current = null
-        titlePromptIdRef.current = null
-        isTransitioning.current = false
-        monacoPromptIdRef.current = null
-        return
+    const timer = setTimeout(() => settle(ANONYMOUS), IDENTITY_TIMEOUT_MS)
+    const lookUp = async () => {
+      try {
+        settle(await ioRef.current.getUserId())
+      } catch {
+        settle(ANONYMOUS)
       }
-
-      setPromptData(null)
-      setTitle(null)
-      setContent("")
-      setError("")
-
-      if (loadedRef.current === promptId) {
-        return
-      }
-
-      isTransitioning.current = true
-
-      const cacheKey = `${currentUserId}-${promptId}`
-      const cached = documentCache.get(cacheKey)
-      if (cached) {
-        if (cached.userId !== currentUserId) {
-          documentCache.delete(cacheKey)
-        } else {
-          contentPromptIdRef.current = promptId
-          loadedRef.current = promptId
-          titlePromptIdRef.current = promptId
-
-          setPromptData(cached.promptData)
-          setTitle(cached.title)
-          setContent(cached.content)
-          setLastSaved(cached.lastSaved)
-          setLoading(false)
-          setError("")
-          monacoPromptIdRef.current = promptId
-          return
-        }
-      }
-
-      loadedRef.current = promptId
-      setLoading(true)
-      setError("")
-
-      if (abortController.signal.aborted) {
-        setLoading(false)
-        isTransitioning.current = false
-        return
-      }
-
-      const result = await getPromptDetails({ promptId })
-
-      if (abortController.signal.aborted) {
-        setLoading(false)
-        isTransitioning.current = false
-        return
-      }
-
-      if (!result.success) {
-        setError(result.error)
-        toast.error(result.error, { duration: 6000 })
-        setLoading(false)
-        isTransitioning.current = false
-        return
-      }
-
-      if (result.data) {
-        const data = result.data as PromptWithFolder
-        setPromptData(data)
-        setTitle(data.title)
-        titlePromptIdRef.current = promptId
-
-        const localStorageKey = `prompt-${promptId}`
-        const storedContent = typeof window !== "undefined"
-          ? (localStorage.getItem(localStorageKey) || "")
-          : ""
-
-        if (storedContent && storedContent !== data.content) {
-          setContent(storedContent)
-          toast.info("Restored unsaved changes from browser storage")
-        } else {
-          setContent(data.content || "")
-        }
-
-        contentPromptIdRef.current = promptId
-        monacoPromptIdRef.current = promptId
-      }
-      setLoading(false)
-      isTransitioning.current = false
     }
-
-    loadPrompt()
-
+    void lookUp()
     return () => {
-      abortController.abort()
+      settled = true
+      clearTimeout(timer)
     }
-  }, [promptId, currentUserId])
+  }, [ioRef])
+  return userId
+}
 
+/** The open-document marker: `promptId` while mounted, null after unmount. */
+function useOpenDocumentRef(promptId: string): MutableRefObject<string | null> {
+  const promptIdRef = useRef<string | null>(null)
   useEffect(() => {
-    if (promptId && !loading && loadedRef.current === promptId) {
-      isTransitioning.current = false
-    } else {
-      isTransitioning.current = true
-    }
-  }, [promptId, loading])
-
-  useEffect(() => {
+    // Reason: null after unmount, so a request that completes later is not applied to state nobody renders; the body
+    // sets it again when Strict Mode re-runs the effect, and a change of document replaces it within the same commit.
     promptIdRef.current = promptId
+    return () => {
+      promptIdRef.current = null
+    }
   }, [promptId])
+  return promptIdRef
+}
 
-  const resetLoadedRef = useCallback(() => {
-    loadedRef.current = null
-  }, [])
+/**
+ * Loads a document and keeps its working copy and baseline.
+ * @param options - The document to open and the io.
+ * @returns The loader's state, readiness, guards, setters and completion API.
+ */
+export function useDocumentLoader({ promptId, io }: UseDocumentLoaderOptions): DocumentLoader {
+  const [state, dispatch] = useReducer(loaderReducer, promptId, initialLoaderState)
+  const ioRef = useLatest(io)
+  const userId = useIdentity(ioRef)
+  const userIdRef = useLatest(userId)
+  const promptIdRef = useOpenDocumentRef(promptId)
+  const monacoPromptIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const toastIds: Array<string | number> = []
+    const { signal } = controller
+    void runLoad({ promptId, userId, io: ioRef.current, signal, dispatch, monacoPromptIdRef, toastIds })
+    return () => {
+      controller.abort()
+      // Reason: a conflict toast's action targets this run's document; once it is left, the offer is withdrawn.
+      toastIds.forEach((id) => toast.dismiss(id))
+    }
+  }, [promptId, userId, ioRef])
+
+  const setters = useMemo(
+    () => ({
+      setTitle: (value: SetStateAction<string | null>) => dispatch({ type: "title", value }),
+      setContent: (value: SetStateAction<string>) => dispatch({ type: "content", value }),
+    }),
+    []
+  )
+
+  const markSynced = useCallback(
+    (next: SyncedState, options?: { version?: boolean }): boolean => {
+      const now = new Date()
+      const version = options?.version === true
+      updateDocumentCacheEntry(userIdRef.current, next.promptId, (entry) => ({
+        synced: next,
+        lastSaved: now,
+        promptData: version ? versioned(entry.promptData, next, now) : entry.promptData,
+      }))
+      // Reason: `promptIdRef` names the open document and `monacoPromptIdRef` the one whose content is applied (null
+      // while it loads), so a completion that lands while the open document re-fetches changes nothing.
+      if (next.promptId !== promptIdRef.current || next.promptId !== monacoPromptIdRef.current) return false
+      dispatch({ type: "synced", next, version, now })
+      return true
+    },
+    [promptIdRef, monacoPromptIdRef, userIdRef]
+  )
+
+  const applyServerState = useCallback(
+    (id: string, row: DocFields): boolean => {
+      const now = new Date()
+      updateDocumentCacheEntry(userIdRef.current, id, (entry) => ({
+        title: row.title,
+        content: row.content,
+        synced: { promptId: id, ...row },
+        lastSaved: now,
+        promptData: versioned(entry.promptData, row, now),
+      }))
+      if (id !== promptIdRef.current || id !== monacoPromptIdRef.current) return false
+      dispatch({ type: "serverState", promptId: id, row, now })
+      return true
+    },
+    [promptIdRef, monacoPromptIdRef, userIdRef]
+  )
 
   return {
-    promptData,
-    title,
-    content,
-    loading,
-    error,
-    lastSaved,
-    currentUserId,
-    isTransitioning,
-    contentPromptIdRef,
+    ...state,
+    ...setters,
+    currentUserId: userId,
+    ready: state.synced !== null && state.synced.promptId === promptId,
     monacoPromptIdRef,
-    titlePromptIdRef,
     promptIdRef,
-    setPromptData,
-    setTitle,
-    setContent,
-    setLastSaved,
-    resetLoadedRef,
+    markSynced,
+    applyServerState,
   }
 }

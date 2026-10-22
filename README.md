@@ -7,7 +7,7 @@ PromptHub is a web application for storing, organizing and managing AI prompts, 
 -   **Nested Folder Organization:** Structure your prompts in a hierarchical folder system for easy navigation.
 -   **Full-Text Search:** Search prompt titles and content through a GIN-indexed Postgres `tsvector` column (English configuration).
 -   **Rich Prompt Editor:** Create and edit prompts in a VS Code-like environment powered by the Monaco Editor.
--   **Version History:** Each save stores a snapshot (title and content) of the previous version, and a version can be restored.
+-   **Version History:** A manual save records the saved title and content as a version, unless the newest version already holds that state; autosave records none. A restore keeps the unsaved text as a version when it differs from the newest one, writes the restored state, and records that state as a version unless the newest version already holds it.
 -   **Tagging System:** Organize and filter prompts using descriptive tags.
 -   **Authentication and Per-User Data:** Users sign in with Supabase Authentication, and server actions filter queries by the signed-in user. Row Level Security is optional defence-in-depth (step 6). Known gaps in input validation and ownership checks are tracked in [#41](https://github.com/abuklea/prompthub/issues/41).
 
@@ -117,3 +117,46 @@ npm run dev
 ```
 
 Open [http://localhost:3010](http://localhost:3010) with your browser to see the result. You should be able to sign up, log in, and access the main application.
+
+## Testing
+
+Tests run with [Vitest](https://vitest.dev/) and sit beside the module they test as `src/**/*.test.ts` or
+`src/**/*.test.tsx`:
+
+```bash
+npm test                # one run of every suite
+npm run test:watch      # watch mode
+npm run test:coverage   # one run with coverage, for the files listed in vitest.config.ts
+```
+
+Tests run in the `node` environment. A test of a hook or a component opts in to a simulated DOM with
+`// @vitest-environment jsdom` on the first line of the file. The shared test helpers and fakes (the database helper, the
+editor test environment, the storage and draft fakes) live in `src/test/`.
+
+### Database-backed tests
+
+The suites for the editor's server logic (`src/features/editor/service.*.test.ts`) run against a real Postgres. They
+need `TEST_DATABASE_URL`, a connection string for a disposable database; without it they are skipped and `npm test`
+still passes. They create and delete rows, so `src/test/db.ts` refuses a URL unless all of these hold:
+
+-   the host is `localhost`, `127.0.0.1` or `[::1]`;
+-   the database name contains `test`;
+-   the URL has no `host`, `hostaddr` or `port` query parameter.
+
+When `GITHUB_ACTIONS` is `true` and `TEST_DATABASE_URL` is unset, the run throws instead of skipping; the CI workflow
+supplies a `postgres:17-alpine` service for it.
+
+To provision a local test database, start the `db` service of `docker-compose.yml` (it publishes port 54322), create an
+empty database whose name contains `test`, and apply the migrations to it. Replace `<user>` and `<password>` with the
+values the `db` service sets, and never commit them:
+
+```bash
+docker compose up -d --wait db
+docker compose exec db createdb -U "<user>" prompthub_test
+export TEST_DATABASE_URL="postgresql://<user>:<password>@localhost:54322/prompthub_test"
+DATABASE_URL="$TEST_DATABASE_URL" DIRECT_URL="$TEST_DATABASE_URL" npx prisma migrate deploy
+npm test
+```
+
+Any other Postgres works the same way: point `TEST_DATABASE_URL` at an empty local database named `…test…` and run
+`npx prisma migrate deploy` against it. Never point it at the Supabase project or any shared database.

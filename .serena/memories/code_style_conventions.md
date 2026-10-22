@@ -2,110 +2,79 @@
 
 ## Critical Architectural Patterns (P5S4)
 
-### 1. Document Cache Pattern (EditorPane.tsx)
+### 1. Document Cache Pattern (src/features/editor/document-cache.ts)
 
-**User-Scoped Cache Structure**:
-```typescript
-const documentCache = new Map<string, {
-  userId: string  // CRITICAL: User-scoped for security
-  promptData: PromptWithFolder
-  title: string | null  // Nullable titles allowed
-  content: string
-  lastSaved: Date | null
-}>()
+The cache is a module-level map in `document-cache.ts`; neither the hook nor `EditorPane.tsx` owns it.
 
-// ALWAYS clear cache on module load
-documentCache.clear()
-
-// Export clearing function for logout
-export function clearDocumentCache() {
-  documentCache.clear()
-}
-```
+**API**: `getCachedDocument(userId, promptId)`, `setDocumentCacheEntry(userId, promptId, entry)`,
+`updateDocumentCacheEntry(userId, promptId, patch)`, `clearDocumentCache()` and the `ANONYMOUS` identity. An entry holds
+`userId`, `promptData`, `title`, `content`, `lastSaved` and `synced` (the baseline the server is known to hold).
 
 **Security Rules**:
-- ALWAYS validate cache entry userId matches currentUserId
-- ALWAYS clear cache on logout (called in auth/actions.ts)
-- NEVER trust cached data without userId validation
+- ALWAYS read through `getCachedDocument`: it drops and never returns an entry written for another user
+- NEVER cache for `ANONYMOUS` (a failed or timed-out user lookup): `setDocumentCacheEntry` and
+  `updateDocumentCacheEntry` ignore it, and nothing is served to it
+- ALWAYS clear the cache on logout: `Header.tsx` calls `clearDocumentCache()`
+- NEVER trust cached data without the userId check
 
-### 2. Race Prevention with Refs Pattern
+### 2. Document Loading: the `ready` Token Protocol
 
-**Four Critical Refs**:
-```typescript
-// Prevent duplicate loads in React Strict Mode
-const loadedRef = useRef<string | null>(null)
+`useDocumentLoader` (`src/features/editor/hooks/useDocumentLoader.ts`) loads the open document; the protocol is in
+`loader-protocol.ts` (`runLoad`, `fetchDocument`, `commit`) and the reducer in `loader-state.ts`.
 
-// Track content ownership to prevent cross-contamination
-const contentPromptIdRef = useRef<string | null>(null)
-
-// Track current promptId synchronously to prevent stale saves
-const promptIdRef = useRef<string | null>(null)
-
-// Track document transition state to prevent stale cache updates
-const isTransitioning = useRef(false)
-```
-
-**Rules for Refs**:
-1. **loadedRef**: Mark as loaded BEFORE database fetch to prevent duplicates
-2. **contentPromptIdRef**: Update ONLY after setting content state
-3. **promptIdRef**: Update synchronously in useEffect whenever promptId changes
-4. **isTransitioning**: Set BEFORE any state changes, clear AFTER completion
-
-**Critical Ordering** (P0T2):
-```typescript
-// CORRECT: Update ownership refs FIRST, before state changes
-contentPromptIdRef.current = promptId
-loadedRef.current = promptId
-setPromptData(cached.promptData)  // Now state updates are safe
-
-// WRONG: Don't update state before ownership refs
-setPromptData(cached.promptData)  // Race condition!
-contentPromptIdRef.current = promptId
-```
-
-### 3. Transition Lock Guard Pattern (P0T3)
+**Rules**:
+1. **Identity gate**: the load waits for the user id. A rejected lookup, or none within `IDENTITY_TIMEOUT_MS`, settles
+   as `ANONYMOUS`.
+2. **One action**: the document and its sync baseline (`synced`) arrive in ONE reducer action (`apply`), so there is no
+   render with new content and an old baseline.
+3. **`ready`**: true only in renders whose `title`, `content` and `promptData` belong to `promptId`. Gate every
+   consumer on it (the editor mount, auto-save, the cache write, the draft write). It replaces the ownership
+   flags (`contentPromptIdRef`, `titlePromptIdRef`, `loadedRef`) and the transition effect (`isTransitioning`), which
+   no longer exist.
+4. **Abort**: each run has an `AbortSignal`; a superseded run (new document or identity, unmount) changes nothing
+   after its fetch.
+5. **Completions**: a finished save or restore goes through `markSynced` / `applyServerState`. They update the cache
+   entry first, and change React state only when the completed document is the open one.
+6. **Refs that remain**: `promptIdRef` (the open document, null after unmount; read in handlers only) and
+   `monacoPromptIdRef` (the Monaco onChange guard).
 
 ```typescript
-// Set lock BEFORE state changes
-isTransitioning.current = true
+const { title, content, promptData, ready, synced, markSynced } = useDocumentLoader({ promptId, io })
 
-// Do state updates...
-setPromptData(data)
-setTitle(data.title)
-setContent(data.content)
-
-// Release lock AFTER state updates complete (next tick)
-setTimeout(() => {
-  isTransitioning.current = false
-}, 0)
-
-// Guard cache updates with lock check
+// CORRECT: gate on ready; the fields belong to promptId in this render
 useEffect(() => {
-  if (isTransitioning.current) {
-    return  // Skip during transition
-  }
-  // Safe to update cache
-}, [title, content, promptData])
+  if (!ready || !synced) return
+  setDocumentCacheEntry(currentUserId, promptId, { promptData, title, content, lastSaved, synced })
+}, [ready, synced, title, content, promptData])
+
+// WRONG: reading title/content without ready can pair them with another document's promptId
 ```
 
-### 4. Auto-Save with Transition Guards (P1T4)
+### 3. Reading the Editor State
+
+`EditorPane.tsx` renders from `viewState` and `saveStatus` (`src/features/editor/sync.ts`), not from ad hoc
+`loading`/`error` combinations.
+
+### 4. Auto-Save
 
 ```typescript
 useAutoSave({
   title,
   content,
-  // Disable during loading OR transition
-  promptId: (loading || isTransitioning.current) ? null : promptId,
-  delay: 500,
-  onSave: handleAutoSave
+  // Disabled until the content belongs to promptId, and while a manual save or a restore runs
+  promptId: ready && !busy ? promptId : null,
+  // A write is due only while the working copy differs from what the server holds
+  baseline: synced,
+  onSave: handleAutoSave // read through a ref; (promptId, title, content) are those at the time the timer fired
 })
 ```
 
-**Auto-Save Rules**:
-- ALWAYS disable during document transitions
-- ALWAYS use promptIdRef to verify current document
-- ALWAYS validate title before saving
-- Use 500ms debounce (configurable via delay param)
+**Auto-Save Rules** (`useAutoSave.ts`, armed by `useServerAutoSave.ts`):
+- ALWAYS disable it until `ready` (a null `promptId` cancels a pending write)
+- ALWAYS pass the baseline: nothing is written on mount or for an edit reverted to the baseline
+- A blank or null title is never autosaved
+- The write completes through `markSynced` with the document it started with, never the one open now
+- 500ms debounce (`AUTOSAVE_DELAY_MS`, configurable via the `delay` option)
 
 ### 5. Null Title Handling Pattern (P1T5)
 
@@ -191,12 +160,12 @@ const handleAutoSave = useCallback(async () => {
 **Cache Update Dependencies**:
 ```typescript
 useEffect(() => {
-  // Skip during transition
-  if (isTransitioning.current) return
-  
+  // Skip until the content belongs to promptId
+  if (!ready || !synced) return
+
   // Update cache
-  documentCache.set(promptId, { ... })
-}, [title, content, promptData, promptId, currentUserId])
+  setDocumentCacheEntry(currentUserId, promptId, { ... })
+}, [title, content, promptData, promptId, currentUserId, ready, synced])
 // Include ALL values used in effect
 ```
 
@@ -220,9 +189,9 @@ async function ServerComponent() {
 
 **Use Refs For**:
 - Values that change but don't need re-render (promptIdRef)
-- Preventing stale closures in callbacks (contentPromptIdRef)
-- Synchronous tracking across effects (isTransitioning)
-- Preventing duplicate operations (loadedRef)
+- Guards read inside handlers and callbacks (promptIdRef, monacoPromptIdRef)
+
+Never use a ref to say which document the state belongs to: that is the `ready` token.
 
 **Use State For**:
 - Values that trigger re-renders (title, content)
@@ -234,7 +203,7 @@ async function ServerComponent() {
 ### Variables & Functions
 ```typescript
 // camelCase for variables and functions
-const documentCache = new Map()
+const autoSaveDelay = 500
 function handleAutoSave() { }
 
 // PascalCase for components and types
@@ -252,8 +221,8 @@ const AUTO_SAVE_DELAY = 500
 EditorPane.tsx
 SetTitleDialog.tsx
 
-// Utilities: camelCase.ts
-diff-utils.ts
+// Utilities: camelCase.ts or kebab-case.ts
+document-cache.ts
 getDisplayTitle.ts
 
 // Actions/Schemas: descriptive.ts
@@ -268,9 +237,8 @@ components/ui/
 ### Boolean Naming
 ```typescript
 // Prefix with is/has/should
-const isTransitioning = useRef(false)
 const hasUnsavedChanges = content !== promptData.content
-const shouldAutoSave = !loading && !isTransitioning.current
+const shouldAutoSave = ready
 
 // NEVER use negative booleans
 // BAD: const notReady = false
@@ -283,24 +251,19 @@ const shouldAutoSave = !loading && !isTransitioning.current
 ```typescript
 // Reason: Explain WHY, not WHAT
 // Reason: Check cache first for instant display
-const cached = documentCache.get(promptId)
+const cached = getCachedDocument(userId, promptId)
 
-// Reason: Update ownership refs FIRST, before state changes (P0T2)
-contentPromptIdRef.current = promptId
-loadedRef.current = promptId
+// Reason: the document and its baseline are applied in one action, so `ready` is never true for half a document
+commit(ctx, { promptData, title, content, lastSaved, synced })
 ```
 
 ### Critical Sections
 ```typescript
 // CRITICAL: Mark security or race-sensitive code
-// CRITICAL: Set transition lock BEFORE any state changes (P0T3)
-isTransitioning.current = true
 
-// SECURITY: Validate cache entry belongs to current user (P5S4T2)
-if (cached.userId !== currentUserId) {
-  console.warn('[EditorPane] Cache entry for different user, clearing:', promptId)
-  documentCache.delete(promptId)
-}
+// SECURITY: a cache entry is served only to the user it was written for (P5S4T2);
+// getCachedDocument drops an entry whose userId differs
+const cached = getCachedDocument(userId, promptId)
 ```
 
 ### TODO Comments

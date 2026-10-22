@@ -16,9 +16,15 @@ PromptHub/
 │   │   │   ├── components/
 │   │   │   │   └── EditorPane.tsx # Main editor with cache system (P5S4 refactor)
 │   │   │   ├── hooks/
-│   │   │   │   ├── useAutoSave.ts # 500ms debounce auto-save
-│   │   │   │   └── useLocalStorage.ts # localStorage persistence
-│   │   │   ├── actions.ts   # saveNewVersion, autoSavePrompt
+│   │   │   │   ├── useDocumentLoader.ts # identity-gate loader (ready token)
+│   │   │   │   ├── useDocumentPersistence.ts # composes the draft, cache, save, restore and autosave hooks
+│   │   │   │   ├── useVersionSave.ts, useVersionRestore.ts, useServerAutoSave.ts, useDocumentCacheSync.ts
+│   │   │   │   ├── useAutoSave.ts # 500ms debounce auto-save against the sync baseline
+│   │   │   │   └── useDraftSync.ts # the only browser draft writer (v1 envelope)
+│   │   │   ├── actions.ts   # saveNewVersion, autoSavePrompt (thin shells over service.ts)
+│   │   │   ├── service.ts   # saveVersion, autoSaveDocument, restoreVersion, listVersions: (db, userId, input)
+│   │   │   ├── loader-protocol.ts, loader-state.ts # the load protocol and its reducer
+│   │   │   ├── document-cache.ts, document-actions.ts, draft.ts, sync.ts, request-timeout.ts
 │   │   │   └── schemas.ts   # Zod validation schemas
 │   │   ├── folders/         # Folder management
 │   │   │   └── components/
@@ -43,7 +49,6 @@ PromptHub/
 │   │   └── use-tab-store.ts # Tab state with closeTab interceptor
 │   ├── lib/                 # Utilities and libraries
 │   │   ├── db.ts            # Prisma client instance
-│   │   ├── diff-utils.ts    # Git-style diff creation
 │   │   └── supabase/
 │   │       ├── client.ts    # Client-side Supabase client (P5S4)
 │   │       └── server.ts    # Server-side Supabase client
@@ -71,10 +76,14 @@ PromptHub/
 ### EditorPane.tsx (src/features/editor/components/)
 **Purpose**: Main document editor with caching, auto-save, and tab integration  
 **Critical Patterns**:
-- User-scoped document cache (Map with userId validation)
-- Four critical refs for race prevention (loadedRef, contentPromptIdRef, promptIdRef, isTransitioning)
-- 500ms auto-save with transition guards
-- localStorage persistence with cross-contamination prevention
+- User-scoped document cache in `src/features/editor/document-cache.ts` (userId validation, none for the anonymous
+  identity), written by `useDocumentCacheSync` and updated by the loader
+- Document loading by `useDocumentLoader` on the identity-gate protocol (`loader-protocol.ts`, `loader-state.ts`): the
+  `ready` token replaces the ownership refs and the transition lock; `promptIdRef` and `monacoPromptIdRef` remain
+- 500ms auto-save to the server, disabled until `ready`, writing only when title or content differ from the baseline
+- Content-only browser draft per document (`prompt-v1-<promptId>`, `src/features/editor/draft.ts`): written by
+  `useDraftSync`, read by the loader (`restoreDraft`, `secure`, `warnConflict` in `loader-protocol.ts`); a draft whose
+  base no longer matches the server is stashed under `:conflict` and offered once by a "Restore my text" toast
 - Null title handling with getDisplayTitle utility
 
 **Key Features**:
@@ -145,17 +154,13 @@ model Prompt {
 **Created**: P5S4  
 **Usage**: PromptList, DocumentTab, anywhere displaying document titles
 
-### createPatch() (src/lib/diff-utils.ts)
-**Purpose**: Generate Git-style diffs for version tracking  
-**Usage**: saveNewVersion action
-
 ## File Naming Conventions
 
 | Type | Convention | Example |
 |------|------------|---------|
 | Components | PascalCase.tsx | `EditorPane.tsx` |
 | Pages | kebab-case/lowercase | `login.tsx` |
-| Utilities | camelCase.ts | `diff-utils.ts` |
+| Utilities | camelCase or kebab-case.ts | `document-cache.ts` |
 | Types | *.types.ts | `actions.ts` |
 | Actions | actions.ts | `features/auth/actions.ts` |
 | Schemas | schemas.ts | `features/editor/schemas.ts` |
@@ -165,11 +170,16 @@ model Prompt {
 ```
 EditorPane.tsx
 ├── Hooks
-│   ├── useAutoSave (500ms debounce)
-│   └── useLocalStorage (persistence)
-├── Actions
+│   ├── useDocumentLoader (load, ready token)
+│   └── useDocumentPersistence
+│       ├── useDraftSync (browser draft)
+│       ├── useDocumentCacheSync (cache entry, tab metadata)
+│       ├── useVersionSave, useVersionRestore
+│       └── useServerAutoSave (useAutoSave, 500ms debounce)
+├── Actions (thin shells over service.ts)
 │   ├── saveNewVersion (manual save)
-│   └── autoSavePrompt (background save)
+│   ├── autoSavePrompt (background save)
+│   └── getPromptVersionHistory, restorePromptVersion (history dialog)
 ├── Stores
 │   ├── useUiStore (refetch triggers)
 │   └── useTabStore (tab updates)

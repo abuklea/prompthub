@@ -119,9 +119,9 @@
 *   **Description:** The active working state where a user is writing or modifying a prompt. The system provides feedback about its auto-save status.
 *   **UI/UX Flow:**
     *   As the user types in the Monaco Editor, the "Save" button becomes enabled.
-    *   Every few seconds, the content is saved to local storage. A small text indicator (Body Small: 12px, Gray 500 - `#6B7280`) appears briefly near the "Save" button, reading "Draft saved locally."
+    *   After the user pauses typing, the title and content are autosaved to the server without creating a version. A small text indicator in the editor footer (Body Small: 12px, Gray 500 - `#6B7280`) reads "Saving...", then "Saved <time>"; while the working text differs from what the server holds it reads "Unsaved changes".
     *   When the user manually clicks "Save", the button shows a loading spinner for the duration of the server action. On success, the indicator changes to "Version saved" (in Success Green - `#22C55E`) and then fades out. The "Save" button becomes disabled again until further changes are made.
-*   **Animations:** The status indicators ("Draft saved", "Version saved") fade in and out over 200ms.
+*   **Animations:** The status indicators ("Saved <time>", "Version saved") fade in and out over 200ms.
 
 #### Screen 3 - State 3: Version History Viewer
 
@@ -139,7 +139,7 @@
     *   The main editor area is replaced by Monaco Editor's diff view.
     *   The left side shows the older selected version, and the right side shows the newer one.
     *   Lines that have been removed are highlighted on the left (e.g., a subtle Error Red - `#EF4444` background), and added lines are highlighted on the right (e.g., a subtle Success Green - `#22C55E` background).
-    *   A "Restore this version" button is available for the version being viewed, allowing the user to revert. Clicking it would populate the main editor with the selected version's content and prompt the user to save it as a new version.
+    *   A "Restore this version" button is available for the version being viewed, allowing the user to revert. Clicking it asks "Restore this version?" and only after the user confirms writes the restore: the editor then shows the restored title and content, and the history keeps the replaced text and the restored state as versions.
 *   **Animations:** The transition from the standard editor to the diff view is a quick 150ms cross-fade to maintain performance.
 
 ## Tagging System

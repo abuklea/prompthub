@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:27 GMT+10
-Last modified: 11/11/2025 21:50 GMT+10
+Last modified: 22/10/2026 09:16 GMT+10
 ---------------
 Monaco Editor wrapper component with Next.js SSR handling and Bold Simplicity theme.
 Uses dynamic import to prevent SSR issues with Monaco's browser dependencies.
 
 Changelog:
+22/10/2026 09:16 GMT+10 | handleMount reads the latest value through useLatest, not the first render's (P7S1T5)
 11/11/2025 21:50 GMT+10 | CRITICAL FIX: Added explicit setValue in handleMount to fix first tab empty content bug
 07/11/2025 20:32 GMT+10 | Integrated markdown actions with keyboard shortcuts and context menu (P5S4T3)
 07/11/2025 16:16 GMT+10 | Enabled full Monaco features (context menu, find/replace) (P5S3bT15)
@@ -24,6 +25,7 @@ import { useRef } from 'react'
 import dynamic from 'next/dynamic'
 import type { EditorProps } from '../types'
 import { cn } from '@/lib/utils'
+import { useLatest } from '@/hooks/use-latest'
 import EditorSkeleton from './EditorSkeleton'
 import { markdownActions } from '../markdown-actions'
 
@@ -79,6 +81,9 @@ export default function Editor({
   className = ''
 }: EditorProps) {
   const editorRef = useRef<any>(null)
+  // Reason: @monaco-editor/react keeps the onMount of the first render, so handleMount must read the latest value
+  // through a ref; a value set while Monaco starts would otherwise be overwritten by the older one.
+  const valueRef = useLatest(value)
 
   /**
    * beforeMount handler - Define custom theme BEFORE editor mounts
@@ -134,10 +139,11 @@ export default function Editor({
     // CRITICAL: Ensure value is applied after initialization (First tab empty bug fix)
     // Reason: On first Monaco load, value prop may not be applied during mount race condition
     // Solution: Explicitly set value after initialization completes if it doesn't match
-    if (value !== undefined) {
+    const latestValue = valueRef.current
+    if (latestValue !== undefined) {
       const currentValue = editor.getValue()
-      if (currentValue !== value) {
-        editor.setValue(value)
+      if (currentValue !== latestValue) {
+        editor.setValue(latestValue)
       }
     }
 
