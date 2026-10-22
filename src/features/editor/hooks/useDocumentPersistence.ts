@@ -6,14 +6,15 @@ MIME: text/typescript
 Type: TypeScript React Hook
 
 Created: 22/10/2026 10:07 GMT+10
-Last modified: 22/10/2026 10:31 GMT+10
+Last modified: 22/10/2026 10:45 GMT+10
 ---------------
 Composes the editor's persistence hooks over one document loader: the browser draft (useDraftSync), the cache entry
-and tab metadata (useDocumentCacheSync), the version restore (useVersionRestore), the manual save (useVersionSave),
-which is ignored while a restore runs, and the server autosave (useServerAutoSave), which pauses while a manual save
-or a restore runs.
+and tab metadata (useDocumentCacheSync), the version restore into the editor (useVersionRestore), the manual save
+(useVersionSave), which is ignored while a restore runs, and the server autosave (useServerAutoSave), which pauses
+while a manual save or a restore runs.
 
 Changelog:
+22/10/2026 10:45 GMT+10 | handleRestore documented as restoring into the editor after saving unsaved edits (P7S1T8)
 22/10/2026 10:31 GMT+10 | Composes useVersionRestore; restoring blocks the manual save and pauses the autosave, and
                          the persistence returns restoring and handleRestore (P7S1T8 step 1)
 22/10/2026 10:22 GMT+10 | The manual save's saving flag pauses the autosave; useVersionSave takes blocked (P7S1T7)
@@ -66,7 +67,8 @@ export interface DocumentPersistence {
    */
   handleSetTitle(title: string): void
   /**
-   * Restores the open document to a version.
+   * Saves the unsaved edits of a titled document, then restores a version into the editor; refuses unsaved edits
+   * under a blank title.
    * @param versionId - The version to restore.
    * @returns True when the restore succeeded; false otherwise.
    */
