@@ -6,32 +6,60 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 17/07/2026 10:00 GMT+10
-Last modified: 17/07/2026 10:00 GMT+10
+Last modified: 22/10/2026 10:30 GMT+10
 ---------------
 Version history dialog for viewing and restoring previous prompt snapshots.
-Extracted from EditorPane.tsx (F5 decomposition).
+Extracted from EditorPane.tsx (F5 decomposition). Reads the list through the injected `loadHistory` and restores
+through `onRestore` (the persistence hook's handler, which shows the result toasts); it closes when that succeeds.
 
 Changelog:
+22/10/2026 10:30 GMT+10 | Takes loadHistory and onRestore in place of calling the server actions; the restore and its
+                         success toast moved into useVersionRestore (P7S1T8 step 1)
 17/07/2026 10:00 GMT+10 | Extracted from EditorPane.tsx to reduce file size (F5)
 */
 
 "use client"
 
 import { useState, useCallback } from "react"
-import { getPromptVersionHistory, restorePromptVersion } from "@/features/prompts/actions"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import type { ActionResult } from "@/types/actions"
 import type { PromptVersionHistoryItem } from "@/features/prompts/types"
 
-interface VersionHistoryDialogProps {
+/** The props of `VersionHistoryDialog`. */
+export interface VersionHistoryDialogProps {
+  /** The open document, whose versions are listed; null or "" for none. */
   promptId: string | null
+  /** Whether the dialog is open. */
   open: boolean
-  onOpenChange: (open: boolean) => void
-  onRestored: () => void
+  /**
+   * Opens or closes the dialog.
+   * @param open - True to open it.
+   */
+  onOpenChange(open: boolean): void
+  /**
+   * Reads the document's version list, newest first.
+   * @param promptId - The document.
+   * @returns The version list on success; an error message otherwise.
+   */
+  loadHistory(promptId: string): Promise<ActionResult<PromptVersionHistoryItem[]>>
+  /**
+   * Restores the open document to a version.
+   * @param versionId - The version to restore.
+   * @returns True when the restore succeeded, which closes the dialog; false leaves it open.
+   */
+  onRestore(versionId: number): Promise<boolean>
 }
 
-export function VersionHistoryDialog({ promptId, open, onOpenChange, onRestored }: VersionHistoryDialogProps) {
+/**
+ * Lists the open document's saved versions and restores one on request.
+ * @param props - The document, the open state and its setter, the list reader and the restore handler.
+ * @returns The dialog.
+ */
+export function VersionHistoryDialog(
+  { promptId, open, onOpenChange, loadHistory, onRestore }: VersionHistoryDialogProps
+) {
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<PromptVersionHistoryItem[]>([])
   const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null)
@@ -41,7 +69,7 @@ export function VersionHistoryDialog({ promptId, open, onOpenChange, onRestored 
     if (!isOpen || !promptId) return
 
     setLoading(true)
-    const result = await getPromptVersionHistory({ promptId })
+    const result = await loadHistory(promptId)
     if (!result.success) {
       toast.error(result.error)
       setLoading(false)
@@ -49,24 +77,16 @@ export function VersionHistoryDialog({ promptId, open, onOpenChange, onRestored 
     }
     setItems(result.data || [])
     setLoading(false)
-  }, [promptId, onOpenChange])
+  }, [promptId, onOpenChange, loadHistory])
 
   const handleRestore = useCallback(async (versionId: number) => {
     if (!promptId) return
 
     setRestoringVersionId(versionId)
-    const result = await restorePromptVersion({ promptId, versionId })
-    if (!result.success) {
-      toast.error(result.error)
-      setRestoringVersionId(null)
-      return
-    }
-
-    toast.success("Version restored")
-    onOpenChange(false)
+    const restored = await onRestore(versionId)
+    if (restored) onOpenChange(false)
     setRestoringVersionId(null)
-    onRestored()
-  }, [promptId, onOpenChange, onRestored])
+  }, [promptId, onOpenChange, onRestore])
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>

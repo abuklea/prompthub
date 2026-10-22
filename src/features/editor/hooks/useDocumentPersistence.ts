@@ -6,13 +6,16 @@ MIME: text/typescript
 Type: TypeScript React Hook
 
 Created: 22/10/2026 10:07 GMT+10
-Last modified: 22/10/2026 10:22 GMT+10
+Last modified: 22/10/2026 10:31 GMT+10
 ---------------
 Composes the editor's persistence hooks over one document loader: the browser draft (useDraftSync), the cache entry
-and tab metadata (useDocumentCacheSync), the manual save (useVersionSave) and the server autosave
-(useServerAutoSave), which pauses while a manual save runs.
+and tab metadata (useDocumentCacheSync), the version restore (useVersionRestore), the manual save (useVersionSave),
+which is ignored while a restore runs, and the server autosave (useServerAutoSave), which pauses while a manual save
+or a restore runs.
 
 Changelog:
+22/10/2026 10:31 GMT+10 | Composes useVersionRestore; restoring blocks the manual save and pauses the autosave, and
+                         the persistence returns restoring and handleRestore (P7S1T8 step 1)
 22/10/2026 10:22 GMT+10 | The manual save's saving flag pauses the autosave; useVersionSave takes blocked (P7S1T7)
 22/10/2026 10:07 GMT+10 | Created from the persistence logic extracted from EditorPane.tsx (P7S1T7 step 1)
 */
@@ -23,6 +26,7 @@ import { useDocumentCacheSync } from "./useDocumentCacheSync"
 import type { DocumentLoader } from "./useDocumentLoader"
 import { useDraftSync } from "./useDraftSync"
 import { useServerAutoSave } from "./useServerAutoSave"
+import { useVersionRestore } from "./useVersionRestore"
 import { useVersionSave } from "./useVersionSave"
 
 /** The inputs of `useDocumentPersistence`. */
@@ -45,6 +49,8 @@ export interface DocumentPersistence {
   saving: boolean
   /** True while any autosave request is in flight. */
   autoSaving: boolean
+  /** True while a restore request runs. */
+  restoring: boolean
   /** Whether the set-title dialog is open. */
   showSetTitleDialog: boolean
   /**
@@ -59,28 +65,38 @@ export interface DocumentPersistence {
    * @param title - The title the user confirmed.
    */
   handleSetTitle(title: string): void
+  /**
+   * Restores the open document to a version.
+   * @param versionId - The version to restore.
+   * @returns True when the restore succeeded; false otherwise.
+   */
+  handleRestore(versionId: number): Promise<boolean>
 }
 
 /**
- * Runs the draft, autosave, cache and manual-save logic for the open document.
+ * Runs the draft, autosave, cache, restore and manual-save logic for the open document.
  * @param options - The open document, its tab, the loader, the actions and the storage seam.
- * @returns The save flags, the set-title dialog state and the save handlers.
+ * @returns The save and restore flags, the set-title dialog state, and the save and restore handlers.
  */
 export function useDocumentPersistence(options: UseDocumentPersistenceOptions): DocumentPersistence {
   const { promptId, tabId, loader, actions, getStorage } = options
   useDraftSync({ promptId, ready: loader.ready, content: loader.content, synced: loader.synced, getStorage })
   useDocumentCacheSync({ promptId, tabId, loader })
-  // Reason: nothing blocks a save until the restore moves into a hook of its own (P7S1T8), which passes `restoring`.
-  const version = useVersionSave({ promptId, tabId, loader, actions, blocked: false })
-  // Reason: the manual save comes first because its `saving` pauses the autosave.
-  const { autoSaving } = useServerAutoSave({ promptId, loader, actions, busy: version.saving })
+  // Reason: the restore comes first because its `restoring` blocks the manual save and pauses the autosave: a write
+  // queued behind the restore would overwrite the restored row.
+  const restore = useVersionRestore({ promptId, tabId, loader, actions })
+  const version = useVersionSave({ promptId, tabId, loader, actions, blocked: restore.restoring })
+  // Reason: the manual save comes before the autosave because its `saving` pauses the autosave.
+  const { autoSaving } = useServerAutoSave({ promptId, loader, actions, busy: version.saving || restore.restoring })
 
   return {
     saving: version.saving,
     autoSaving,
+    restoring: restore.restoring,
     showSetTitleDialog: version.showSetTitleDialog,
     setShowSetTitleDialog: version.setShowSetTitleDialog,
     handleSave: version.handleSave,
     handleSetTitle: version.handleSetTitle,
+    handleRestore: restore.handleRestore,
   }
 }

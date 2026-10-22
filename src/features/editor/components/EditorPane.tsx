@@ -6,14 +6,15 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 22/10/2026 10:22 GMT+10
+Last modified: 22/10/2026 10:31 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
 Composes the document loader with useDocumentPersistence: autosave against the baseline (500ms debounce), browser
-drafts, the cache and tab metadata, and the manual save (Ctrl+S).
+drafts, the cache and tab metadata, the manual save (Ctrl+S) and the version restore.
 
 Changelog:
+22/10/2026 10:31 GMT+10 | Restore moved into useDocumentPersistence; the dialog takes loadHistory and onRestore (P7S1T8)
 22/10/2026 10:22 GMT+10 | documentActions runs each action under the request timeout (withActionTimeout, P7S1T7)
 22/10/2026 10:07 GMT+10 | Save, autosave, draft and cache/tab logic moved into useDocumentPersistence and its hooks;
                          module-level documentActions injects the real actions (P7S1T7 step 1)
@@ -42,8 +43,7 @@ Changelog:
 
 "use client"
 
-import { useState, useCallback } from "react"
-import { useUiStore } from "@/stores/use-ui-store"
+import { useState } from "react"
 import { saveNewVersion, autoSavePrompt } from "@/features/editor/actions"
 import { SetTitleDialog } from "@/features/prompts/components/SetTitleDialog"
 import { useDocumentLoader, type DocumentLoaderIo } from "@/features/editor/hooks/useDocumentLoader"
@@ -92,17 +92,16 @@ const documentActions = withActionTimeout({
   saveNewVersion, autoSavePrompt, restorePromptVersion, getPromptVersionHistory,
 })
 
+/** Reads the history dialog's version list. Module-level, so its identity never changes. */
+const loadHistory = (id: string) => documentActions.getPromptVersionHistory({ promptId: id })
+
 export function EditorPane({ promptId, tabId }: EditorPaneProps) {
-  const triggerPromptRefetch = useUiStore((s) => s.triggerPromptRefetch)
   const loader = useDocumentLoader({ promptId, io: loaderIo })
   const { title, content, loading, error, lastSaved, synced, ready, monacoPromptIdRef, setTitle, setContent } = loader
   const [historyOpen, setHistoryOpen] = useState(false)
-  const { saving, autoSaving, showSetTitleDialog, setShowSetTitleDialog, handleSave, handleSetTitle } =
-    useDocumentPersistence({ promptId, tabId, loader, actions: documentActions, getStorage: getBrowserStorage })
-
-  const handleVersionRestored = useCallback(() => {
-    triggerPromptRefetch()
-  }, [triggerPromptRefetch])
+  const {
+    saving, autoSaving, restoring, showSetTitleDialog, setShowSetTitleDialog, handleSave, handleSetTitle, handleRestore,
+  } = useDocumentPersistence({ promptId, tabId, loader, actions: documentActions, getStorage: getBrowserStorage })
 
   const view = viewState({ promptId, error, loading, ready })
   const status = saveStatus({ autoSaving, working: { title, content }, synced })
@@ -180,7 +179,7 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
               <Button onClick={() => setHistoryOpen(true)} disabled={!promptId} variant="outline">
                 History
               </Button>
-              <Button onClick={handleSave} disabled={saving || !promptId} variant="default">
+              <Button onClick={handleSave} disabled={saving || restoring || !promptId} variant="default">
                 {saving ? "Saving..." : "Save Version (Ctrl+S)"}
               </Button>
             </div>
@@ -199,7 +198,8 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
         promptId={promptId}
         open={historyOpen}
         onOpenChange={setHistoryOpen}
-        onRestored={handleVersionRestored}
+        loadHistory={loadHistory}
+        onRestore={handleRestore}
       />
     </>
   )
