@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Research Notes | 27/10/2026 00:18 GMT+10 | 27/10/2026 00:18 GMT+10 |
+| P7S2 Research Notes | 27/10/2026 00:18 GMT+10 | 27/10/2026 00:22 GMT+10 |
 
 ## Table of Contents
 - [Purpose and sources](#purpose-and-sources)
@@ -193,6 +193,18 @@ task is in.
 #46 stays with the developer and does not block the PRP's code.
 
 ## Open questions
+
+The developer answered Q1 to Q7 on 27/10/2026 and accepted each recommendation below. The decisions are:
+
+- Q1: the injected seam.
+- Q2: #51 is pulled into P7S2.
+- Q3: every mutation is rate-limited now, and #48 keeps the shared store.
+- Q4: every action gets validation and `ActionResult`.
+- Q5: the `server-only` package is added.
+- Q6: the `/auth/sign-out` route is deleted.
+- Q7: the sign-out purge clears the tab store too.
+
+Q8 was not put to the developer, so its recommendation stands as the default until the PRP review.
 
 | ID | Question | Recommendation |
 |---|---|---|
