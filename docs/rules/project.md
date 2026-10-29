@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Project Rules | 07/11/2025 12:46 GMT+10 | 29/10/2026 22:22 GMT+10 |
+| Project Rules | 07/11/2025 12:46 GMT+10 | 30/10/2026 01:10 GMT+10 |
 
 ## Table of Contents
 - [Project Variables](#project-variables)
@@ -171,8 +171,10 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
   against a real Postgres, and `src/test/action-coverage.test.ts` fails when one is missing.
 - **Composite tenant keys (second layer)**: migration `20261029114511_composite_tenant_keys` makes the database
   refuse a folder under another user's folder and a prompt in another user's folder (`Folder_id_user_id_key` and the
-  foreign keys `Folder_parent_id_user_id_fkey` and `Prompt_folder_id_user_id_fkey`). Tags are not covered (#107). The
-  migration is applied to the local Docker Postgres; it is not applied to the Supabase project yet (#123).
+  foreign keys `Folder_parent_id_user_id_fkey` and `Prompt_folder_id_user_id_fkey`). Both keys are `ON DELETE CASCADE ON
+  UPDATE RESTRICT`: deleting a folder takes its sub-folders and prompts with it, and a changed `user_id` is refused
+  while anything references the folder. Tags are not covered (#107). The migration is applied to the local Docker
+  Postgres; it is not applied to the Supabase project yet (#123).
 - **RLS (optional defence-in-depth)**: policies live in `wip/P3S1-rls-policies.sql`, outside `prisma migrate`, and
   apply only to connections that carry the end-user JWT (the Supabase client). Treat them as a secondary layer.
 - NEVER create triggers on `auth.users` (not permitted on Supabase Cloud). Create `Profile` rows in application code

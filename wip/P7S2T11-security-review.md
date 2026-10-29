@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2T11 Independent Security Review | 29/10/2026 22:05 GMT+10 | 29/10/2026 22:05 GMT+10 |
+| P7S2T11 Independent Security Review | 29/10/2026 22:05 GMT+10 | 30/10/2026 01:09 GMT+10 |
 
 ## Table of Contents
 - [Scope and Method](#scope-and-method)
@@ -23,6 +23,7 @@
 - [Final Validation Checklist Answers](#final-validation-checklist-answers)
 - [Commands Run](#commands-run)
 - [Not Reviewed](#not-reviewed)
+- [Closing Notes](#closing-notes)
 
 ## Scope and Method
 
@@ -292,3 +293,20 @@ node --expose-gc <scratchpad>/zod-array-cost.mjs, zod-array-fix.mjs  -> S-1 meas
   purge path.
 - Full `npm test`, lint, the size audit and `npx prisma validate` (not needed for a read-only review; the main session
   runs the gates).
+
+## Closing Notes
+
+Added by the main session after the review; the findings above are unchanged and describe the tree at `f42b8cd`.
+
+| Finding | What was done |
+|---|---|
+| S-1 | Fixed in `069a03d`: `src/lib/bounded-array.ts` checks the length before it parses any element; used for `promptIds` and both `tagIds` lists. |
+| S-2 | Filed as #124 (it changes a test written in T4). |
+| S-3 | Left to #48 (a comment records it). |
+| S-4 | Fixed in `4e644b6` on 30/10/2026, the developer's choice: `onUpdate: Restrict` on `Folder.parent` and `Prompt.folder`, the migration regenerated in place before any shared database had it; `src/test/composite-fk.update.test.ts` shows an owner change refused and the subtree untouched. |
+| S-5 | The Supabase runbook (brief of T16, #123) deploys with `PGOPTIONS='-c lock_timeout=5s'`, committed in `940ca43`. |
+| S-6 | Left to #107 (a comment records it). |
+| S-7 | Left to D10 and #106. |
+| S-8 | Left to #105 and #48 (comments record it). |
+| S-9 | Left to #47 (a comment records it). |
+| S-10 | Nothing to do. |

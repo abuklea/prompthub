@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 29/10/2026 20:16 GMT+10 |
+| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 30/10/2026 01:13 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -19,12 +19,12 @@
 
 ## Purpose
 
-The per-task detail for [the PRP](../P7S2-server-side-security-hardening.md), Tasks 1 to 7. Tasks 8 to 16 are in
+The per-task detail for [the PRP](../complete/P7S2-server-side-security-hardening.md), Tasks 1 to 7. Tasks 8 to 16 are in
 [the second briefs file](P7S2-task-briefs-2.md#briefs). Interfaces, the action matrix and the schemas are in
 [the action contracts](P7S2-action-contracts.md), the per-area rules and test conventions in
 [the domain contracts](P7S2-domain-contracts.md), the references, gotchas, file plan, trees and call sites in
 [the context](P7S2-task-context.md#references-and-gotchas), and the database environment in
-[the PRP's validation loop](../P7S2-server-side-security-hardening.md#level-2-unit-and-postgres-backed-tests). An agent given one
+[the PRP's validation loop](../complete/P7S2-server-side-security-hardening.md#level-2-unit-and-postgres-backed-tests). An agent given one
 task reads its brief, the contracts section it names and the source it cites, and checks every cited path against the
 code first. Agents never commit, push, branch or touch issues
 ([Never](../../.claude/AGENT-CONTRACT.md#never)): the main session reviews each diff, runs every gate and commits with

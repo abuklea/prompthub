@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs, Part 2 | 29/10/2026 17:54 GMT+10 | 29/10/2026 22:08 GMT+10 |
+| P7S2 Task Briefs, Part 2 | 29/10/2026 17:54 GMT+10 | 30/10/2026 01:13 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -21,7 +21,7 @@
 
 ## Purpose
 
-Tasks 8 to 16 of [the PRP](../P7S2-server-side-security-hardening.md); Tasks 1 to 7 and the rules that apply to every
+Tasks 8 to 16 of [the PRP](../complete/P7S2-server-side-security-hardening.md); Tasks 1 to 7 and the rules that apply to every
 task (headers, the database, `[P]` worktrees, one commit per backend-then-frontend task) are in
 [the first briefs file](P7S2-task-briefs.md#purpose). Interfaces are in [the action contracts](P7S2-action-contracts.md)
 and the per-area rules in [the domain contracts](P7S2-domain-contracts.md).
@@ -259,7 +259,7 @@ with unsaved edits in a tab (and with a conflict draft), press Sign Out and conf
 keeps the session and the edits, and that confirming signs out and purges; confirm `POST /auth/sign-out` returns 404;
 turn the workspace preload off in Settings, sign out, sign in as the other user and confirm none of the first user's
 folder names appears; run `npm run build` and count the action ids
-([Level 3](../P7S2-server-side-security-hardening.md#level-3-build-and-browser)). Third, the composite keys (Task 13):
+([Level 3](../complete/P7S2-server-side-security-hardening.md#level-3-build-and-browser)). Third, the composite keys (Task 13):
 follow the runbook below. Fourth, check the three follow-up issues filed at INITIAL (#105 row and byte caps, #106
 client state after a session ends, #107 tag ownership in the database) and file any further ones the checks find. Note
 the limitation of the sign-out check: other open tabs of the same browser are not asked.

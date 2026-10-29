@@ -60,8 +60,10 @@ browser drafts are now written only by `useDraftSync` (P7S1T6).
 
 ## Active PRPs (Product Requirements & Planning)
 
-- None in flight. Last completed: **P7S1**, editor data integrity (`PRPs/complete/P7S1-editor-data-integrity.md`, report in
-  `PRPs/reports/P7S1-editor-data-integrity-REPORT.md`); its browser checks are tracked in GitHub issue #38
+- None in flight. Last completed: **P7S2**, server-side security hardening (`PRPs/complete/P7S2-server-side-security-hardening.md`,
+  report in `PRPs/reports/P7S2-server-side-security-hardening-REPORT.md`); its browser checks, the Supabase migration and the
+  credential check are tracked in GitHub issues #123 and #46. Before it: **P7S1**, editor data integrity
+  (`PRPs/complete/P7S1-editor-data-integrity.md`); its browser checks are tracked in GitHub issue #38
 
 ## Core Features
 

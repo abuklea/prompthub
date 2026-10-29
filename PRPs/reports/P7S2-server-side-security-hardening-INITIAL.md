@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 - Server-side Security Hardening - INITIAL REPORT | 29/10/2026 19:34 GMT+10 | 29/10/2026 19:56 GMT+10 |
+| P7S2 - Server-side Security Hardening - INITIAL REPORT | 29/10/2026 19:34 GMT+10 | 30/10/2026 01:13 GMT+10 |
 
 ## Table of Contents
 - [Review Status](#review-status)
@@ -34,7 +34,7 @@ developer and stand as written.
 
 ## Overview
 
-[The PRP](../P7S2-server-side-security-hardening.md) brings every server action under one pattern, in sixteen tasks.
+[The PRP](../complete/P7S2-server-side-security-hardening.md) brings every server action under one pattern, in sixteen tasks.
 
 1. The package `server-only`, and `ensureProfileExists(db, userId)` as a server-only module that is no longer an action
    (T1).
@@ -58,13 +58,13 @@ developer and stand as written.
 
 ## Research Summary
 
-The research is in [the PRP](../P7S2-server-side-security-hardening.md), its five companion documents and
+The research is in [the PRP](../complete/P7S2-server-side-security-hardening.md), its five companion documents and
 [the research notes](../../wip/P7S2-research-notes.md). This section lists what the execution depends on.
 
 | Finding | Where it matters | Source |
 |---|---|---|
-| Eight modules carry `"use server"` and export 27 functions (counted again at `4f37bbd`: 3, 1, 2, 5, 2, 12, 1 and 1); 22 touch tenant data and get a cross-user test, `searchPrompts` and `ensureProfileExists` stop being actions, 25 remain | T1, T6, T10 | [PRP, Why](../P7S2-server-side-security-hardening.md#why) |
-| No test imports an action; the only isolation tests sit below the action layer (`src/features/editor/service.save.test.ts:169`) | T2 to T8, T10 | [PRP, Why](../P7S2-server-side-security-hardening.md#why) |
+| Eight modules carry `"use server"` and export 27 functions (counted again at `4f37bbd`: 3, 1, 2, 5, 2, 12, 1 and 1); 22 touch tenant data and get a cross-user test, `searchPrompts` and `ensureProfileExists` stop being actions, 25 remain | T1, T6, T10 | [PRP, Why](../complete/P7S2-server-side-security-hardening.md#why) |
+| No test imports an action; the only isolation tests sit below the action layer (`src/features/editor/service.save.test.ts:169`) | T2 to T8, T10 | [PRP, Why](../complete/P7S2-server-side-security-hardening.md#why) |
 | Issue #45 proposed stubbing auth at `createClient`, which `docs/rules/testing.md#rules` forbids; the developer chose an injected seam (Q1) | T2, T3 | [Action contracts, The Seam](../docs/P7S2-action-contracts.md#the-seam) |
 | `assignTagsToPrompt` updates by `id` alone after a separate check (`src/features/prompts/actions.ts:588-595`); `createPrompt` and `createFolder` write an unchecked `folderId` or `parentId` (F-2) | T5, T6, T7, T13 | [Research notes, Findings](../../wip/P7S2-research-notes.md#findings) |
 | Importing any export of an action module registers all of them; one added import made `ensureProfileExists` a public endpoint that creates a `Profile` for any id (F-3) | T1, T10, T16 | [Research notes, Findings](../../wip/P7S2-research-notes.md#findings) |
@@ -72,7 +72,7 @@ The research is in [the PRP](../P7S2-server-side-security-hardening.md), its fiv
 | A composite key skips a row with a NULL column, so root folders and unfiled prompts stay valid; on a throwaway local Postgres the migration applied all or nothing, failed with `P3018` on a seeded violation and the recovery worked (29/10/2026); nothing ran against Supabase | T13, T16 | [Domain contracts, Composite Tenant Keys](../docs/P7S2-domain-contracts.md#composite-tenant-keys) |
 | Sign-out clears only the document cache, the workspace cache never checks its user id, the tab store keeps the previous user's titles on disk and `POST /auth/sign-out` has no caller (F-6, F-7, F-8) | T5, T9, T14 | [Research notes, Findings](../../wip/P7S2-research-notes.md#findings) |
 | `src/features/prompts/actions.ts` is the one RED source file (674 lines, nine `NEXT_REDIRECT` rethrows) | T6, T7 | [Code size register](../../docs/rules/code-size-register.md) |
-| The baseline measured again at `4f37bbd` on 29/10/2026 equals the PRP's figures: 340 tests passed and 29 skipped (30 files passed, 2 skipped), `tsc` exit 0, 15 `max-lines-per-function` warnings, size audit source GREEN 99, YELLOW 2, RED 1, test GREEN 38, YELLOW 2, RED 0, PASS | every task | [PRP, Validation Loop](../P7S2-server-side-security-hardening.md#validation-loop) |
+| The baseline measured again at `4f37bbd` on 29/10/2026 equals the PRP's figures: 340 tests passed and 29 skipped (30 files passed, 2 skipped), `tsc` exit 0, 15 `max-lines-per-function` warnings, size audit source GREEN 99, YELLOW 2, RED 1, test GREEN 38, YELLOW 2, RED 0, PASS | every task | [PRP, Validation Loop](../complete/P7S2-server-side-security-hardening.md#validation-loop) |
 
 Existing files built upon: the seven `actions.ts` files under
 `src/features/{auth,dashboard,editor,folders,profile,prompts,workspace}`, `src/lib/ensure-profile.ts`,
@@ -194,7 +194,7 @@ Before the first dispatch of the parallel batch:
 
 1. The main session provisions the test database: the shared `prompthub_test` for T1 to T10 and `prompthub_test_t13` for
    T13, with every migration applied. The commands are in
-   [the PRP's validation loop](../P7S2-server-side-security-hardening.md#level-2-unit-and-postgres-backed-tests).
+   [the PRP's validation loop](../complete/P7S2-server-side-security-hardening.md#level-2-unit-and-postgres-backed-tests).
    Docker 29.8.2 and Compose 5.6.0 are installed here and the daemon answers; `TEST_DATABASE_URL` is unset,
    `node_modules` is present and `server-only` is not installed. The URL goes in the prompt of every task that needs the
    database (T1 to T8 and T13); an agent without it writes its failing tests, reports "red not shown: no database" and

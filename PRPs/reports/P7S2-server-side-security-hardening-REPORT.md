@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 - Server-side Security Hardening - COMPLETION REPORT | 29/10/2026 22:35 GMT+10 | 29/10/2026 22:35 GMT+10 |
+| P7S2 - Server-side Security Hardening - COMPLETION REPORT | 29/10/2026 22:35 GMT+10 | 30/10/2026 01:12 GMT+10 |
 
 ## Table of Contents
 - [Overview](#overview)
@@ -33,14 +33,15 @@
 
 ## Overview
 
-[The PRP](../P7S2-server-side-security-hardening.md) set out to bring every server action under one pattern, in sixteen
+[The PRP](../complete/P7S2-server-side-security-hardening.md) set out to bring every server action under one pattern, in sixteen
 tasks (P7S2T1 to P7S2T16, issues #108 to #123) under epic #39. Fifteen tasks are built, gated and committed on branch
 `feature/P7S2-server-side-security-hardening`; the sixteenth, T16 (#123), is the developer's browser, Supabase and
 credential checks, and none of them has run. The code is complete and every CI gate that can run on this machine
-passes. No browser flow has been run, no pull request exists, so the CI run of the Postgres service container has not
-happened, and the composite-key migration has not been applied to Supabase. The PRP Status in the footer is `REVIEW`,
-which follows epic #39 at `status: in-review`; the PRP is not archived, because that and the epic's closing are the
-developer's call.
+passes. No browser flow has been run, the composite-key migration has not been applied to Supabase, and the CI run of
+the Postgres service container belongs to the pull request that is opened after this report is committed; its result is
+not recorded here. The PRP Status in the footer is `COMPLETE` and the PRP is archived in `PRPs/complete/`, at the
+developer's instruction on 30/10/2026; the rules tie `COMPLETE` to a closed epic, and epic #39 stays open at
+`status: in-review` until T16 passes.
 
 Delivered, by part:
 
@@ -64,7 +65,9 @@ Delivered, by part:
 7. An independent security review with one fix (T11), a documentation sweep that closed the drift register (T12), and
    corrected agent definitions that ran first (T15).
 
-The figures below were measured on 29/10/2026 on commit `4371fab`, before this report was committed.
+The figures below were measured on 29/10/2026 on commit `4371fab`, before the first version of this report was
+committed, and the gates were measured again on 30/10/2026 on `4e644b6`, after the change that the developer chose for
+review finding S-4.
 
 ## Implementation Summary
 
@@ -118,10 +121,14 @@ return `ActionResult` and no longer throw. None of these actions imports the dat
 Migration `20261029114511_composite_tenant_keys` is the five statements `prisma migrate diff --script` printed: it
 drops `Folder_parent_id_fkey` and `Prompt_folder_id_fkey`, adds `Folder_id_user_id_key`, and adds
 `Folder_parent_id_user_id_fkey` and `Prompt_folder_id_user_id_fkey`, so a folder's parent and a prompt's folder must
-belong to the same user. A root folder and an unfiled prompt stay valid, because Postgres skips a composite key with a
-null column. The schema carries a comment on each relation against Prisma `disconnect`, which would null the shared
-`user_id`. The migration touches neither `Tag_name_user_id_ci_key` nor `content_tsv`. Tags are not covered
-(follow-up #107). Nothing else in the schema changed.
+belong to the same user. Both new keys are `ON DELETE CASCADE ON UPDATE RESTRICT`: a deleted folder still takes its
+sub-folders and prompts with it, and a changed `user_id` is refused while a sub-folder or a prompt references the
+folder, where the first version of the migration (`ON UPDATE CASCADE`, Prisma's default) would have moved the whole
+subtree to the new owner (review finding S-4). On 30/10/2026 the developer chose `onUpdate: Restrict` and the migration
+was regenerated in place, with the same folder name, before any shared database had it. A root folder and an unfiled
+prompt stay valid, because Postgres skips a composite key with a null column. The schema carries a comment on each
+relation against Prisma `disconnect`, which would null the shared `user_id`. The migration touches neither
+`Tag_name_user_id_ci_key` nor `content_tsv`. Tags are not covered (follow-up #107). Nothing else in the schema changed.
 
 ### Client
 
@@ -176,7 +183,7 @@ and the dependencies are disjoint; the PRP's sequence is linear and this order k
 its own databases, and the main session then applied its migration to the shared `prompthub_test`.
 
 Every task was test first: the red runs are in [Red runs](#red-runs). No existing test file was edited; the tests that
-a task wrote are new files, and `git diff --name-status` between `b2d8409` and `4371fab` shows no modified file that
+a task wrote are new files, and `git diff --name-status` between `b2d8409` and `4e644b6` shows no modified file that
 matches `*.test.*`.
 
 Things that went differently from the plan. The T11 agent hit its 50-turn limit before it wrote a file and was resumed
@@ -191,10 +198,21 @@ touched while another agent used the same database; the three files passed alone
 treat it as load, not a defect. A stale `.next/types/app/auth/sign-out/route.ts` made one `tsc` run fail after the route
 was deleted, until the next build regenerated `.next/types`; a fresh checkout has no `.next`.
 
+On 30/10/2026 the developer took three decisions after the first version of this report: `onUpdate: Restrict` for the
+composite keys (finding S-4), the PRP set to `COMPLETE` and archived, and a pull request so that CI runs. The key change
+was one more backend task in the shared checkout, run with the same discipline as T13: the new test first, red against
+the old keys (2 of 3 failed), then the schema, then the migration regenerated in place with `prisma migrate diff`, then
+the seeded cross-user folder on a throwaway database that had the first eight migrations (the deploy failed with
+`P3018` and applied nothing; `migrate resolve --rolled-back`, a clean-up and a second deploy applied it), then a
+from-scratch apply on an empty database and the whole suite. The main session dropped and rebuilt the shared test
+database `prompthub_test` with the regenerated migration and re-ran every gate. The archive moved the PRP to
+`PRPs/complete/` and corrected the relative links to it, from it and in the plan documents, the INITIAL report and this
+report, as the P7S1 archive did.
+
 ## Commits
 
-`git log --oneline b2d8409..HEAD` lists 17 commits since the commit that corrected the agent definitions (T15). The
-commit of this report is not in the list.
+`git log --oneline b2d8409..4e644b6` lists 19 commits since the commit that corrected the agent definitions (T15). The
+commit that archives the PRP and revises this report, and the commits after it, are not in the list.
 
 | Hash | Task | Message |
 |---|---|---|
@@ -215,21 +233,25 @@ commit of this report is not in the list.
 | `940ca43` | T11 | docs: add the P7S2 security review report and a lock timeout to the Supabase runbook (P7S2T11) |
 | `069a03d` | T11 | fix: refuse an over-long list before parsing its elements (P7S2T11 finding S-1) |
 | `4371fab` | T12 | docs: bring the documents true after P7S2 and close the drift register (P7S2T12) |
+| `09c24b2` | report | docs: P7S2 completion report and the PRP footer after execution |
+| `4e644b6` | T13, S-4 | fix: the composite tenant keys refuse an owner change instead of cascading it (P7S2T13, review finding S-4) |
 
 ## Verification Results
 
 ### Gates
 
-The baseline column was measured on 29/10/2026 before any change; the final column on `4371fab`.
+The baseline column was measured on 29/10/2026 before any change; the final column on `4e644b6` (30/10/2026), the
+commit of the last code change, after the shared test database was rebuilt from scratch with the regenerated
+migration. The documents committed since then change no code.
 
 | Gate | Baseline | Final |
 |---|---|---|
 | `npx prisma validate` | valid | valid |
 | `npm run lint` | 15 warnings, 0 errors | 14 warnings, 0 errors (the `Header` function warning went with the sign-out extraction) |
 | `npx tsc --noEmit` | exit 0 | exit 0 |
-| `npm test`, no database | 30 files passed and 2 skipped; 340 tests passed and 29 skipped | 43 files passed and 20 skipped; 512 tests passed and 182 skipped |
-| `npm test`, with `TEST_DATABASE_URL` | 32 files, 369 tests passed | 63 files, 694 tests passed |
-| `scripts/audit-code-size.sh --summary` | source GREEN 99, YELLOW 2, RED 1; test GREEN 38, YELLOW 2, RED 0; PASS | source GREEN 118, YELLOW 2, RED 0; test GREEN 70, YELLOW 4, RED 0; PASS, no register row |
+| `npm test`, no database | 30 files passed and 2 skipped; 340 tests passed and 29 skipped | 43 files passed and 21 skipped; 512 tests passed and 185 skipped |
+| `npm test`, with `TEST_DATABASE_URL` | 32 files, 369 tests passed | 64 files, 697 tests passed |
+| `scripts/audit-code-size.sh --summary` | source GREEN 99, YELLOW 2, RED 1; test GREEN 38, YELLOW 2, RED 0; PASS | source GREEN 118, YELLOW 2, RED 0; test GREEN 71, YELLOW 4, RED 0; PASS, no register row |
 | `npm run build` | passes; 26 action ids (the PRP's count from the 22/10/2026 build; not re-measured before T1) | passes; 25 action ids; no `/auth/sign-out` route |
 | gitleaks | not run (CI only) | not run (CI only) |
 
@@ -242,9 +264,10 @@ under `src` contains `auth/sign-out`; `prompts/actions.ts` has 112 lines; the co
 
 ### Coverage
 
-Measured with `npx vitest run --coverage` against the database, over the 42 files in the scope of `vitest.config.ts`:
-99.61% of lines and statements (2049 of 2057), 96.76% of branches (778 of 804), 100% of functions (193 of 193). Every
-file reaches 80% on every measure. The files this PRP created or changed in scope:
+Measured on `4371fab` with `npx vitest run --coverage` against the database, over the 42 files in the scope of
+`vitest.config.ts`: 99.61% of lines and statements (2049 of 2057), 96.76% of branches (778 of 804), 100% of functions
+(193 of 193). Every file reaches 80% on every measure. The change of 30/10/2026 adds a test file and a schema line and no
+file to the scope, so the figures stand. The files this PRP created or changed in scope:
 
 | File | Lines | Functions | Branches |
 |---|---|---|---|
@@ -284,6 +307,7 @@ that cannot fail against a stub is a guard and not evidence.
 | T13 | `composite-fk.test.ts` | 2 of 6 failed: the database accepted a cross-user folder and a cross-user prompt |
 | T14 | `client-purge.unsaved.test.ts` | 6 of 8 failed against a stub that returns false |
 | S-1 | `bounded-array.test.ts` | 5 of 17 failed: 100,000 invalid elements produced 100,001 issues |
+| S-4 | `composite-fk.update.test.ts` | 2 of 3 failed against `ON UPDATE CASCADE`: the database accepted the owner change and the sub-folder and its prompt moved to the new owner; the delete-cascade guard passed |
 
 ### Feature verification
 
@@ -310,25 +334,26 @@ raised one Medium finding, S-1, fixed in `069a03d`: Zod 3.25.76 parses every ele
 reports the length and `runAction` parses before it authenticates, so a body of about a million elements cost about 200
 ms of blocked CPU; `boundedArray` refuses it in constant time (200,000 invalid elements: 200,001 issues in 70 to 115 ms
 before, one issue in 0.2 ms after). The Low and Info findings went to issues or notes: S-2 to #124, S-3 and S-8 to #48
-and #105, S-5 into the Supabase runbook, S-6 to #107, S-9 and the body size limit to #47, S-7 to D10 and #106, and S-4 to
-the developer (see [For the developer](#for-the-developer)). The agent did not reach every item; its report lists what
-it did not review.
+and #105, S-5 into the Supabase runbook, S-6 to #107, S-9 and the body size limit to #47 and S-7 to D10 and #106. S-4,
+the one the developer had to decide, was fixed on 30/10/2026 in `4e644b6`: the keys are `ON UPDATE RESTRICT` (see
+[Database](#database)). The agent did not reach every item; its report lists what it did not review.
 
 ### Not verified
 
 Every browser flow: the sign-out question and purge, signing in as a second user in the same tab, the deleted-folder tab
 closing, the folder, prompt, tag, history, profile and dashboard callers, and the effect order in `WorkspacePreloader`
-with the preload setting off. The CI run of the Postgres service container (it needs a pull request). The audit and the
-composite-key migration on Supabase. Whether the cloud GoTrue sends `AuthError.code` for `email_not_confirmed` and
-`weak_password`, and whether the cloud project has email confirmation on. The credential rotation of #46. The HTTP path
-and the memory cost of finding S-1. The wrappers and `action-runtime.ts` at run time (the build type-checks them and the
-coverage rule checks their shape, nothing calls them). The `ON UPDATE CASCADE` behaviour of S-4 (inferred). Diagram
-rendering (the project has no render step).
+with the preload setting off. The CI run of the Postgres service container: it runs on the pull request, after this
+report. The audit and the composite-key migration on Supabase, and the `ON UPDATE RESTRICT` rule there: it is tested on
+the local Docker Postgres only, through the test client, because no application code changes a folder's owner. Whether
+the cloud GoTrue sends `AuthError.code` for `email_not_confirmed` and `weak_password`, and whether the cloud project has
+email confirmation on. The credential rotation of #46. The HTTP path and the memory cost of finding S-1. The wrappers and
+`action-runtime.ts` at run time (the build type-checks them and the coverage rule checks their shape, nothing calls
+them). Diagram rendering (the project has no render step).
 
 ## Files Changed
 
-110 files changed between `b2d8409` and `4371fab`: 56 added, 53 modified and 1 deleted. NEW is added, UPDATE is
-modified and DELETE is deleted.
+113 files changed between `b2d8409` and `4e644b6`: 58 added, 54 modified and 1 deleted. NEW is added, UPDATE is
+modified and DELETE is deleted. The archive commit that follows also moves the PRP to `PRPs/complete/`.
 
 ```text
 Seam and server helpers
@@ -380,7 +405,7 @@ Test harness, rule and configuration
 UPDATE  src/test/db.ts
 NEW     src/test/action-deps.ts, racing-db.ts, db.helpers.test.ts
 NEW     src/test/action-coverage.ts, action-coverage.check.test.ts, action-coverage.test.ts
-NEW     src/test/composite-fk.test.ts
+NEW     src/test/composite-fk.test.ts, composite-fk.update.test.ts
 UPDATE  package.json, package-lock.json, vitest.config.ts
 
 Documents
@@ -416,6 +441,11 @@ NEW     wip/P7S2T11-security-review.md, wip/P7S2T12-sweep-log.md
    and no commit carries a session trailer, because `docs/rules/git.md` forbids signature lines.
 9. Folder input types. `CreateFolderInput` and its three siblings are exported from `folders/schemas.ts`; the contract's
    wrapper example imports `CreateFolderInput` but never defined it.
+10. T13, 30/10/2026. The two composite keys are `ON UPDATE RESTRICT`, where the contract planned Prisma's default
+    `ON UPDATE CASCADE`: the developer's decision on review finding S-4. The migration was regenerated in place under the
+    same folder name, because no shared database had it, and the contract says so.
+11. Closing. The PRP is `COMPLETE` and archived while epic #39 stays open for #123, at the developer's instruction on
+    30/10/2026, as P7S1 was; nothing on the tracker was closed.
 
 ### Limitations and accepted behaviour
 
@@ -463,26 +493,24 @@ and the prompt actions that changed take one object argument.
 
 ### For the developer
 
-1. Decide S-4. The migration's keys use `ON UPDATE CASCADE`, so if code ever changed a folder's `user_id`, its subtree
-   would move to the new owner instead of the update being refused. No code does that today. Keeping the approved SQL
-   costs nothing now; `onUpdate: Restrict` on `Folder.parent` and `Prompt.folder` plus a regenerated migration makes the
-   database refuse it. The migration has not reached Supabase, so the change is free until it does.
-2. Run T16 (#123): the browser checks on the Docker stack, the composite-key audit and migration on Supabase (with the
-   lock timeout of the runbook), the credential check of #46, and a look at #105 to #107 and #124 to #126.
-3. Decide whether to archive the PRP and mark it `COMPLETE`. The rules tie `COMPLETE` to a closed epic; P7S1 archived
-   at the developer's instruction while its epic stayed open.
-4. Open the pull request if you want CI to run the Postgres service container. It carries `Closes #51` and `Refs #48`,
-   and only `Refs` for #46 and #123. For #40 to #45 the rule is `Closes` when merging finishes the work and `Refs` when
-   a human check remains: #41 to #44 each have a browser flow in T16, so they take `Refs`.
-5. The isolation rule sits in `docs/rules/testing.md`, which `documentation.md` calls identical across projects; it may
+1. Run T16 (#123): the browser checks on the Docker stack, the composite-key audit and migration on Supabase (with the
+   lock timeout of the runbook; the migration now carries `ON UPDATE RESTRICT`), the credential check of #46, and a look
+   at #105 to #107 and #124 to #126.
+2. Read the CI run of the pull request that follows this report. It carries `Closes #51` and `Refs #48`, and only
+   `Refs` for the rest: for #40 to #45 the rule is `Closes` when merging finishes the work and `Refs` when a human check
+   remains, and #41 to #44 each have a browser flow in T16. Merging closes #51 by itself; the other issues stay open
+   until you close them.
+3. The isolation rule sits in `docs/rules/testing.md`, which `documentation.md` calls identical across projects; it may
    belong in `project.md` with a pointer from `testing.md`.
-6. The wip files of this PRP stay until the epic closes, because the PRP, the briefs and the issues link to them:
-   `wip/P7S2-research-notes.md`, `wip/P7S2-research-drift.md`, `wip/P7S2T11-security-review.md` and
+4. The wip files of this PRP stay until the epic closes, because the archived PRP, the briefs and the issues link to
+   them: `wip/P7S2-research-notes.md`, `wip/P7S2-research-drift.md`, `wip/P7S2T11-security-review.md` and
    `wip/P7S2T12-sweep-log.md`. Delete them with the closing commit and cite its hash here.
+5. The bodies of the task issues cite the PRP as `PRPs/P7S2-server-side-security-hardening.md`; the file now lives in
+   `PRPs/complete/`. The filename is stable and the issues were not edited.
 
 ----
 **Report Status**: FINAL
-**PRP Status**: REVIEW
+**PRP Status**: COMPLETE
 **PRP ID**: P7S2
 **GitHub Issues**: #39 (PRP epic, in review); tasks #108-#122 (P7S2T15, P7S2T1-P7S2T6, P7S2T8, P7S2T7, P7S2T9, P7S2T10, P7S2T13, P7S2T14, P7S2T11, P7S2T12, in that order; #108 closed, the rest in review); dev-review #123 (P7S2T16, open, blocked) and #46 (open); delivered #40-#45 and #51 (in review); #48 (part delivered, open); follow-ups #105-#107 and #124-#126 (backlog)
 **PRP Document**: P7S2-server-side-security-hardening
@@ -490,13 +518,13 @@ and the prompt actions that changed take one object argument.
 **Phase**: Phase 7 - Hardening (Server-side security)
 **Dependencies**: P7S1 (Complete)
 **Implementation Status**: COMPLETE (P7S2)
-**Testing Status**: COMPLETE (694/694 tests passed with a database; 512 passed and 182 skipped without; no browser run, no CI run)
+**Testing Status**: COMPLETE (697/697 tests passed with a database; 512 passed and 185 skipped without; no browser run; the CI run of the pull request is not recorded here)
 **Next PRP**: P7S3 - Production readiness
 **Notes**:
-- Code, tests and documents are complete for T1-T15; every browser flow, the CI run, the Supabase audit and migration and the credential rotation are unverified and belong to #123, #46 and the first pull request
-- PRP Status is REVIEW because epic #39 is at status: in-review; the PRP stays in PRPs/ until the developer decides to archive it
+- Code, tests and documents are complete for T1-T15; every browser flow, the CI run, the Supabase audit and migration and the credential rotation are unverified and belong to #123, #46 and the pull request
+- PRP Status is COMPLETE and the PRP is archived in PRPs/complete/ at the developer's instruction on 30/10/2026, although epic #39 stays open at status: in-review for dev-review #123; the rules tie COMPLETE to a closed epic, and nothing on the tracker was closed
 - Lint 14 warnings (baseline 15, none added); size audit PASS with no RED file and no register row; build passes with 25 action ids
 - Per-file coverage at least 82.69% on every measure for all 42 files in scope; totals 99.61% of lines, 96.76% of branches
-- The independent review found no cross-tenant read or write; its one Medium finding (S-1) is fixed; S-4 awaits the developer
+- The independent review found no cross-tenant read or write; its Medium finding (S-1) and S-4 (the keys are ON UPDATE RESTRICT, the developer's choice) are fixed
 - No existing test was edited; the wip files are kept until the epic closes
-**Completed**: 29/10/2026 22:35 GMT+10
+**Completed**: 30/10/2026 01:12 GMT+10
