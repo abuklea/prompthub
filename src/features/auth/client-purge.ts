@@ -6,14 +6,16 @@ MIME: text/typescript
 Type: TypeScript Module
 
 Created: 29/10/2026 21:09 GMT+10
-Last modified: 29/10/2026 21:11 GMT+10
+Last modified: 29/10/2026 21:29 GMT+10
 ---------------
 The sign-out purge (issue #44): empties every piece of client state that belongs to the signed-in user before the
 session ends, so that nothing of it reaches the next user of the same browser tab. It clears the document cache and the
 workspace cache, removes the browser drafts, resets the tab store (in memory and on disk) and the UI store's session
-state. The storage is a seam; nothing here throws.
+state. hasUnsavedClientWork tells the Header whether the purge would discard work, so that it asks first. The storage
+is a seam; nothing here throws.
 
 Changelog:
+29/10/2026 21:29 GMT+10 | Added hasUnsavedClientWork: a dirty tab or any draft key (P7S2T14, decision D10, issue #120)
 29/10/2026 21:11 GMT+10 | Created (P7S2T9; decisions Q7, D5, D8)
 */
 
@@ -79,4 +81,30 @@ export function purgeClientState(storage: PurgeStorage | null = browserStorage()
   attempt("the draft removal", () => removeDraftKeys(storage))
   attempt("the tab reset", () => useTabStore.getState().resetTabs())
   attempt("the session reset", () => useUiStore.getState().resetSession())
+}
+
+/** @returns Whether the storage holds a draft key; a blocked storage holds none the app could have written. */
+function hasDraftKey(storage: PurgeStorage | null): boolean {
+  if (!storage) return false
+  try {
+    for (let index = 0; index < storage.length; index++) {
+      if (storage.key(index)?.startsWith(DRAFT_KEY_PREFIX)) return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Tells the Header whether signing out would discard work (decision D10), so that it asks before it purges. A draft
+ * `prompt-v1-<id>` exists only while the working text differs from the server's; the conflict stash and the legacy
+ * draft are kept text by design. Only this browser tab's memory and the shared storage are seen.
+ *
+ * @param storage - Where the drafts are kept; `window.localStorage` by default, null when there is none.
+ * @returns True when any open tab is dirty or the storage holds any draft key. Never throws: a blocked or missing
+ * storage counts as no draft, while a dirty tab still counts.
+ */
+export function hasUnsavedClientWork(storage: PurgeStorage | null = browserStorage()): boolean {
+  return useTabStore.getState().tabs.some((tab) => tab.isDirty === true) || hasDraftKey(storage)
 }
