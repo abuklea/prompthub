@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs, Part 2 | 29/10/2026 17:54 GMT+10 | 29/10/2026 18:27 GMT+10 |
+| P7S2 Task Briefs, Part 2 | 29/10/2026 17:54 GMT+10 | 29/10/2026 19:47 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -260,8 +260,9 @@ keeps the session and the edits, and that confirming signs out and purges; confi
 turn the workspace preload off in Settings, sign out, sign in as the other user and confirm none of the first user's
 folder names appears; run `npm run build` and count the action ids
 ([Level 3](../P7S2-server-side-security-hardening.md#level-3-build-and-browser)). Third, the composite keys (Task 13):
-follow the runbook below. Fourth, file the follow-up issues the PRP lists. Note the limitation of the sign-out check:
-other open tabs of the same browser are not asked.
+follow the runbook below. Fourth, check the three follow-up issues filed at INITIAL (#105 row and byte caps, #106
+client state after a session ends, #107 tag ownership in the database) and file any further ones the checks find. Note
+the limitation of the sign-out check: other open tabs of the same browser are not asked.
 
 Runbook for the composite keys on Supabase. Verified only on a throwaway local Postgres on 29/10/2026 (Prisma 6.19,
 [the contract](P7S2-domain-contracts.md#composite-tenant-keys) has the evidence); nothing here has been run against
