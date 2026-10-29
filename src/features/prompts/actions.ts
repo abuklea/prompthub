@@ -6,13 +6,17 @@ MIME: text/typescript
 Type: TypeScript
 
 Created: 06/11/2025 14:33 GMT+10
-Last modified: 29/10/2026 20:04 GMT+10
+Last modified: 29/10/2026 20:48 GMT+10
 ---------------
-Server actions for prompts: listing by folder, full-text search, creating, reading, renaming, deleting and validating
-prompts; listing, creating and assigning tags; and reading and restoring the version history, which delegate to
-@/features/editor/service.
+Server actions for prompts. Listing by folder (with the full-text search when a query is given), creating, reading,
+renaming, deleting and validating prompts are one-line wrappers over ./handlers, which parse, authenticate,
+rate-limit and scope every query by the user's id. Listing, creating and assigning tags, and reading and restoring the
+version history (which delegate to @/features/editor/service), keep their bodies here.
 
 Changelog:
+29/10/2026 20:48 GMT+10 | P7S2T6: the six CRUD and listing actions are wrappers over ./handlers and take object
+                         arguments; getPromptsByFolder returns an ActionResult; searchPrompts moved to
+                         ./search-handlers and is no longer an action; eslint-disable max-lines removed (issue #114)
 29/10/2026 20:04 GMT+10 | P7S2T1: createPrompt passes the database client to ensureProfileExists
 22/10/2026 08:59 GMT+10 | P7S1T3: header description tightened
 22/10/2026 08:52 GMT+10 | P7S1T3: restorePromptVersion returns the restored { title, content }; the restore write is
@@ -23,312 +27,81 @@ Changelog:
 
 "use server"
 
-/* eslint-disable max-lines -- RED in docs/rules/code-size-register.md (split, #51); delete with the split */
-
+import type { z } from "zod"
 import db from "@/lib/db"
+import { actionDeps } from "@/lib/action-runtime"
 import { createClient } from "@/lib/supabase/server"
 import {
   assignPromptTagsSchema,
-  createPromptSchema,
   createTagSchema,
-  getPromptDetailsSchema,
   getPromptVersionHistorySchema,
   listTagsSchema,
   restorePromptVersionSchema,
-  searchPromptsSchema,
+} from "./schemas"
+import type {
+  deletePromptSchema,
+  getPromptsByFolderSchema,
+  renamePromptSchema,
+  validatePromptsSchema,
 } from "./schemas"
 import { ActionResult } from "@/types/actions"
 import { PromptListItem, PromptVersionHistoryItem } from "./types"
-import { ensureProfileExists } from "@/lib/ensure-profile"
-import { checkMutationRateLimit } from "@/lib/rate-limit"
 import { listVersions, restoreVersion } from "@/features/editor/service"
+import * as handlers from "./handlers"
 
-export async function getPromptsByFolder(folderId: string, filters?: { query?: string; tagIds?: string[] }) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    throw new Error("User not found")
-  }
-
-  const safeQuery = filters?.query?.trim()
-  const safeTagIds = filters?.tagIds?.filter(Boolean) ?? []
-
-  if (safeQuery) {
-    return searchPrompts({ folderId, query: safeQuery, tagIds: safeTagIds })
-  }
-
-  return await db.prompt.findMany({
-    where: {
-      user_id: user.id,
-      folder_id: folderId,
-      ...(safeTagIds.length > 0
-        ? {
-            tags: {
-              some: {
-                id: {
-                  in: safeTagIds,
-                },
-              },
-            },
-          }
-        : {}),
-    },
-    include: {
-      tags: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-    orderBy: {
-      title: "asc",
-    },
-  })
+/**
+ * List the prompts of one of the user's folders, or search them when `query` is non-blank.
+ *
+ * @param data - Object containing folderId, an optional query and optional tagIds
+ * @returns ActionResult with the prompts and their tags (an empty list for a folder that is not the user's), or an
+ *   error message
+ */
+export async function getPromptsByFolder(
+  data: z.input<typeof getPromptsByFolderSchema>,
+): Promise<ActionResult<PromptListItem[]>> {
+  return handlers.getPromptsByFolder(actionDeps, data)
 }
 
 /**
- * Create a new prompt in the specified folder
+ * Create a new prompt in one of the user's folders
  *
  * @param data - Object containing folderId and optional title
- * @returns ActionResult with promptId on success, error message on failure
+ * @returns ActionResult with the created prompt (with `tags: []`) on success, error message on failure
  */
 export async function createPrompt(data: unknown): Promise<ActionResult<PromptListItem>> {
-  try {
-    // Validate input
-    const parsed = createPromptSchema.safeParse(data)
-    if (!parsed.success) {
-      return { success: false, error: "Invalid input data" }
-    }
-
-    // Get authenticated user
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "Unauthorized. Please sign in." }
-    }
-
-    const { allowed } = checkMutationRateLimit(user.id)
-    if (!allowed) {
-      return { success: false, error: "Too many requests. Please slow down." }
-    }
-
-    await ensureProfileExists(db, user.id)
-
-    // Reason: Set title to null for new documents or validate if title provided
-    const title = parsed.data.title || null
-
-    // Reason: Check for duplicate custom title only if title is provided (case-insensitive)
-    if (title) {
-      const existing = await db.prompt.findFirst({
-        where: {
-          folder_id: parsed.data.folderId,
-          user_id: user.id,
-          title: {
-            equals: title,
-            mode: 'insensitive'
-          }
-        }
-      })
-
-      if (existing) {
-        return {
-          success: false,
-          error: `A document named "${title}" already exists in this folder. Please choose a different title.`
-        }
-      }
-    }
-
-    // Create prompt in database with null title for new documents
-    const prompt = await db.prompt.create({
-      data: {
-        user_id: user.id,
-        folder_id: parsed.data.folderId,
-        title: title,
-        content: "",
-      }
-    })
-
-    // Reason: Return full Prompt object for optimistic updates (P5S5T4 - Performance optimization)
-    // This eliminates 2 additional database requests (getPromptsByFolder + getPromptDetails)
-    return { success: true, data: { ...prompt, tags: [] } }
-  } catch (error) {
-    // Reason: NEXT_REDIRECT must be re-thrown for Next.js navigation
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error
-    }
-    console.error("createPrompt error:", error)
-    return { success: false, error: "Failed to create prompt" }
-  }
+  return handlers.createPrompt(actionDeps, data)
 }
 
 /**
  * Get full details of a specific prompt
  *
  * @param data - Object containing promptId
- * @returns ActionResult with prompt data including folder, or error message
+ * @returns ActionResult with the prompt row and its folder, or error message
  */
+// Reason: the result stays ActionResult (data: any), as before, so the unchanged callers type-check; the handler's
+// own result type is PromptDetails.
 export async function getPromptDetails(data: unknown): Promise<ActionResult> {
-  try {
-    // Validate input
-    const parsed = getPromptDetailsSchema.safeParse(data)
-    if (!parsed.success) {
-      return { success: false, error: "Invalid prompt ID" }
-    }
-
-    // Get authenticated user
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "Unauthorized. Please sign in." }
-    }
-
-    // Reason: Fetch prompt with user_id filter to enforce RLS
-    const prompt = await db.prompt.findFirst({
-      where: {
-        id: parsed.data.promptId,
-        user_id: user.id, // Enforce user isolation
-      },
-      include: {
-        folder: {
-          select: {
-            id: true,
-            name: true,
-          }
-        }
-      }
-    })
-
-    if (!prompt) {
-      return { success: false, error: "Prompt not found" }
-    }
-
-    return { success: true, data: { ...prompt, tags: [] } }
-  } catch (error) {
-    // Reason: NEXT_REDIRECT must be re-thrown for Next.js navigation
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error
-    }
-    console.error("getPromptDetails error:", error)
-    return { success: false, error: "Failed to fetch prompt details" }
-  }
+  return handlers.getPromptDetails(actionDeps, data)
 }
 
 /**
  * Rename a prompt
  *
- * @param promptId - UUID of the prompt to rename
- * @param newTitle - New title for the prompt
+ * @param data - Object containing promptId and newTitle (trimmed; 1 to 200 characters; not a placeholder title)
  * @returns ActionResult with success status
  */
-export async function renamePrompt(promptId: string, newTitle: string): Promise<ActionResult> {
-  try {
-    // Get authenticated user
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "Unauthorized. Please sign in." }
-    }
-
-    // Check for duplicate title in the same folder
-    const existingPrompt = await db.prompt.findFirst({
-      where: {
-        id: promptId,
-        user_id: user.id
-      },
-      select: {
-        folder_id: true
-      }
-    })
-
-    if (!existingPrompt) {
-      return { success: false, error: "Prompt not found" }
-    }
-
-    const duplicate = await db.prompt.findFirst({
-      where: {
-        folder_id: existingPrompt.folder_id,
-        user_id: user.id,
-        title: {
-          equals: newTitle,
-          mode: 'insensitive'
-        },
-        NOT: {
-          id: promptId
-        }
-      }
-    })
-
-    if (duplicate) {
-      return {
-        success: false,
-        error: `A document named "${newTitle}" already exists in this folder.`
-      }
-    }
-
-    // Update prompt title.
-    // Reason: single-statement, user-scoped write (defence-in-depth, avoids TOCTOU).
-    const updated = await db.prompt.updateMany({
-      where: {
-        id: promptId,
-        user_id: user.id,
-      },
-      data: {
-        title: newTitle,
-        updated_at: new Date()
-      }
-    })
-
-    if (updated.count === 0) {
-      return { success: false, error: "Prompt not found or access denied" }
-    }
-
-    return { success: true, data: undefined }
-  } catch (error) {
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error
-    }
-    console.error("renamePrompt error:", error)
-    return { success: false, error: "Failed to rename prompt" }
-  }
+export async function renamePrompt(data: z.input<typeof renamePromptSchema>): Promise<ActionResult<void>> {
+  return handlers.renamePrompt(actionDeps, data)
 }
 
 /**
  * Delete a prompt and all its versions
  *
- * @param promptId - UUID of the prompt to delete
+ * @param data - Object containing promptId
  * @returns ActionResult with success status
  */
-export async function deletePrompt(promptId: string): Promise<ActionResult> {
-  try {
-    // Get authenticated user
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "Unauthorized. Please sign in." }
-    }
-
-    // Verify ownership and delete with cascade
-    const result = await db.prompt.deleteMany({
-      where: {
-        id: promptId,
-        user_id: user.id
-      }
-    })
-
-    if (result.count === 0) {
-      return { success: false, error: "Prompt not found or access denied" }
-    }
-
-    return { success: true, data: undefined }
-  } catch (error) {
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error
-    }
-    console.error("deletePrompt error:", error)
-    return { success: false, error: "Failed to delete prompt" }
-  }
+export async function deletePrompt(data: z.input<typeof deletePromptSchema>): Promise<ActionResult<void>> {
+  return handlers.deletePrompt(actionDeps, data)
 }
 
 /**
@@ -337,109 +110,13 @@ export async function deletePrompt(promptId: string): Promise<ActionResult> {
  * Used for cleaning orphaned tabs after logout/login.
  * Returns list of valid promptIds that exist for current user.
  *
- * @param promptIds - Array of prompt UUIDs to validate
+ * @param data - Object containing promptIds, at most 200
  * @returns ActionResult with array of valid promptIds
  */
-export async function validatePrompts(promptIds: string[]): Promise<ActionResult<{ validIds: string[] }>> {
-  try {
-    // Get authenticated user
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "Unauthorized. Please sign in." }
-    }
-
-    // Reason: Batch query all promptIds with user_id filter
-    const prompts = await db.prompt.findMany({
-      where: {
-        id: { in: promptIds },
-        user_id: user.id
-      },
-      select: {
-        id: true
-      }
-    })
-
-    const validIds = prompts.map(p => p.id)
-
-    return { success: true, data: { validIds } }
-  } catch (error) {
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error
-    }
-    console.error("validatePrompts error:", error)
-    return { success: false, error: "Failed to validate prompts" }
-  }
-}
-
-
-export async function searchPrompts(data: unknown) {
-  const parsed = searchPromptsSchema.safeParse(data)
-  if (!parsed.success) {
-    return []
-  }
-
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return []
-  }
-
-  const { query, folderId, tagIds } = parsed.data
-  const tsQuery = query
-    .split(/\s+/)
-    .map((token) => token.replace(/[^\p{L}\p{N}_-]/gu, "").trim())
-    .filter(Boolean)
-    .join(" & ")
-
-  if (!tsQuery) {
-    return []
-  }
-
-  const rows = await db.$queryRaw<Array<{ id: string }>>`
-    SELECT p.id
-    FROM "Prompt" p
-    WHERE p.user_id = ${user.id}
-      AND (${folderId ?? null}::text IS NULL OR p.folder_id = ${folderId ?? null})
-      AND p.content_tsv @@ to_tsquery('english', ${tsQuery})
-      AND (
-        array_length(${tagIds}::text[], 1) IS NULL
-        OR EXISTS (
-          SELECT 1
-          FROM "_PromptToTag" pt
-          JOIN "Tag" t ON t.id = pt."B"
-          WHERE pt."A" = p.id
-            AND t.user_id = ${user.id}
-            AND pt."B" = ANY(${tagIds}::text[])
-        )
-      )
-    ORDER BY p.updated_at DESC
-    LIMIT 100
-  `
-
-  if (rows.length === 0) {
-    return []
-  }
-
-  const prompts = await db.prompt.findMany({
-    where: {
-      id: {
-        in: rows.map((row) => row.id),
-      },
-      user_id: user.id,
-    },
-    include: {
-      tags: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-  })
-
-  const order = new Map(rows.map((row, index) => [row.id, index]))
-  return prompts.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+export async function validatePrompts(
+  data: z.input<typeof validatePromptsSchema>,
+): Promise<ActionResult<{ validIds: string[] }>> {
+  return handlers.validatePrompts(actionDeps, data)
 }
 
 export async function getTags(data: unknown = {}) {
