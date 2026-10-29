@@ -11,7 +11,9 @@ PromptHub/
 │   │   └── ErrorBoundary.tsx # React error boundary (P5S4)
 │   ├── features/            # Feature-based modules
 │   │   ├── auth/            # Authentication
-│   │   │   └── actions.ts   # Sign in/out, clearDocumentCache on logout
+│   │   │   ├── actions.ts   # signUp, signIn (wrappers over handlers.ts), signOut
+│   │   │   ├── handlers.ts  # signUp, signIn: (AuthDeps, data), IP-limited
+│   │   │   └── client-purge.ts # purgeClientState, hasUnsavedClientWork: the sign-out purge, called by the Header
 │   │   ├── editor/          # Document editor
 │   │   │   ├── components/
 │   │   │   │   └── EditorPane.tsx # Main editor with cache system (P5S4 refactor)
@@ -21,12 +23,13 @@ PromptHub/
 │   │   │   │   ├── useVersionSave.ts, useVersionRestore.ts, useServerAutoSave.ts, useDocumentCacheSync.ts
 │   │   │   │   ├── useAutoSave.ts # 500ms debounce auto-save against the sync baseline
 │   │   │   │   └── useDraftSync.ts # the only browser draft writer (v1 envelope)
-│   │   │   ├── actions.ts   # saveNewVersion, autoSavePrompt (thin shells over service.ts)
+│   │   │   ├── actions.ts   # saveNewVersion, autoSavePrompt (wrappers over handlers.ts, which call service.ts)
+│   │   │   ├── handlers.ts  # the two handlers: (deps, data) on runAction
 │   │   │   ├── service.ts   # saveVersion, autoSaveDocument, restoreVersion, listVersions: (db, userId, input)
 │   │   │   ├── loader-protocol.ts, loader-state.ts # the load protocol and its reducer
 │   │   │   ├── document-cache.ts, document-actions.ts, draft.ts, sync.ts, request-timeout.ts
 │   │   │   └── schemas.ts   # Zod validation schemas
-│   │   ├── folders/         # Folder management
+│   │   ├── folders/         # Folder management: actions.ts (wrappers), handlers.ts, schemas.ts
 │   │   │   └── components/
 │   │   │       └── FolderToolbar.tsx # Folder CRUD operations
 │   │   ├── prompts/         # Prompt/document management
@@ -35,7 +38,8 @@ PromptHub/
 │   │   │   │   ├── DocumentDialogs.tsx # Rename, delete dialogs
 │   │   │   │   ├── DocumentToolbar.tsx # Document actions toolbar
 │   │   │   │   └── SetTitleDialog.tsx # Title validation dialog (P5S4e)
-│   │   │   ├── actions.ts   # CRUD operations with title validation
+│   │   │   ├── actions.ts   # CRUD wrappers over handlers.ts; tag-actions.ts and history-actions.ts beside it
+│   │   │   ├── handlers.ts  # CRUD handlers with title validation; tag-, history- and search-handlers.ts beside it
 │   │   │   ├── schemas.ts   # titleValidationSchema
 │   │   │   └── utils.ts     # getDisplayTitle() utility (P5S4)
 │   │   └── tabs/            # Tab system
@@ -49,6 +53,9 @@ PromptHub/
 │   │   └── use-tab-store.ts # Tab state with closeTab interceptor
 │   ├── lib/                 # Utilities and libraries
 │   │   ├── db.ts            # Prisma client instance
+│   │   ├── action-runner.ts # runAction: parse, authenticate, rate-limit, ensure profile, run
+│   │   ├── action-runtime.ts # actionDeps, authDeps: the real dependencies the wrappers pass
+│   │   ├── prisma-errors.ts, bounded-array.ts, rate-limit.ts, ensure-profile.ts
 │   │   └── supabase/
 │   │       ├── client.ts    # Client-side Supabase client (P5S4)
 │   │       └── server.ts    # Server-side Supabase client
@@ -143,7 +150,8 @@ model Prompt {
 
 **Critical Rules**:
 - Title is nullable (allows creation before save)
-- User-scoped via RLS policies
+- User-scoped by `user_id` in every handler query (RLS does not constrain Prisma); composite keys keep a folder and its
+  prompts under one user
 - Full-text search via tsvector
 - Proper indexes for performance
 
@@ -176,7 +184,7 @@ EditorPane.tsx
 │       ├── useDocumentCacheSync (cache entry, tab metadata)
 │       ├── useVersionSave, useVersionRestore
 │       └── useServerAutoSave (useAutoSave, 500ms debounce)
-├── Actions (thin shells over service.ts)
+├── Actions (wrappers over handlers.ts)
 │   ├── saveNewVersion (manual save)
 │   ├── autoSavePrompt (background save)
 │   └── getPromptVersionHistory, restorePromptVersion (history dialog)
@@ -192,5 +200,5 @@ EditorPane.tsx
 
 **EditorPane.tsx**: Document any changes to refs, cache, or auto-save patterns  
 **use-tab-store.ts**: Tab system modifications must consider isNewDocument flag  
-**actions.ts (prompts)**: Always validate titles before database operations  
+**handlers.ts (prompts)**: Always validate titles before database operations  
 **schemas.ts**: Keep titleValidationSchema in sync with business rules

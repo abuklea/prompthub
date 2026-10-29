@@ -277,27 +277,28 @@ const cached = getCachedDocument(userId, promptId)
 
 ### Server Actions
 ```typescript
-export async function saveNewVersion(data: SaveNewVersionInput): Promise<ActionResult> {
-  try {
-    // Validation
-    const parsed = saveNewVersionSchema.safeParse(data)
-    if (!parsed.success) {
-      return { success: false, error: "Validation failed" }
-    }
+An action is a one-line wrapper in `actions.ts` (`"use server"`); its body is a handler in `handlers.ts`, built on
+`runAction` (`src/lib/action-runner.ts`), which parses, authenticates, rate-limits, runs and catches (it rethrows a
+Next.js control-flow error, an object with a string `digest`, and returns `ActionResult` for everything else).
 
-    // Operation
-    const result = await db.prompt.update({ ... })
-    
-    return { success: true, data: result }
-  } catch (error) {
-    // Re-throw NEXT_REDIRECT for Next.js navigation
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error
-    }
-    
-    console.error('[saveNewVersion] Error:', error)
-    return { success: false, error: "Failed to save version" }
-  }
+```typescript
+// actions.ts
+export async function renameFolder(data: RenameFolderInput) {
+  const result = await handlers.renameFolder(actionDeps, data)
+  if (result.success) revalidatePath("/")
+  return result
+}
+
+// handlers.ts
+export function renameFolder(deps: ActionDeps, data: unknown): Promise<ActionResult<Folder>> {
+  return runAction(deps, {
+    name: "renameFolder",
+    schema: renameFolderSchema,
+    invalid: "Invalid folder name",
+    failure: "Failed to rename folder",
+    limit: "mutation",
+    run: async ({ db, user, input }) => { /* every query scoped by user.id */ },
+  }, data)
 }
 ```
 

@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Client Task Briefs | 20/10/2026 13:27 GMT+10 | 22/10/2026 11:48 GMT+10 |
+| P7S1 Client Task Briefs | 20/10/2026 13:27 GMT+10 | 29/10/2026 22:26 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -151,7 +151,7 @@ wrote the cache entry; without these the footer would read "Unsaved changes" aft
 would never advance. `handleSave` keeps `clearLocalContent()`, whose hook lives until T6. `setPromptData` and
 `setLastSaved` leave the loader's return value and reducer, since nothing calls them any more. `handleVersionRestored`
 loses its `resetLoadedRef()` call, which never re-ran the load effect; the re-export line and its false comment are
-deleted (DR-1, DR-2, DR-3); and `Header.tsx:23` imports `clearDocumentCache` from `document-cache`. No function in the
+deleted (DR-1, DR-2, DR-3); and the Header imports `clearDocumentCache` from `document-cache`. No function in the
 loader modules exceeds 80 lines. Documentation sync after this task (main session): DR-19 and the cache half of DR-16.
 
 Cases: the spike's loader tests, which cover every path P0 to P7, a cache hit on a fresh mount, A then uncached B then
