@@ -1,3 +1,22 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/app/(app)/profile/page.tsx
+MIME: text/typescript
+Type: TypeScript React Component
+
+Created: 06/11/2025 14:28 GMT+10
+Last modified: 29/10/2026 20:59 GMT+10
+---------------
+The account page: shows the signed-in user's email and join date and lets them change their display name. Loads the
+details with getProfileDetails and saves with updateDisplayName; a failed result is shown as a toast.
+
+Changelog:
+29/10/2026 20:59 GMT+10 | P7S2T8: both actions return ActionResult; the page branches on success, shows result.error
+                         on failure and sends { displayName }; header added
+06/11/2025 14:28 GMT+10 | Created (commit 010f7d1)
+*/
+
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
@@ -19,7 +38,13 @@ export default function ProfilePage() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const profile = await getProfileDetails()
+        const result = await getProfileDetails()
+        if (!result.success) {
+          toast.error(result.error)
+          return
+        }
+
+        const profile = result.data
         setEmail(profile.email)
         setDisplayName(profile.displayName)
         setJoined(new Date(profile.createdAt).toLocaleDateString())
@@ -38,8 +63,13 @@ export default function ProfilePage() {
     const optimisticValue = displayName
     startTransition(async () => {
       try {
-        const result = await updateDisplayName(optimisticValue)
-        setDisplayName(result.displayName)
+        const result = await updateDisplayName({ displayName: optimisticValue })
+        if (!result.success) {
+          toast.error(result.error)
+          return
+        }
+
+        setDisplayName(result.data.displayName)
         toast.success("Profile updated")
       } catch (error) {
         console.error("Failed to save profile", error)

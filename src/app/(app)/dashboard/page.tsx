@@ -1,5 +1,33 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/app/(app)/dashboard/page.tsx
+MIME: text/typescript
+Type: TypeScript React Component
+
+Created: 06/11/2025 14:28 GMT+10
+Last modified: 29/10/2026 20:59 GMT+10
+---------------
+The dashboard, a Server Component: the signed-in user's prompt, folder and version counts and their recently updated
+prompts, read with getDashboardMetrics. A failed result renders zero counts and an empty recent list.
+
+Changelog:
+29/10/2026 20:59 GMT+10 | P7S2T8: getDashboardMetrics returns ActionResult; a failure renders EMPTY_METRICS; header
+                         added
+06/11/2025 14:28 GMT+10 | Created (commit 010f7d1)
+*/
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getDashboardMetrics } from "@/features/dashboard/actions"
+import type { DashboardMetrics } from "@/features/dashboard/handlers"
+
+/** What the page shows when the metrics cannot be read: zero counts and no recent prompts. */
+const EMPTY_METRICS: DashboardMetrics = {
+  totalPrompts: 0,
+  totalFolders: 0,
+  totalVersions: 0,
+  recentlyUpdatedPrompts: [],
+}
 
 function formatRelativeDate(date: Date) {
   const now = new Date().getTime()
@@ -19,7 +47,8 @@ function formatRelativeDate(date: Date) {
 }
 
 export default async function DashboardPage() {
-  const metrics = await getDashboardMetrics()
+  const result = await getDashboardMetrics()
+  const metrics = result.success ? result.data : EMPTY_METRICS
 
   return (
     <div className="p-8 space-y-8">
