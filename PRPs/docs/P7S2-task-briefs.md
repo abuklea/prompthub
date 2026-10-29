@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 29/10/2026 18:27 GMT+10 |
+| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 29/10/2026 20:16 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -77,7 +77,8 @@ Steps. First, install the package and confirm that `node_modules/server-only/emp
 at it (the package's `exports` map names `./empty.js` under the `react-server` condition, from `npm view server-only`
 on 29/10/2026; the file's presence is unverified until the install). Second, write
 `src/lib/server-only-alias.test.ts`, which does `await import("server-only")` and expects it not to throw, and watch it
-fail with the package's own throw. Third, add the alias to `vitest.config.ts` as a regular expression
+fail with the package's own throw (the import line carries `// @ts-expect-error` with a `Reason:`, because the package
+ships no type declarations and `tsc` covers test files; found while executing, 29/10/2026). Third, add the alias to `vitest.config.ts` as a regular expression
 `/^server-only$/` mapped to the absolute path of `node_modules/server-only/empty.js` (a global `react-server`
 condition would break the jsdom suites), and watch the test pass. Fourth, add to the same edit the coverage `include`
 patterns for every file the later tasks create or measure, so no later task edits the list: `src/lib/action-runner.ts`,
