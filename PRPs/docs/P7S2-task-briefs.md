@@ -124,7 +124,9 @@ from `createClient().auth`, both lazily) and carries `import "server-only"`.
 
 Done when `action-runner.ts` and `prisma-errors.ts` have no `next/*` import, `action-runtime.ts` is imported by no test,
 the new modules have headers, and per-file coverage of `action-runner.ts`, `prisma-errors.ts` and `rate-limit.ts` is at
-least 80% on every measure (`action-runtime.ts` is exempt: it needs a request scope).
+least 80% on every measure (`action-runtime.ts` is exempt: it needs a request scope). Baseline measured on 29/10/2026:
+`rate-limit.ts` has 91.11% lines but 60% functions, because `checkAuthRateLimit` and `checkMutationRateLimit` (lines
+79-84) have no test; the new tests cover them and the save limiter.
 
 ### P7S2T3 Add the test factories and the fake deps
 
