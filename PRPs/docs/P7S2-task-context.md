@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Context | 29/10/2026 16:57 GMT+10 | 29/10/2026 17:01 GMT+10 |
+| P7S2 Task Context | 29/10/2026 16:57 GMT+10 | 29/10/2026 17:51 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -52,7 +52,10 @@ src/features/
                                                          removeFolderTreeFromCache)
   dashboard/        actions.ts  + handlers.ts
 - src/app/auth/sign-out/route.ts
-src/test/           db.ts (+ createTestFolder, createTestTag, deleteTestUser)
+prisma/             schema.prisma (composite keys on Folder.parent and Prompt.folder)
+                  + migrations/<timestamp>_composite_tenant_keys/migration.sql  (generated, Task 13)
+src/test/           db.ts (+ createTestFolder, createTestTag, deleteTestUser, withConnectionLimit)
+                  + racing-db.ts  + composite-fk.test.ts
                   + action-deps.ts  + action-coverage.ts  + action-coverage.test.ts  + action-coverage.check.test.ts
                   + db.helpers.test.ts
                     beside each handlers.ts: handlers.test.ts and handlers.isolation.test.ts
@@ -68,7 +71,7 @@ Found by search on 29/10/2026. A row changes in the task named in the last colum
 | Caller | Actions it imports | Task |
 |---|---|---|
 | `src/features/auth/components/AuthForm.tsx` | `signIn`, `signUp` | T4 (expected unchanged; `tsc` decides) |
-| `src/components/layout/Header.tsx` | `signOut` | T9 |
+| `src/components/layout/Header.tsx` | `signOut` | T9, T14 |
 | `src/hooks/use-tab-cleanup.ts` | `validatePrompts` | T6 |
 | `src/features/folders/components/FolderItem.tsx` | `getFolderChildren`, `renameFolder`, `deleteFolder`, `createFolder` | T5 |
 | `src/features/folders/components/FolderTree.tsx` | `getRootFolders`, `createFolder` | T5 |
@@ -77,10 +80,10 @@ Found by search on 29/10/2026. A row changes in the task named in the last colum
 | `src/features/prompts/components/DocumentToolbar.tsx` | `createPrompt`, `renamePrompt`, `deletePrompt`; `getTags`, `createTag`, `assignTagsToPrompt` | T6, T7 |
 | `src/features/tabs/components/DocumentTab.tsx` | `deletePrompt` (line 137) | T6 |
 | `src/features/tabs/hooks/useMigration.ts` | `getPromptDetails` | none expected (input unchanged) |
-| `src/features/editor/components/EditorPane.tsx` | `getPromptDetails`, `getPromptVersionHistory`, `restorePromptVersion`; `saveNewVersion`, `autoSavePrompt` | T7 (import paths), T8 |
+| `src/features/editor/components/EditorPane.tsx` | `getPromptDetails`, `getPromptVersionHistory`, `restorePromptVersion`; `saveNewVersion`, `autoSavePrompt` | T7 (import paths) |
 | `src/app/(app)/profile/page.tsx` | `getProfileDetails`, `updateDisplayName` | T8 |
 | `src/components/layout/WorkspacePreloader.tsx` | `getWorkspaceSnapshot` | T8, T9 |
-| `src/app/(app)/dashboard/page.tsx` | `getDashboardMetrics` (a Server Component) | none (shape kept) |
+| `src/app/(app)/dashboard/page.tsx` | `getDashboardMetrics` (a Server Component) | T8 (renders zeros on a failed result) |
 
 `src/features/editor/document-actions.ts` and `src/test/editor-env.ts` name the editor actions through an injected
 interface (`DocumentActions`), and `document-actions.test.ts` drives it with fakes; none of the three imports an
