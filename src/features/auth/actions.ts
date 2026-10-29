@@ -6,93 +6,53 @@ MIME: text/typescript
 Type: TypeScript
 
 Created: 06/11/2025 13:33 GMT+10
-Last modified: 29/10/2026 20:05 GMT+10
+Last modified: 29/10/2026 20:46 GMT+10
 ---------------
-Server actions for authentication: sign-up and sign-in, rate-limited by client IP, each creating the user's profile
-when it is missing; and sign-out, which ends the Supabase session and redirects to the login page.
+Server actions for authentication. signUp and signIn are thin wrappers over ./handlers, which validate the input, limit
+attempts per client IP, send Supabase only the email and password, create the user's profile and answer with fixed
+messages; the wrappers revalidate the layout on success. signOut ends the Supabase session and redirects to the login
+page, so it keeps its body here (a handler never redirects).
 
 Changelog:
+29/10/2026 20:46 GMT+10 | P7S2T4: signUp and signIn delegate to ./handlers with authDeps and revalidate on success;
+                         ensureProfileExistsSafe and every returned Supabase or thrown message removed (issue #112)
 29/10/2026 20:05 GMT+10 | P7S2T1: passes the database client to ensureProfileExists; header added
 06/11/2025 13:33 GMT+10 | Created (commit 4af23fa)
 */
 
 "use server"
 
-import db from "@/lib/db"
-import { createClient } from "@/lib/supabase/server"
-import { SignUpSchema, SignInSchema } from "./schemas"
-import { z } from "zod"
-import { headers } from "next/headers"
+import type { z } from "zod"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import { ActionResult } from "@/types/actions"
-import { ensureProfileExists } from "@/lib/ensure-profile"
-import { checkAuthRateLimit } from "@/lib/rate-limit"
+import { authDeps } from "@/lib/action-runtime"
+import { createClient } from "@/lib/supabase/server"
+import type { ActionResult } from "@/types/actions"
+import * as handlers from "./handlers"
+import type { SignInSchema, SignUpSchema } from "./schemas"
 
-async function ensureProfileExistsSafe(userId: string) {
-  try {
-    await ensureProfileExists(db, userId)
-  } catch (error) {
-    // Do not block auth flow if profile sync fails.
-    // This allows users to sign in even when DB is temporarily unavailable.
-    console.error("Profile sync failed during auth", error)
-  }
+/**
+ * Create an account with an email and password.
+ *
+ * @param values - The sign-up form values; parsed again by the handler.
+ * @returns `{ redirectTo }` on success; otherwise a fixed message.
+ */
+export async function signUp(values: z.input<typeof SignUpSchema>): Promise<ActionResult<{ redirectTo: string }>> {
+  const result = await handlers.signUp(authDeps, values)
+  if (result.success) revalidatePath("/", "layout")
+  return result
 }
 
-export async function signUp(values: z.infer<typeof SignUpSchema>): Promise<ActionResult> {
-  try {
-    const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-    const { allowed } = checkAuthRateLimit(ip)
-    if (!allowed) {
-      return { success: false, error: "Too many attempts. Please try again later." }
-    }
-
-    const supabase = createClient()
-    const { data, error } = await supabase.auth.signUp(values)
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
-
-    // Ensure profile exists for the new user
-    if (data.user?.id) {
-      await ensureProfileExistsSafe(data.user.id)
-    }
-
-    revalidatePath("/", "layout")
-    return { success: true, data: { redirectTo: "/dashboard" } }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "An unexpected error occurred"
-    return { success: false, error: message }
-  }
-}
-
-export async function signIn(values: z.infer<typeof SignInSchema>): Promise<ActionResult> {
-  try {
-    const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-    const { allowed } = checkAuthRateLimit(ip)
-    if (!allowed) {
-      return { success: false, error: "Too many attempts. Please try again later." }
-    }
-
-    const supabase = createClient()
-    const { data, error } = await supabase.auth.signInWithPassword(values)
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
-
-    // Ensure profile exists for existing users (in case it was deleted or missed)
-    if (data.user?.id) {
-      await ensureProfileExistsSafe(data.user.id)
-    }
-
-    revalidatePath("/", "layout")
-    return { success: true, data: { redirectTo: "/dashboard" } }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "An unexpected error occurred"
-    return { success: false, error: message }
-  }
+/**
+ * Sign in with an email and password.
+ *
+ * @param values - The sign-in form values; parsed again by the handler.
+ * @returns `{ redirectTo }` on success; otherwise a fixed message.
+ */
+export async function signIn(values: z.input<typeof SignInSchema>): Promise<ActionResult<{ redirectTo: string }>> {
+  const result = await handlers.signIn(authDeps, values)
+  if (result.success) revalidatePath("/", "layout")
+  return result
 }
 
 export async function signOut() {
