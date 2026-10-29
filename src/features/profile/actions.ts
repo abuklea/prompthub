@@ -1,3 +1,21 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/features/profile/actions.ts
+MIME: text/typescript
+Type: TypeScript
+
+Created: 25/02/2026 16:11 GMT+10
+Last modified: 29/10/2026 20:05 GMT+10
+---------------
+Server actions for the account page: reading the user's profile details and updating the display name, each creating
+the profile first when it is missing.
+
+Changelog:
+29/10/2026 20:05 GMT+10 | P7S2T1: passes the database client to ensureProfileExists; header added
+25/02/2026 16:11 GMT+10 | Created (commit b8fb4db)
+*/
+
 "use server"
 
 import db from "@/lib/db"
@@ -12,7 +30,7 @@ export async function getProfileDetails() {
     throw new Error("User not found")
   }
 
-  await ensureProfileExists(user.id)
+  await ensureProfileExists(db, user.id)
 
   const profile = await db.profile.findUnique({
     where: { id: user.id },
@@ -38,7 +56,7 @@ export async function updateDisplayName(displayName: string) {
     throw new Error("User not found")
   }
 
-  await ensureProfileExists(user.id)
+  await ensureProfileExists(db, user.id)
 
   const updated = await db.profile.update({
     where: { id: user.id },

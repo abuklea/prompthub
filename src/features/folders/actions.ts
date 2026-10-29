@@ -1,3 +1,21 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/features/folders/actions.ts
+MIME: text/typescript
+Type: TypeScript
+
+Created: 06/11/2025 14:33 GMT+10
+Last modified: 29/10/2026 20:05 GMT+10
+---------------
+Server actions for folders: listing the root folders and a folder's children, and creating, renaming and deleting a
+folder. Deleting returns the ids of the prompts the folder held, so the caller can close their tabs.
+
+Changelog:
+29/10/2026 20:05 GMT+10 | P7S2T1: createFolder passes the database client to ensureProfileExists; header added
+06/11/2025 14:33 GMT+10 | Created (commit fb2faa7)
+*/
+
 "use server"
 
 import db from "@/lib/db"
@@ -32,7 +50,7 @@ export async function createFolder(name: string, parentId: string | null) {
     throw new Error("User not found")
   }
 
-  await ensureProfileExists(user.id)
+  await ensureProfileExists(db, user.id)
 
   const newFolder = await db.folder.create({
     data: {

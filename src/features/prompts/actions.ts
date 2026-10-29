@@ -6,13 +6,14 @@ MIME: text/typescript
 Type: TypeScript
 
 Created: 06/11/2025 14:33 GMT+10
-Last modified: 22/10/2026 08:59 GMT+10
+Last modified: 29/10/2026 20:04 GMT+10
 ---------------
 Server actions for prompts: listing by folder, full-text search, creating, reading, renaming, deleting and validating
 prompts; listing, creating and assigning tags; and reading and restoring the version history, which delegate to
 @/features/editor/service.
 
 Changelog:
+29/10/2026 20:04 GMT+10 | P7S2T1: createPrompt passes the database client to ensureProfileExists
 22/10/2026 08:59 GMT+10 | P7S1T3: header description tightened
 22/10/2026 08:52 GMT+10 | P7S1T3: restorePromptVersion returns the restored { title, content }; the restore write is
                          scoped to the user (issue #41)
@@ -113,7 +114,7 @@ export async function createPrompt(data: unknown): Promise<ActionResult<PromptLi
       return { success: false, error: "Too many requests. Please slow down." }
     }
 
-    await ensureProfileExists(user.id)
+    await ensureProfileExists(db, user.id)
 
     // Reason: Set title to null for new documents or validate if title provided
     const title = parsed.data.title || null

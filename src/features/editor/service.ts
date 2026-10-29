@@ -6,16 +6,18 @@ MIME: text/typescript
 Type: TypeScript
 
 Created: 22/10/2026 08:39 GMT+10
-Last modified: 22/10/2026 08:59 GMT+10
+Last modified: 29/10/2026 20:04 GMT+10
 ---------------
 Server-side editor persistence: saving a version, autosaving a document, restoring a version and listing the version
 history, taking the database, the authenticated user id and validated input, so it can be tested against a real
 Postgres without the action shells.
 
 No "use server" directive: every export of such a file is a public endpoint, and these functions trust the userId they
-are given. Only server actions call them, with user.id from supabase.auth.getUser().
+are given. Only server actions call them, with user.id from supabase.auth.getUser(). `server-only` makes a Client
+Component import of this module a build error.
 
 Changelog:
+29/10/2026 20:04 GMT+10 | Imports server-only (P7S2T1)
 22/10/2026 08:59 GMT+10 | saveVersion reads the newest version through findNewest, the one definition of "newest"
 22/10/2026 08:52 GMT+10 | restoreVersion locks the row, snapshots a working copy the newest version lacks, writes the
                          restored state scoped to the user, records it unless the newest version holds it, and returns
@@ -26,6 +28,7 @@ Changelog:
                          scoped update runs first as the ownership check and row lock (P7S1T2, decision D1)
 22/10/2026 08:39 GMT+10 | Created by extracting saveNewVersion and autoSavePrompt unchanged (P7S1T2)
 */
+import "server-only"
 import type { Prisma, PrismaClient } from "@prisma/client"
 import type { z } from "zod"
 import type { ActionResult } from "@/types/actions"

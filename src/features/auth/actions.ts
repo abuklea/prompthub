@@ -1,5 +1,24 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/features/auth/actions.ts
+MIME: text/typescript
+Type: TypeScript
+
+Created: 06/11/2025 13:33 GMT+10
+Last modified: 29/10/2026 20:05 GMT+10
+---------------
+Server actions for authentication: sign-up and sign-in, rate-limited by client IP, each creating the user's profile
+when it is missing; and sign-out, which ends the Supabase session and redirects to the login page.
+
+Changelog:
+29/10/2026 20:05 GMT+10 | P7S2T1: passes the database client to ensureProfileExists; header added
+06/11/2025 13:33 GMT+10 | Created (commit 4af23fa)
+*/
+
 "use server"
 
+import db from "@/lib/db"
 import { createClient } from "@/lib/supabase/server"
 import { SignUpSchema, SignInSchema } from "./schemas"
 import { z } from "zod"
@@ -12,7 +31,7 @@ import { checkAuthRateLimit } from "@/lib/rate-limit"
 
 async function ensureProfileExistsSafe(userId: string) {
   try {
-    await ensureProfileExists(userId)
+    await ensureProfileExists(db, userId)
   } catch (error) {
     // Do not block auth flow if profile sync fails.
     // This allows users to sign in even when DB is temporarily unavailable.
