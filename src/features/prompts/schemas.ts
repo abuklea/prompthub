@@ -6,12 +6,14 @@ MIME: text/typescript
 Type: TypeScript
 
 Created: 07/11/2025 13:39 GMT+10
-Last modified: 29/10/2026 20:45 GMT+10
+Last modified: 29/10/2026 22:13 GMT+10
 ---------------
 Zod validation schemas for prompt operations.
 Provides type-safe input validation for server actions.
 
 Changelog:
+29/10/2026 22:13 GMT+10 | promptIds and both action tagIds lists use boundedArray, which refuses an over-long list
+                         before parsing its elements (P7S2T11 finding S-1, issue #121)
 29/10/2026 20:45 GMT+10 | Added renamePromptSchema, deletePromptSchema, validatePromptsSchema and
                          getPromptsByFolderSchema (P7S2T6, issue #114)
 07/11/2025 13:39 GMT+10 | Initial creation with createPrompt and getPromptDetails schemas
@@ -19,6 +21,7 @@ Changelog:
 */
 
 import { z } from 'zod'
+import { boundedArray } from '@/lib/bounded-array'
 
 export const createPromptSchema = z.object({
   folderId: z.string().uuid('Invalid folder ID'),
@@ -70,13 +73,13 @@ export const deletePromptSchema = z.object({ promptId })
 /** Input of validatePrompts: at most 200 ids. */
 // Reason: not .uuid(): a stale persisted tab may hold any string, and one failing element would fail the whole
 // batch and leave every orphaned tab open. The ids only feed a parameterised `in` list.
-export const validatePromptsSchema = z.object({ promptIds: z.array(z.string().min(1).max(64)).max(200) })
+export const validatePromptsSchema = z.object({ promptIds: boundedArray(z.string().min(1).max(64), 200) })
 
 /** Input of getPromptsByFolder: a non-blank query switches the listing to the full-text search. */
 export const getPromptsByFolderSchema = z.object({
   folderId: z.string().uuid('Invalid folder ID'),
   query: z.string().trim().max(200).optional(),
-  tagIds: z.array(z.string().uuid('Invalid tag ID')).max(20).optional().default([]),
+  tagIds: boundedArray(z.string().uuid('Invalid tag ID'), 20).optional().default([]),
 })
 
 
@@ -96,7 +99,7 @@ export const createTagSchema = z.object({
 
 export const assignPromptTagsSchema = z.object({
   promptId: z.string().uuid('Invalid prompt ID'),
-  tagIds: z.array(z.string().uuid('Invalid tag ID')).max(20),
+  tagIds: boundedArray(z.string().uuid('Invalid tag ID'), 20),
 })
 
 export const getPromptVersionHistorySchema = z.object({
