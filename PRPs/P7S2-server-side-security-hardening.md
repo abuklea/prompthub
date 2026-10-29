@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 - Server-side Security Hardening | 29/10/2026 16:55 GMT+10 | 29/10/2026 18:27 GMT+10 |
+| P7S2 - Server-side Security Hardening | 29/10/2026 16:55 GMT+10 | 29/10/2026 22:36 GMT+10 |
 
 ## Table of Contents
 - [Goal](#goal)
@@ -316,8 +316,8 @@ the Prisma Client's handling of the nullable composite relation are unverified, 
 truth; the caller edits rely on `tsc` and the browser list.
 
 ----
-**Plan Status**: READY
-**PRP Status**: TODO
+**Plan Status**: ACTIVE
+**PRP Status**: REVIEW
 **PRP ID**: P7S2
 **PRP Document**: P7S2-server-side-security-hardening
 **Tasks**: 16 tasks (P7S2T1 - P7S2T16)
@@ -333,8 +333,8 @@ Agents:
 - `documentation-manager` (Tasks 12, 15)
 Notes:
 - Q1-Q7 were taken by the developer on 27/10/2026; Q8, D4, D5, D9, D10 and the strict Q4 on 29/10/2026
-- Plan Status READY follows the CLAUDE.md override of documentation-prp.md for PRP footers; Task 15 runs before Task 1
+- Plan Status was READY (the CLAUDE.md override of documentation-prp.md for PRP footers) until execution started on 29/10/2026; Task 15 ran before Task 1; the footer follows epic #39 (status: in-review) since 29/10/2026 22:35
 - Tasks 5-8 are one commit each (backend step, then caller step); Task 16 is the developer's
 - Out of scope: the shared limiter store, count caps, the expiry purge, database tag keys
-- Nothing was run: browser checks, CI, the Supabase audit and migration and the rotation wait for Task 16 and a PR
+- At planning nothing was run; the results are in the REPORT. Browser checks, CI, the Supabase audit and migration and the rotation still wait for Task 16 and a PR
 **Estimated Implementation Time (FTE)**: 42-50 hours (6 days)
