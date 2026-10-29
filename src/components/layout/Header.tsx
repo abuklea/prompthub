@@ -6,12 +6,14 @@ MIME: text/x-typescript
 Type: TypeScript React Component
 
 Created: 06/11/2025 00:00 GMT+10
-Last modified: 22/10/2026 09:16 GMT+10
+Last modified: 29/10/2026 21:11 GMT+10
 ---------------
 Main header component with branding, navigation, and user controls.
 Includes tab-based navigation buttons for Settings and Profile pages.
 
 Changelog:
+29/10/2026 21:11 GMT+10 | Sign-out purges every client state (purgeClientState) before signOut, replacing the lone
+                         document-cache clear (P7S2T9, issue #44, DR-16)
 22/10/2026 09:16 GMT+10 | Imports clearDocumentCache from the document-cache module (P7S1T5)
 08/11/2025 13:12 GMT+10 | Added Settings and Profile navigation buttons for tab system
 */
@@ -21,7 +23,7 @@ Changelog:
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { signOut } from "@/features/auth/actions"
-import { clearDocumentCache } from "@/features/editor/document-cache"
+import { purgeClientState } from "@/features/auth/client-purge"
 import { useTabStore } from "@/stores/use-tab-store"
 import { Settings, User as UserIcon } from "lucide-react"
 import Link from "next/link"
@@ -34,10 +36,10 @@ interface HeaderProps {
 export function Header({ user }: HeaderProps) {
   const openTab = useTabStore(state => state.openTab)
 
-  // P5S5T5: Clear document cache before logout to prevent cross-user contamination
+  // Reason: signOut's redirect is a client navigation that keeps every module's state, so the purge empties it first
   const handleSignOut = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    clearDocumentCache()
+    purgeClientState()
     await signOut()
   }
 

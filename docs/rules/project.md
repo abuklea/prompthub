@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Project Rules | 07/11/2025 12:46 GMT+10 | 22/10/2026 09:03 GMT+10 |
+| Project Rules | 07/11/2025 12:46 GMT+10 | 29/10/2026 21:12 GMT+10 |
 
 ## Table of Contents
 - [Project Variables](#project-variables)
@@ -73,7 +73,7 @@ public/         static assets; public/monaco-editor is copied at install and git
 | Layer | Choice |
 |---|---|
 | Frontend | Next.js 14 (App Router), React 18, TypeScript (strict), Tailwind CSS, Shadcn/UI (new-york), Framer Motion |
-| Backend | Supabase Auth + PostgreSQL accessed through Prisma; Next.js Server Actions; one route handler (`src/app/auth/sign-out`) |
+| Backend | Supabase Auth + PostgreSQL accessed through Prisma; Next.js Server Actions, sign-out included (`src/features/auth/actions.ts`); no route handler |
 | State | Zustand (global), React Hook Form + Zod (forms), local React state |
 | Tests | Vitest (`src/**/*.test.{ts,tsx}`); node environment, jsdom per file via `// @vitest-environment jsdom` on the first line; database suites run against a disposable local Postgres behind `TEST_DATABASE_URL` and skip without it; coverage scope in `vitest.config.ts` |
 | Build | `npm run build` (`prisma generate && next build`); Vercel hosting |

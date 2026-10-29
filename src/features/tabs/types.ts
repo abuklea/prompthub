@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript Type Definitions
 
 Created: 08/11/2025 12:56 GMT+10
-Last modified: 08/11/2025 13:49 GMT+10
+Last modified: 29/10/2026 21:12 GMT+10
 ---------------
 TypeScript type definitions for tabbed editor system.
 Defines tab types, data structures, and layout nodes.
 
 Changelog:
+29/10/2026 21:12 GMT+10 | Added the resetTabs action (P7S2T9)
 08/11/2025 13:49 GMT+10 | Added closeTabsByPromptId and closeTabsByFolderId actions
 08/11/2025 13:36 GMT+10 | Added isPreview field for VSCode-style preview tabs
 08/11/2025 12:56 GMT+10 | Initial creation - Tab system types
@@ -81,6 +82,7 @@ export interface TabState {
   promotePreviewTab: (tabId: string) => void // Convert preview to permanent tab
   shouldConfirmClose: (tabId: string) => boolean // Check if close confirmation needed
   closeTabDirectly: (tabId: string) => void // Close tab without confirmation
+  resetTabs: () => void // Close every tab, pinned ones included, and reset the layout (the sign-out purge)
   splitPane: (direction: 'horizontal' | 'vertical', tabId: string) => void
   closePane: (tabId: string) => void
 }

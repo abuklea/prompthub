@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript
 
 Created: 06/11/2025 13:33 GMT+10
-Last modified: 29/10/2026 20:46 GMT+10
+Last modified: 29/10/2026 21:12 GMT+10
 ---------------
 Server actions for authentication. signUp and signIn are thin wrappers over ./handlers, which validate the input, limit
 attempts per client IP, send Supabase only the email and password, create the user's profile and answer with fixed
@@ -14,6 +14,8 @@ messages; the wrappers revalidate the layout on success. signOut ends the Supaba
 page, so it keeps its body here (a handler never redirects).
 
 Changelog:
+29/10/2026 21:12 GMT+10 | P7S2T9: the comment in signOut names the Header's purgeClientState; the sign-out route is
+                         deleted, so signOut is the only sign-out path (DR-16)
 29/10/2026 20:46 GMT+10 | P7S2T4: signUp and signIn delegate to ./handlers with authDeps and revalidate on success;
                          ensureProfileExistsSafe and every returned Supabase or thrown message removed (issue #112)
 29/10/2026 20:05 GMT+10 | P7S2T1: passes the database client to ensureProfileExists; header added
@@ -56,7 +58,7 @@ export async function signIn(values: z.input<typeof SignInSchema>): Promise<Acti
 }
 
 export async function signOut() {
-  // Note: Client-side cache clearing handled by Header component before form submission
+  // The only sign-out path. The client state is not cleared here: the Header calls purgeClientState before this.
   const supabase = createClient()
 
   // Check if a user's session exists

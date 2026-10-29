@@ -20,7 +20,7 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 **Backend**:
 - Supabase (PostgreSQL + Auth + Storage + RLS)
 - Prisma 6.19.0 (ORM)
-- Next.js Server Actions (one route handler: `src/app/auth/sign-out`)
+- Next.js Server Actions, sign-out included (no route handler)
 
 **State Management**:
 - Zustand 4.5.2 (global state)

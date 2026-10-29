@@ -1,3 +1,21 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/app/(app)/layout.tsx
+MIME: text/typescript
+Type: TypeScript React Server Component
+
+Created: 06/11/2025 13:33 GMT+10
+Last modified: 29/10/2026 21:12 GMT+10
+---------------
+The authenticated workspace layout: looks up the user on the server (redirecting to the login page without one) and
+renders the workspace preloader, the active-tab folder sync, the header and the three resizable panels.
+
+Changelog:
+29/10/2026 21:12 GMT+10 | P7S2T9: passes the user's id to WorkspacePreloader, which binds the workspace cache viewer
+                         (decision D5, issue #44); header added (F-9)
+06/11/2025 13:33 GMT+10 | Created (commit 4af23fa)
+*/
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
@@ -25,7 +43,7 @@ export default async function AppLayout() {
   return (
     <TabCleanupProvider>
       <div className="flex flex-col h-screen">
-        <WorkspacePreloader />
+        <WorkspacePreloader userId={data.user.id} />
         <ActiveTabFolderSync />
         <Header user={data.user} />
 

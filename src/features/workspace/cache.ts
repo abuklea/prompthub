@@ -6,12 +6,15 @@ MIME: text/typescript
 Type: TypeScript Module
 
 Created: 25/02/2026 16:11 GMT+10
-Last modified: 29/10/2026 20:53 GMT+10
+Last modified: 29/10/2026 21:11 GMT+10
 ---------------
 The client-side workspace cache: the folder tree and the prompt listings of the workspace snapshot, read by the folder
-and prompt panels before their own fetches answer, and kept current by their writes.
+and prompt panels before their own fetches answer, and kept current by their writes. It holds the data of one bound
+viewer only: binding another user empties it, and sign-out clears it.
 
 Changelog:
+29/10/2026 21:11 GMT+10 | P7S2T9: bound viewer (bindWorkspaceCacheViewer, decision D5) and clearWorkspaceCache for the
+                         sign-out purge; a snapshot of another user than the bound viewer is ignored (issue #44)
 29/10/2026 20:53 GMT+10 | P7S2T5: the one-level folder removal replaced by removeFolderTreeFromCache, which drops
                          every folder and prompt a folder delete removed (finding F-6, issue #113); header added (F-9)
 25/02/2026 16:11 GMT+10 | Created (commit b8fb4db)
@@ -39,6 +42,7 @@ interface WorkspaceSnapshot {
 }
 
 const workspaceCache = {
+  // The bound viewer: the only user whose data the cache holds; "" means no user is bound yet.
   userId: "",
   loadedAt: "",
   rootFolders: [] as Folder[],
@@ -47,8 +51,43 @@ const workspaceCache = {
   promptsById: new Map<string, PromptListingWithFolder>(),
 }
 
+/** Empties every map and the root list and forgets the snapshot time; the viewer is left as it is. */
+function emptyWorkspaceCache(): void {
+  workspaceCache.loadedAt = ""
+  workspaceCache.rootFolders = []
+  workspaceCache.foldersByParent.clear()
+  workspaceCache.promptsByFolder.clear()
+  workspaceCache.promptsById.clear()
+}
+
+/** Empties the cache and unbinds the viewer, so the next snapshot of any user is adopted; sign-out calls it. */
+export function clearWorkspaceCache(): void {
+  emptyWorkspaceCache()
+  workspaceCache.userId = ""
+}
+
+/**
+ * Binds the signed-in user as the cache's viewer (decision D5). Binding another user than the bound one empties the
+ * cache first, so every getter and writer afterwards sees only that user's data; binding the same user keeps it.
+ *
+ * @param userId - The signed-in user's id.
+ */
+export function bindWorkspaceCacheViewer(userId: string): void {
+  if (workspaceCache.userId !== userId) emptyWorkspaceCache()
+  workspaceCache.userId = userId
+}
+
+/**
+ * Replaces the cache with a workspace snapshot. With no viewer bound (a fresh module, or after a purge) it adopts the
+ * snapshot's user as the viewer; a snapshot of another user than the bound viewer is ignored.
+ *
+ * @param snapshot - The snapshot getWorkspaceSnapshot returned.
+ */
 export function hydrateWorkspaceCache(snapshot: WorkspaceSnapshot) {
-  workspaceCache.userId = snapshot.userId
+  if (workspaceCache.userId === "") workspaceCache.userId = snapshot.userId
+  // Reason: a late answer of an earlier session must not refill the cache of the user signed in now.
+  if (snapshot.userId !== workspaceCache.userId) return
+
   workspaceCache.loadedAt = snapshot.loadedAt
   workspaceCache.foldersByParent.clear()
   workspaceCache.promptsByFolder.clear()
