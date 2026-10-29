@@ -1,3 +1,21 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/features/workspace/cache.ts
+MIME: text/typescript
+Type: TypeScript Module
+
+Created: 25/02/2026 16:11 GMT+10
+Last modified: 29/10/2026 20:53 GMT+10
+---------------
+The client-side workspace cache: the folder tree and the prompt listings of the workspace snapshot, read by the folder
+and prompt panels before their own fetches answer, and kept current by their writes.
+
+Changelog:
+29/10/2026 20:53 GMT+10 | P7S2T5: the one-level folder removal replaced by removeFolderTreeFromCache, which drops
+                         every folder and prompt a folder delete removed (finding F-6, issue #113); header added (F-9)
+25/02/2026 16:11 GMT+10 | Created (commit b8fb4db)
+*/
 import type { Folder, Prompt } from "@prisma/client"
 
 // Reason: Workspace preload excludes content/content_tsv for performance.
@@ -84,9 +102,27 @@ export function upsertFolderInCache(folder: Folder) {
   workspaceCache.rootFolders = workspaceCache.foldersByParent.get(null) ?? []
 }
 
-export function removeFolderFromCache(folderId: string, parentId: string | null) {
-  const parentList = workspaceCache.foldersByParent.get(parentId) ?? []
-  workspaceCache.foldersByParent.set(parentId, parentList.filter((item) => item.id !== folderId))
+/**
+ * Drop a deleted folder tree from the cache, driven by the ids deleteFolder returns.
+ *
+ * @param tree - `folderIds`: the deleted folder and every descendant; `promptIds`: every prompt filed in them.
+ *   Each folder id leaves every parent list (a stale list included) and is no longer a key of `foldersByParent` or
+ *   `promptsByFolder`; each prompt id leaves `promptsById`. The root folders are refreshed. Unknown ids are ignored.
+ */
+export function removeFolderTreeFromCache(tree: { folderIds: readonly string[]; promptIds: readonly string[] }) {
+  const deleted = new Set(tree.folderIds)
+  // Reason: every list is filtered, not only the parent's, because upsertFolderInCache can leave a re-parented folder
+  // in its old parent's list as well.
+  workspaceCache.foldersByParent.forEach((list, parentId) => {
+    if (list.some((item) => deleted.has(item.id))) {
+      workspaceCache.foldersByParent.set(parentId, list.filter((item) => !deleted.has(item.id)))
+    }
+  })
+  deleted.forEach((folderId) => {
+    workspaceCache.foldersByParent.delete(folderId)
+    workspaceCache.promptsByFolder.delete(folderId)
+  })
+  tree.promptIds.forEach((promptId) => workspaceCache.promptsById.delete(promptId))
   workspaceCache.rootFolders = workspaceCache.foldersByParent.get(null) ?? []
 }
 
