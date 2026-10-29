@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs, Part 2 | 29/10/2026 17:54 GMT+10 | 29/10/2026 19:47 GMT+10 |
+| P7S2 Task Briefs, Part 2 | 29/10/2026 17:54 GMT+10 | 29/10/2026 22:08 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -274,7 +274,12 @@ Supabase, and no agent runs it.
    re-run both until neither returns a row.
 3. Apply the migration by the developer's usual route (`supabase link --project-ref`, then the CLI, or
    `npx prisma migrate deploy` with `DATABASE_URL` and `DIRECT_URL` set in the shell); never an agent. The local
-   failure and recovery below were run with `prisma migrate deploy` and `prisma migrate resolve`.
+   failure and recovery below were run with `prisma migrate deploy` and `prisma migrate resolve`. Run it at a quiet
+   time with `PGOPTIONS='-c lock_timeout=5s'` set for the deploy: the two `DROP CONSTRAINT` statements take an
+   `ACCESS EXCLUSIVE` lock on `Folder` and on `Prompt`, held until the migration transaction ends, so a transaction
+   that is still open on those tables would queue every other query behind them (security review finding S-5, from the
+   PostgreSQL documentation; not measured). A lock timeout fails the deploy and records the run like step 4's failure:
+   recover as step 4 says, then deploy again.
 4. If the deploy fails with `P3018` on `Folder_parent_id_user_id_fkey` or `Prompt_folder_id_user_id_fkey`, a violating
    row appeared after the audit. Nothing was applied: both queries below should still list the old keys
    `Folder_parent_id_fkey` and `Prompt_folder_id_fkey` and no `Folder_id_user_id_key`. The failed run is recorded in
