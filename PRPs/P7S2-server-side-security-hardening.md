@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 - Server-side Security Hardening | 29/10/2026 16:55 GMT+10 | 29/10/2026 18:17 GMT+10 |
+| P7S2 - Server-side Security Hardening | 29/10/2026 16:55 GMT+10 | 29/10/2026 18:27 GMT+10 |
 
 ## Table of Contents
 - [Goal](#goal)
@@ -210,6 +210,10 @@ The main session provisions the shared test database before it dispatches T1 to 
 T13, and alone edits issues. The INITIAL report files the epic's task issues and the dev-review issue, comments on #40
 to #45, #48 and #51 (the rate-limit part of #48 only; its shared store stays open), and files the follow-ups: count and
 byte caps (F-1, under #47), a purge on session expiry, and tag ownership in the database (an explicit join model).
+#51 and #48 are sub-issues of #47 today: the INITIAL step re-parents #51 under #39, because P7S2 delivers all of it,
+and the pull request carries `Closes #51`; #48 stays under #47 with `Refs #48`, because its shared store stays open.
+After Task 13 is merged, the main session runs `npx prisma migrate deploy` against the shared `prompthub_test` before
+the next gate run, or `composite-fk.test.ts` fails there.
 
 ### Integration Points
 

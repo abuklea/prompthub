@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Domain Contracts | 29/10/2026 17:53 GMT+10 | 29/10/2026 18:17 GMT+10 |
+| P7S2 Domain Contracts | 29/10/2026 17:53 GMT+10 | 29/10/2026 18:27 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -112,7 +112,9 @@ callers need.
 ## Auth
 
 `src/features/auth/handlers.ts` holds `signUp` and `signIn`. They cannot use `runAction` (there is no user yet), so
-they have their own deps, exported from `action-runtime.ts` as `authDeps` beside `actionDeps`:
+they have their own deps. The `AuthDeps` interface lives in `src/lib/action-runner.ts` beside `ActionDeps`, because a
+handler never imports `action-runtime.ts`; the real value is exported from `action-runtime.ts` as `authDeps` beside
+`actionDeps`:
 
 ```typescript
 export interface AuthDeps {
@@ -327,8 +329,8 @@ tables were then `Folder_parent_id_user_id_fkey`, `Folder_user_id_fkey`, `Prompt
 fine. None of this was run against Supabase; the runbook for the developer is
 [Task 16](P7S2-task-briefs-2.md#p7s2t16-developer-checks).
 
-The migration is generated with `prisma migrate dev --create-only` against Task 13's own database and applied from
-scratch there. Its SQL must be exactly the five statements above. Migration
+The migration SQL is generated with `prisma migrate diff --script` (Task 13 step 4) and applied from scratch on Task
+13's own database. Its SQL must be exactly the five statements above. Migration
 `20260717000001_add_case_insensitive_tag_index` created the expression index `Tag_name_user_id_ci_key` and
 `content_tsv` is an `Unsupported` column, and the schema expresses neither, so a generated migration may touch them: on
 any further statement, stop and report, and never commit a `DROP INDEX "Tag_name_user_id_ci_key"`, on which

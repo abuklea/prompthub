@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 29/10/2026 18:18 GMT+10 |
+| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 29/10/2026 18:27 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -227,19 +227,21 @@ and `renamePrompt` of A's prompt by B return the existing not-found text and cha
 only the caller's ids from a list that includes A's, and refuses 201 ids; `getPromptDetails` of A's prompt returns the
 text a missing id returns and carries no `tags` field; `getPromptsByFolder` for A's folder returns an empty list, and
 with a `query` delegates to the search function, which stays scoped by `user_id` (move `searchPrompts` into
-`search-handlers.ts` unchanged apart from the signature; decision D3 removes it as an action). Implement; update the
+`search-handlers.ts` unchanged apart from the signature, which becomes `(db, userId, input)`; decision D3 removes it as
+an action). Keep `searchPromptsSchema` in `schemas.ts`: the search function still parses its input with it, and
+`prompts/schemas.test.ts` covers it. Implement; update the
 header description of `actions.ts` and the `@returns` text of `createPrompt` (DR-18) and the "enforce RLS" comment
 (DR-19). Step 5: callers use the object arguments (`renamePrompt({ promptId, newTitle })`, `deletePrompt({ promptId })`,
 `validatePrompts({ promptIds })`, `getPromptsByFolder({ folderId, query, tagIds })`) and branch on `success` for
-`getPromptsByFolder`; `PromptList` and `DocumentToolbar` show the error in a toast and keep their previous list.
+`getPromptsByFolder`; `PromptList`, its only caller, shows the error in a toast and keeps its previous list.
 
 Done when the six actions are wrappers, `searchPrompts` is no longer exported, and the isolation test of each action
 exists and passes.
 
 ### P7S2T7 Split the rest of prompts/actions.ts and harden tags and history
 
-Agents `senior-backend-engineer` (steps 1 to 4), `senior-frontend-engineer` (step 5), 4 hours, after T6. Issues #41
-(`assignTagsToPrompt`), #51; drift row DR-20.
+Agents `senior-backend-engineer` (steps 1 to 4), `senior-frontend-engineer` (step 5), 4 hours, after T6 and T8.
+Issues #41 (`assignTagsToPrompt`), #51; drift row DR-20.
 
 Files: CREATE `src/features/prompts/tag-handlers.ts`, `tag-actions.ts`, `history-handlers.ts`, `history-actions.ts` and
 the tests `tag-handlers.test.ts`, `tag-handlers.isolation.test.ts`, `history-handlers.test.ts`,

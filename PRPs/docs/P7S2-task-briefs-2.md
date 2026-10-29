@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs, Part 2 | 29/10/2026 17:54 GMT+10 | 29/10/2026 18:17 GMT+10 |
+| P7S2 Task Briefs, Part 2 | 29/10/2026 17:54 GMT+10 | 29/10/2026 18:27 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -166,7 +166,7 @@ P7S1 did. Search the repository for the old terms (`ensureProfileExists(userId`,
 
 ### P7S2T13 Add composite tenant keys
 
-Agent `senior-backend-engineer`, 3.5 hours, after T5 and T6. Developer decision of 29/10/2026 (Q8); finding F-2. The
+Agent `senior-backend-engineer`, 3.5 hours, after T5, T6 and T8. Developer decision of 29/10/2026 (Q8); finding F-2. The
 application checks of Tasks 5 and 6 stay: they give the friendly message, and the keys are the second layer.
 
 Files: MODIFY `prisma/schema.prisma`; CREATE `prisma/migrations/<timestamp>_composite_tenant_keys/migration.sql` (the
@@ -176,7 +176,7 @@ Database. The main session dispatches this task alone, with no other agent activ
 for its own database `prompthub_test_t13` on the local Docker Postgres (host port 54322); the name keeps the
 `"test"` that `src/test/db.ts` requires. Every `DATABASE_URL` and `DIRECT_URL` below is that value. The agent never
 touches the shared `prompthub_test`, because `migrate reset --force` erases the database it is pointed at, and never
-Supabase. It creates no role or database; Prisma creates and drops its own shadow database for `migrate dev`.
+Supabase. It creates no role or database.
 
 Steps. First, apply the existing migrations with `npx prisma migrate deploy`, run the three audit queries of
 [the contract](P7S2-domain-contracts.md#composite-tenant-keys) against that database (they are read-only) and report
@@ -186,14 +186,15 @@ is another user's folder, are rejected and leave no row; a root folder, an unfil
 owner's parent and a prompt in its owner's folder are accepted; deleting a parent still cascades to child folders and
 prompts, and deleting a profile still cascades. The two rejection cases are the red: today the inserts succeed. Third,
 change the schema as in the contract, with its `// Reason:` comments, and run `prisma validate`. Fourth, generate the
-migration with `npx prisma migrate dev --create-only --name composite_tenant_keys`. Compare the SQL with the five
-statements of the contract. If it holds any other statement, in particular one that touches the expression index
-`Tag_name_user_id_ci_key` of migration `20260717000001_add_case_insensitive_tag_index` or the `content_tsv` column, stop
-and report; never commit a `DROP INDEX "Tag_name_user_id_ci_key"`, because `createTag`'s `P2002` recovery depends on
-it. The alternative is `npx prisma migrate diff --from-schema-datamodel <a scratch copy of the schema at HEAD>
---to-schema-datamodel prisma/schema.prisma --script`, which printed exactly the five statements on 29/10/2026; write
-its output unedited into a new `prisma/migrations/<timestamp>_composite_tenant_keys/migration.sql` with a timestamp
-later than the newest existing folder. Fifth, the seeded-violation check, with the new migration still pending: insert
+migration SQL with `npx prisma migrate diff --from-schema-datamodel <a scratch copy of the schema at HEAD>
+--to-schema-datamodel prisma/schema.prisma --script`, which printed exactly the five statements on 29/10/2026, and
+write its output unedited into a new `prisma/migrations/<timestamp>_composite_tenant_keys/migration.sql` with a
+timestamp later than the newest existing folder. Do not use `prisma migrate dev --create-only`: Prisma 6.19 refuses to
+run it in a non-interactive shell when it has a data-loss warning, and a new unique constraint can raise one. Compare
+the SQL with the five statements of the contract. If it holds any other statement, in particular one that touches the
+expression index `Tag_name_user_id_ci_key` of migration `20260717000001_add_case_insensitive_tag_index` or the
+`content_tsv` column, stop and report; never commit a `DROP INDEX "Tag_name_user_id_ci_key"`, because `createTag`'s
+`P2002` recovery depends on it. Fifth, the seeded-violation check, with the new migration still pending: insert
 two profiles, a folder of user A and a folder of user B whose `parent_id` is A's folder (read the schema for the
 required columns), with `docker compose exec db psql -U postgres -d prompthub_test_t13`. `npx prisma migrate deploy`
 must fail with `P3018` on `Folder_parent_id_user_id_fkey`, `Folder_parent_id_fkey` and `Prompt_folder_id_fkey` must

@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Research Notes | 27/10/2026 00:18 GMT+10 | 27/10/2026 00:22 GMT+10 |
+| P7S2 Research Notes | 27/10/2026 00:18 GMT+10 | 29/10/2026 18:27 GMT+10 |
 
 ## Table of Contents
 - [Purpose and sources](#purpose-and-sources)
@@ -174,6 +174,9 @@ against it). They skip without it and throw in GitHub Actions without it. This c
 set up for the suite, so the 29 database-backed tests skipped here; CI runs them on `postgres:17-alpine`.
 
 ## Candidate task breakdown
+
+Superseded by the task list of `PRPs/P7S2-server-side-security-hardening.md` (29/10/2026): the numbering and some
+choices below (an upsert in T2, cache getters that check the user) were replaced by later decisions.
 
 The order assumes Q1 is answered with the injected seam. `[P]` marks tasks that can run in parallel once the harness
 task is in.
