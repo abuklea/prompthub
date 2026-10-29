@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 29/10/2026 17:54 GMT+10 |
+| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 29/10/2026 18:18 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -22,10 +22,9 @@
 The per-task detail for [the PRP](../P7S2-server-side-security-hardening.md), Tasks 1 to 7. Tasks 8 to 16 are in
 [the second briefs file](P7S2-task-briefs-2.md#briefs). Interfaces, the action matrix and the schemas are in
 [the action contracts](P7S2-action-contracts.md), the per-area rules and test conventions in
-[the domain contracts](P7S2-domain-contracts.md), the trees and call sites in [the context](P7S2-task-context.md), and
-the references, gotchas and the database environment in
-[the PRP](../P7S2-server-side-security-hardening.md#all-needed-context) and its
-[validation loop](../P7S2-server-side-security-hardening.md#level-2-unit-and-postgres-backed-tests). An agent given one
+[the domain contracts](P7S2-domain-contracts.md), the references, gotchas, file plan, trees and call sites in
+[the context](P7S2-task-context.md#references-and-gotchas), and the database environment in
+[the PRP's validation loop](../P7S2-server-side-security-hardening.md#level-2-unit-and-postgres-backed-tests). An agent given one
 task reads its brief, the contracts section it names and the source it cites, and checks every cited path against the
 code first. Agents never commit, push, branch or touch issues
 ([Never](../../.claude/AGENT-CONTRACT.md#never)): the main session reviews each diff, runs every gate and commits with
@@ -71,8 +70,8 @@ show only that package, and `git diff` of both files is part of the report); MOD
 `src/lib/ensure-profile.ts`; MODIFY `src/features/editor/service.ts` (add `import "server-only"` and a changelog line;
 its existing suites must still pass under the alias); the four callers `src/features/auth/actions.ts`,
 `folders/actions.ts`, `profile/actions.ts` and `prompts/actions.ts` (each call becomes `ensureProfileExists(db, id)`;
-`auth/actions.ts` gains `import db from "@/lib/db"` until Task 4 rewrites it); CREATE `src/lib/server-only-alias.test.ts`
-and `src/lib/ensure-profile.test.ts`.
+`auth/actions.ts` gains `import db from "@/lib/db"` until Task 4 rewrites it); CREATE
+`src/lib/server-only-alias.test.ts` and `src/lib/ensure-profile.test.ts`.
 
 Steps. First, install the package and confirm that `node_modules/server-only/empty.js` exists, because the alias points
 at it (the package's `exports` map names `./empty.js` under the `react-server` condition, from `npm view server-only`
@@ -81,9 +80,12 @@ on 29/10/2026; the file's presence is unverified until the install). Second, wri
 fail with the package's own throw. Third, add the alias to `vitest.config.ts` as a regular expression
 `/^server-only$/` mapped to the absolute path of `node_modules/server-only/empty.js` (a global `react-server`
 condition would break the jsdom suites), and watch the test pass. Fourth, add to the same edit the coverage `include`
-patterns for every file the later tasks create, so no later task edits the list: `src/lib/action-runner.ts`,
-`src/lib/prisma-errors.ts`, `src/lib/ensure-profile.ts`, `src/features/*/handlers.ts`,
-`src/features/prompts/*-handlers.ts`, `src/features/auth/client-purge.ts` and `src/features/workspace/cache.ts`. Fifth,
+patterns for every file the later tasks create or measure, so no later task edits the list: `src/lib/action-runner.ts`,
+`src/lib/prisma-errors.ts`, `src/lib/ensure-profile.ts`, `src/lib/rate-limit.ts`, `src/features/*/handlers.ts`,
+`src/features/prompts/*-handlers.ts`, `src/features/folders/schemas.ts`, `src/features/profile/schemas.ts`,
+`src/features/auth/client-purge.ts`, `src/features/workspace/cache.ts` and `src/test/action-coverage.ts`. Exempt, as
+`src/test/failing-db.ts` already is: the test helpers `src/test/action-deps.ts` and `src/test/racing-db.ts`, and
+`action-runtime.ts` and the wrappers (they need a request scope); the report says so. Fifth,
 write `src/lib/ensure-profile.test.ts` (`describeDb`) with: creates the profile when absent; a second call changes
 nothing and leaves an existing `display_name` untouched; and 50 concurrent calls for a new id all resolve and leave
 one row. Create the module in the new signature `(db, userId)` with the old find-then-create body first and show the
@@ -121,8 +123,8 @@ from one another. Then implement [the contract](P7S2-action-contracts.md#the-sea
 from `createClient().auth`, both lazily) and carries `import "server-only"`.
 
 Done when `action-runner.ts` and `prisma-errors.ts` have no `next/*` import, `action-runtime.ts` is imported by no test,
-the new modules have headers, and per-file coverage of `action-runner.ts` and `prisma-errors.ts` is at least 80% on
-every measure (`action-runtime.ts` is exempt: it needs a request scope).
+the new modules have headers, and per-file coverage of `action-runner.ts`, `prisma-errors.ts` and `rate-limit.ts` is at
+least 80% on every measure (`action-runtime.ts` is exempt: it needs a request scope).
 
 ### P7S2T3 Add the test factories and the fake deps
 
@@ -139,8 +141,12 @@ Show it failing against stubs, then implement. `action-deps.ts` exports `testDep
 of [the conventions](P7S2-domain-contracts.md#test-conventions); `testDeps` returns a user with an id and an email.
 Also test: `createTestPrompt` with `folderId` files the prompt in that folder; a pure `withConnectionLimit(url)`
 (exported from `db.ts`) adds `connection_limit=5` only when the URL has none and leaves the rest of the URL intact, and
-`useTestDatabase` uses it (the guard allows the parameter); `racing-db.ts` deletes the named row before the first
-`update` call, so the real database raises `P2025` (mirror `src/test/failing-db.ts`).
+`useTestDatabase` uses it (the guard allows the parameter). `racing-db.ts` exports
+`withRowDeletedBeforeUpdate(db, model, id): PrismaClient` of
+[the conventions](P7S2-domain-contracts.md#test-conventions) (mirror `src/test/failing-db.ts`). Test both paths it
+intercepts: a top-level `folder.update` of the named row raises `P2025` from the real database, and so does a
+`tx.prompt.update` inside `$transaction(async (tx) => ...)`; a second `update`, another id and another model are not
+intercepted, and the outer delete leaves other rows alone.
 
 Done when `src/test/db.ts` coverage stays at or above its P7S1 figures (97.18% lines, 87.87% branches) and the helpers
 are used by the first isolation suite of Task 4 or 5.
@@ -181,7 +187,8 @@ Files: CREATE `src/features/folders/schemas.ts`, `handlers.ts`, `handlers.test.t
 Steps. Write the schemas of [the contract](P7S2-action-contracts.md#schemas). Write the tests first. Behaviour
 (`handlers.test.ts`): a name is trimmed and capped at 100; a blank name is refused; a child folder is created under an
 owned parent; rename returns the updated folder, and a folder that vanishes between the handler's read and write
-(`racing-db.ts`) gives NOT_FOUND through `P2025`. Isolation (`handlers.isolation.test.ts`), one test per action, each
+(`withRowDeletedBeforeUpdate(db, "folder", id)`, which intercepts the direct `db.folder.update`) gives NOT_FOUND through
+`P2025`. Isolation (`handlers.isolation.test.ts`), one test per action, each
 titled `"<action>: user B ..."`: `createFolder` with A's folder as parent returns NOT_FOUND and creates no row;
 `renameFolder` and `deleteFolder` of A's folder return NOT_FOUND and A's tree is intact; `getFolderChildren` of A's
 folder returns an empty list; `getRootFolders` returns none of A's. The nested case: A has folder X, child Y, grandchild
@@ -238,12 +245,15 @@ the tests `tag-handlers.test.ts`, `tag-handlers.isolation.test.ts`, `history-han
 importers `DocumentToolbar.tsx` (tags), `src/features/editor/components/EditorPane.tsx` (`getPromptVersionHistory`,
 `restorePromptVersion`).
 
-Steps. Tests first. Tags: `getTags` returns only the caller's; `createTag` returns the existing tag for a
-case-insensitive duplicate and survives the concurrent-create `P2002` path (keep the existing recovery, with a test that
-calls it twice in parallel); `assignTagsToPrompt` by B on A's prompt returns "Prompt not found or access denied" and A's
-tags are unchanged; B assigning A's tag id to B's own prompt returns "One or more tags are invalid" and assigns
+Steps. Tests first. Tags: `getTags` returns only the caller's, and `getTags({ folderId })` by B with A's folder id
+returns `[]` (titled `"getTags: user B ..."`); `createTag` returns the existing tag for a case-insensitive duplicate of
+the caller's own tag, B creating a tag with the name of A's tag gets a new id and A's tag keeps its id and name (titled
+`"createTag: user B ..."`), and it survives the concurrent-create `P2002` path (keep the existing recovery, with a test
+that calls it twice in parallel); `assignTagsToPrompt` by B on A's prompt returns "Prompt not found or access denied"
+and A's tags are unchanged; B assigning A's tag id to B's own prompt returns "One or more tags are invalid" and assigns
 nothing; the write is `update({ where: { id, user_id } })` inside one transaction with the reads, and a prompt that is
-deleted between the reads and the write (`racing-db.ts`) maps `P2025` to the same not-found text. History:
+deleted between the reads and the write (`withRowDeletedBeforeUpdate(db, "prompt", id)`, which intercepts the
+`tx.prompt.update` inside the handler's `$transaction`) maps `P2025` to the same not-found text. History:
 `getPromptVersionHistory` and `restorePromptVersion` by B on A's prompt return "Prompt not found or access denied" and
 A's row and versions are unchanged (the lower-layer cases already exist in `service.*.test.ts`; these test the handler
 path and the limit; `restorePromptVersion` uses the `save` bucket). Implement the handlers and wrappers per

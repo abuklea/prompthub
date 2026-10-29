@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 - Server-side Security Hardening | 29/10/2026 16:55 GMT+10 | 29/10/2026 17:58 GMT+10 |
+| P7S2 - Server-side Security Hardening | 29/10/2026 16:55 GMT+10 | 29/10/2026 18:17 GMT+10 |
 
 ## Table of Contents
 - [Goal](#goal)
@@ -41,9 +41,12 @@ Epic #39 states the outcome. Application code is the enforced tenant boundary, b
 bypasses row-level security (`docs/rules/project.md#database-auth-and-tenancy`), so one missed check is a cross-tenant
 defect. Research on 26/10/2026 and 27/10/2026 ([notes](../wip/P7S2-research-notes.md),
 [drift register](../wip/P7S2-research-drift.md)) measured `481aae9`; the counts below were re-checked on `bff5fa6` on
-29/10/2026. Eight modules carry `"use server"` and export 27 functions, 23 of which touch tenant data. Thirteen skip
-Zod, eleven do not return `ActionResult`, and four are rate-limited (`signIn`, `signUp`, `createPrompt`,
-`saveNewVersion`). `assignTagsToPrompt` checks ownership and then updates by `id` alone
+29/10/2026. Eight modules carry `"use server"` and export 27 functions. Twenty-four touch tenant data: the 22 tenant
+actions that get a cross-user test, plus `searchPrompts` and `ensureProfileExists`, which stop being actions; the other
+three are `signIn`, `signUp` and `signOut`. Of the 24 actions left once `searchPrompts`, `ensureProfileExists` and
+`signOut` are set aside, 15 parse their input with nothing or only as a type (`signIn` and `signUp` type their argument
+with `z.infer`; four take no input), eleven do not return `ActionResult`, and four are rate-limited (`signIn`,
+`signUp`, `createPrompt`, `saveNewVersion`). `assignTagsToPrompt` checks ownership and then updates by `id` alone
 (`src/features/prompts/actions.ts:588`). `createPrompt` and `createFolder` write a `folderId` and a `parentId` nobody
 checked; the foreign keys reference `Folder.id` alone, so a prompt can be attached to another user's folder, which needs
 that user's UUID (finding F-2). `ensureProfileExists(userId)` is a `"use server"` module: it was absent from the
@@ -64,16 +67,18 @@ work, and to give saves their own rate-limit bucket.
 Not done, and not verified. The wrappers, `action-runtime.ts` and the cookie wiring have no unit test, and none of the
 build, manifest and browser checks has been run. The limiter stays in memory, per instance (#48 keeps the shared
 store). Count and byte caps (F-1) are filed under #47. The composite keys cover folders and prompts only; tags stay
-application-checked, and applying the migration to Supabase is the developer's step. A session that expires without
-the sign-out button leaves drafts on disk, and the sign-out check covers the current browser tab only. Whether the
-cloud GoTrue sends the `AuthError.code` values the auth messages use is unverified.
+application-checked, and applying the migration to Supabase is the developer's step. On a local Postgres the
+migration applied all-or-nothing and failed on a seeded violation, and the recovery worked (29/10/2026); it has not
+been run against Supabase. A session that expires without the sign-out button leaves drafts on disk, and the
+sign-out check covers the current browser tab only. Whether the cloud GoTrue sends the `AuthError.code` values the
+auth messages use is unverified.
 
 ## What
 
 | Defect | Today | After | Issue |
 |---|---|---|---|
 | A helper is an action | `ensure-profile.ts` is `"use server"`, takes any `userId`, reads then creates | A `server-only` module taking `(db, userId)`; one `createMany` with `skipDuplicates`; a 50-call concurrency test | #40 |
-| Inputs unchecked | 13 actions parse nothing or only as a type; unbounded `validatePrompts`; no name caps | Every action parses with Zod, returns a fixed message, caps names and lists | #41, #42 |
+| Inputs unchecked | 15 actions parse nothing or only as a type; unbounded `validatePrompts`; no name caps | Every action parses with Zod, returns a fixed message, caps names and lists | #41, #42 |
 | Foreign rows referenced | `createPrompt`, `createFolder` write an unchecked `folderId` or `parentId` | Owner checked in the writing transaction, and composite foreign keys refuse it in the database (F-2) | #41 |
 | Unscoped write | `assignTagsToPrompt` updates by `id` after a separate check | One transaction; `update` where `{ id, user_id }` | #41 |
 | Auth input passes through | Raw object to Supabase; its message returned | Only `{ email, password }` reaches Supabase; fixed messages | #42 |
@@ -123,7 +128,7 @@ earlier D4, D5, D9 and Q8 default. The planner's other decisions were not put to
 | Q5 `server-only` | The package is added, with a Vitest alias | developer, 27/10/2026 |
 | Q6 Delete the route | `src/app/auth/sign-out/route.ts` removed | developer, 27/10/2026 |
 | Q7 Tabs purged | The purge also clears the tab store | developer, 27/10/2026 |
-| Q8 Database keys now | Unique `(id, user_id)` on `Folder` and composite keys on `parent_id` and `folder_id` (Task 13), after a read-only audit; auditing and migrating Supabase is the developer's (Task 16); violating rows make the migration fail until cleaned | developer, 29/10/2026 |
+| Q8 Database keys now | Unique `(id, user_id)` on `Folder` and composite keys on `parent_id` and `folder_id` (Task 13), after a read-only audit; auditing and migrating Supabase is the developer's (Task 16); violating rows make the migration fail, applying nothing, until cleaned (verified locally) | developer, 29/10/2026 |
 | D1 `runAction` | One runner: parse, authenticate, limit, profile, run, catch; it rethrows any error with a string `digest`; modules named `handlers.ts` | planner |
 | D2 Arguments | Positional arguments become one object; `signOut` keeps its own shape and body | planner |
 | D3 `searchPrompts` | Only `getPromptsByFolder` calls it (searched 29/10/2026): it stops being an action, leaving 25 | planner |
@@ -141,143 +146,46 @@ trees and the call sites in [the context](docs/P7S2-task-context.md); Tasks 8 to
 [the second briefs file](docs/P7S2-task-briefs-2.md#briefs). Read your task's section and the source it cites, and
 check each cited path against the code first.
 
-```yaml
-# MUST READ
-- url: https://nextjs.org/docs/14/app/building-your-application/rendering/composition-patterns
-  why: "Keeping Server-only Code out of the Client Environment": npm install server-only, import it in the module
-  critical: Opened 29/10/2026. A Client Component importing such a module is a build error; a type-only import is erased
-
-- file: src/features/editor/service.ts
-  why: The pattern to mirror - (db, userId, input), no "use server", one NOT_FOUND text, scoped updateMany as the check
-  critical: Task 1 adds import "server-only" to it; src/features/editor/actions.ts shows the order the runner keeps
-
-- file: src/test/db.ts
-  why: describeDb, useTestDatabase, createTestUser, createTestPrompt, and the guard against a non-disposable URL
-  critical: Tag has no relation to Profile, so deleting a profile leaves its tags; the guard rejects only host, hostaddr, port
-
-- file: src/features/prompts/actions.ts
-  why: 12 actions to split; line 588 unscoped write; 143-150 unchecked folder; 398 raw query
-  critical: Task 6 deletes the eslint-disable max-lines comment and the register row (reportUnusedDisableDirectives is on)
-
-- file: src/features/folders/actions.ts
-  why: Five throwing actions with no schema; lines 79-103 the shallow prompt-id read
-  critical: The three folder components rely on thrown errors; src/features/auth/actions.ts keeps signOut's body
-
-- file: src/features/workspace/cache.ts
-  why: The stored userId is never checked; removeFolderFromCache leaves descendants
-  critical: useActiveTabFolderSync.test.tsx hydrates it for user-1 with nothing bound and must pass unedited
-
-- file: prisma/schema.prisma
-  why: Folder.parent (line 26) and Prompt.folder (line 45) reference Folder.id alone; Tag.user_id is a plain string
-  critical: A scratch copy with the composite keys validated on 29/10/2026; the SQL is in the domain contracts
-
-- docfile: wip/P7S2-research-drift.md
-  why: 26 rows; Task 15 fixes DR-4, DR-5, DR-21 first, Task 12 the rest; docs/rules/testing.md line 43 bans module mocks
-```
-
-```text
-# CRITICAL gotchas (verified in the code or by the 26/10/2026 research unless marked)
-# - A "use server" file may export only async functions (types are erased). A non-async export fails the build, an
-#   async one is a public endpoint. Helpers, deps, constants and the digest check live in plain modules.
-# - Importing ANY export of an action module from a Server Component registers EVERY export of it
-#   (src/app/(app)/dashboard/page.tsx imports getDashboardMetrics this way).
-# - cookies() throws outside a request and Next 14.2 has no test utility for it: only action-runtime.ts calls
-#   createClient(), inside getUser, never at module load. await getUser(): the Supabase server client hides cookies
-#   behind synchronous-looking signatures.
-# - Next control-flow errors (redirect, notFound, dynamic usage) carry a string digest (NEXT_REDIRECT;...,
-#   NEXT_NOT_FOUND, DYNAMIC_SERVER_USAGE; read in node_modules/next/dist/client/components). The runner rethrows them.
-# - Zod 3.25.76: .trim() BEFORE .min()/.max(); .uuid() accepts any version and upper case; a nullable parentId needs
-#   .nullable(); a schema with .default() needs the three-argument ZodType for its input type.
-# - server-only: Next aliases the bare import at build time, tsc does not resolve it, and under Vitest its default
-#   export throws. Alias to node_modules/server-only/empty.js (named under the "react-server" export condition, from
-#   npm view; the file is UNVERIFIED until installed). A global react-server condition would break the jsdom suites.
-# - Prisma 6.19.0 upsert({ update: {} }) fell back to SELECT then INSERT and raced (seen 26/10/2026, undocumented), so
-#   ensureProfileExists uses createMany with skipDuplicates. updateMany cannot set a relation; the scoped form is
-#   update({ where: { id, user_id } }), which raises P2025 for no match.
-# - Composite keys: Postgres skips a composite FK with a NULL column, so root folders and unfiled prompts stay valid.
-#   How the generated Prisma Client handles the partly nullable relation is UNVERIFIED (no client was generated).
-# - Folder.parent and Prompt.folder cascade, so deleteFolder reads the tree BEFORE the delete (domain contracts).
-# - Never edit an existing test to make a change pass (testing.md). New suites go in new files.
-# - Parallel worktrees share one TEST_DATABASE_URL: every suite makes its own users; the pool is capped (Task 3).
-```
+The references to open first (the Next.js `server-only` documentation, the files each task mirrors, the research
+drift register) and the gotchas verified in the code or by the research are in
+[the context](docs/P7S2-task-context.md#references-and-gotchas). Three do the most damage when missed: a `"use server"`
+file may export only async functions, and importing any one export of an action module registers all of them;
+`cookies()` throws outside a request, so only `action-runtime.ts` calls `createClient()`, inside `getUser`; and the
+migration of Task 13 must never drop the hand-written index `Tag_name_user_id_ci_key`.
 
 ## Implementation Blueprint
 
 ### Data models and structure
 
 The Prisma schema changes only in Task 13 (composite keys); the seam and the schemas are new types, in full in
-[the contracts](docs/P7S2-action-contracts.md#the-seam), with the flow diagram. In brief: `ActionDeps` is `{ getUser, db }`
-and `getUser` yields `{ id, email }`; a handler calls `runAction(deps, spec, data)`, where the spec holds the schema, the
-two messages, the limit class (`mutation`, `save`, `autosave`, `none`) and a `run({ db, user, input })` body; the runner
-fixes the order parse, authenticate, limit, profile, run, catch.
+[the contracts](docs/P7S2-action-contracts.md#the-seam), with the flow diagram. In brief: `ActionDeps` is
+`{ getUser, db }` and `getUser` yields `{ id, email }`; a handler calls `runAction(deps, spec, data)`, where the spec
+holds the schema, the two messages, the limit class (`mutation`, `save`, `autosave`, `none`) and a
+`run({ db, user, input })` body; the runner fixes the order parse, authenticate, limit, profile, run, catch.
 
 ### Tasks
 
-```yaml
-Task 15 (documentation-manager): correct the agent definitions - runs FIRST        # DR-4, DR-5, DR-21
-MODIFY .claude/agents/{senior-backend-engineer,qa-test-automation-engineer}.md and the .gemini/agents copies
-
-Task 1 (senior-backend-engineer): server-only and ensureProfileExists              # #40, Q5
-MODIFY package.json, package-lock.json: npm install server-only (the only dependency change)
-MODIFY vitest.config.ts: alias for server-only; coverage patterns for every later file
-MODIFY src/lib/ensure-profile.ts (no directive, server-only, (db, userId), createMany) and src/features/editor/service.ts
-MODIFY the four action files: the call sites take (db, id); CREATE server-only-alias.test.ts, ensure-profile.test.ts
-
-Task 2 (senior-backend-engineer): the seam and the limits                           # Q1, #48 part
-CREATE src/lib/action-runner.ts, action-runtime.ts, prisma-errors.ts and their tests
-MODIFY src/lib/rate-limit.ts: checkSaveRateLimit, checkAutosaveRateLimit; CREATE rate-limit.autosave.test.ts
-
-Task 3 (qa-test-automation-engineer): test factories, fake deps, pool cap           # #45
-MODIFY src/test/db.ts: createTestFolder (parentId), createTestTag, deleteTestUser, createTestPrompt (folderId), pool cap
-CREATE src/test/action-deps.ts, racing-db.ts, db.helpers.test.ts
-
-Task 4 [P] (senior-backend-engineer): signIn and signUp                             # #42, F-4
-CREATE src/features/auth/handlers.ts, handlers.test.ts; MODIFY actions.ts (wrappers)
-
-Task 5 [P] (backend, then senior-frontend-engineer): folders                        # #41, #43, F-2, F-6
-CREATE folders/schemas.ts, handlers.ts, handlers.test.ts, handlers.isolation.test.ts; MODIFY actions.ts
-MODIFY FolderItem, FolderTree, FolderToolbar; workspace/cache.ts (removeFolderTreeFromCache) + cache.tree.test.ts
-
-Task 6 [P] (backend, then frontend): prompt CRUD and listing                        # #41, F-2, DR-18, DR-19
-MODIFY prompts/schemas.ts, actions.ts; CREATE handlers.ts, search-handlers.ts and tests
-DELETE the max-lines eslint-disable and the code-size register row; MODIFY PromptList, DocumentToolbar, DocumentTab, use-tab-cleanup
-
-Task 7 (backend, then frontend): tags, history and the rest of the split            # #41, #51, DR-20; after Task 6
-CREATE tag-handlers.ts, tag-actions.ts, history-handlers.ts, history-actions.ts and four test files
-MODIFY prompts/actions.ts (delete moved code); callers DocumentToolbar (tags), EditorPane (history imports)
-
-Task 8 [P] (backend, then frontend): editor, profile, workspace, dashboard          # Q3, Q4
-CREATE handlers.ts and both test files in each feature; profile/schemas.ts; MODIFY the four actions.ts
-MODIFY profile/page.tsx, dashboard/page.tsx, WorkspacePreloader.tsx
-
-Task 9 (senior-frontend-engineer): sign-out purge and the route                     # #44, Q6, Q7, F-7, F-8
-MODIFY workspace/cache.ts (bindWorkspaceCacheViewer, clearWorkspaceCache); CREATE cache.test.ts
-CREATE auth/client-purge.ts and client-purge.test.ts (jsdom, real localStorage)
-MODIFY use-tab-store.ts (resetTabs), tabs/types.ts, use-ui-store.ts (resetSession), Header.tsx, WorkspacePreloader.tsx,
-       src/app/(app)/layout.tsx (userId prop); DELETE src/app/auth/sign-out/route.ts
-
-Task 10 (qa-test-automation-engineer): isolation coverage rule                      # #45
-CREATE src/test/action-coverage.ts (pure checker) and two test files; MODIFY docs/rules/testing.md
-
-Task 11 (security-analyst): read-only review of the final tree; findings to the main session
-Task 12 (documentation-manager): the remaining drift rows, headers, register, README, rules
-Task 13 (senior-backend-engineer): composite tenant keys                            # Q8
-MODIFY prisma/schema.prisma; CREATE the generated migration and src/test/composite-fk.test.ts
-Task 14 (senior-frontend-engineer): ask before signing out with unsaved work        # D10
-MODIFY auth/client-purge.ts, Header.tsx; CREATE client-purge.unsaved.test.ts
-Task 16 (developer, type: dev-review): #46 rotation; audit and apply the migration on Supabase; browser checks
-```
-
-The red tests, files and done-when conditions of each task are in [the briefs](docs/P7S2-task-briefs.md#briefs).
+The files each task creates, modifies or deletes, with the decision and finding each answers, are in
+[the file plan](docs/P7S2-task-context.md#file-plan-by-task); the red tests, the exact files and the done-when
+conditions are in [the briefs](docs/P7S2-task-briefs.md#briefs). The task order and agents are in the table below.
 
 ### Task List
 
-Fifteen agent tasks of 0.5 to 4 hours, each ending with every gate green, so every commit is a working state. Task 15
-runs first (at INITIAL). A task with a frontend step is one commit:
-the backend step leaves `tsc` failing until the callers are updated, so both run in one worktree. `[P]` tasks touch
-disjoint files and run in separate worktrees once Task 3 is merged. Task 7 follows Task 6 (both edit
-`prompts/actions.ts`); Task 9 follows Tasks 4, 5 and 8 (all edit `auth/actions.ts`, `cache.ts` or
-`WorkspacePreloader.tsx`). Hours are estimates.
+Fifteen agent tasks of 0.5 to 4 hours, each ending with every gate green, so every commit is a working state. A task
+with a frontend step is one commit: the backend step leaves `tsc` failing until the callers are updated, so both run in
+one worktree. `[P]` tasks touch disjoint files and run in separate worktrees once Task 3 is merged. Hours are estimates.
+
+```text
+Execution sequence: T15, T1, T2, T3, { T4, T5, T6, T8 in parallel }, T7, T9, T10, T13, T14, T11, T12, T16
+```
+
+Task 15 runs first (at INITIAL). The main session merges, reviews and gates the whole parallel batch before it starts
+the next step. T7 needs T6 (both edit `prompts/actions.ts`), T9 needs T4, T5 and T8 (all edit `auth/actions.ts`,
+`cache.ts` or `WorkspacePreloader.tsx`) and T13 needs T5 and T6; T7, T9 and T13 also wait for T8, so that each starts
+from a tree in which every suite of the batch passes. T10 needs T4 to T8, T14 needs T9, T11 needs T9, T10, T13 and
+T14, T12 needs T11 and T16 needs T12. T13 runs alone in the main session with no other agent active: it changes the
+schema and regenerates the Prisma Client, and `migrate reset --force` erases a database, so it works on its own
+database `prompthub_test_t13` and never touches the shared `prompthub_test`.
 
 | Task | Title | Agent | Hours | After | [P] | Issues |
 |---|---|---|---|---|---|---|
@@ -287,21 +195,21 @@ disjoint files and run in separate worktrees once Task 3 is merged. Task 7 follo
 | P7S2T4 | Validate and sanitise signIn and signUp | `senior-backend-engineer` | 3 | T3 | with T5, T6, T8 | #42 |
 | P7S2T5 | Harden the folder actions and close the tabs of a deleted tree | `senior-backend-engineer`, `senior-frontend-engineer` | 4 | T3 | with T4, T6, T8 | #41, #43 |
 | P7S2T6 | Harden the prompt CRUD and listing actions | `senior-backend-engineer`, `senior-frontend-engineer` | 4 | T3 | with T4, T5, T8 | #41 |
-| P7S2T7 | Split the rest of prompts/actions.ts and harden tags and history | `senior-backend-engineer`, `senior-frontend-engineer` | 4 | T6 | | #41, #51 |
+| P7S2T7 | Split the rest of prompts/actions.ts and harden tags and history | `senior-backend-engineer`, `senior-frontend-engineer` | 4 | T6, T8 | | #41, #51 |
 | P7S2T8 | Move the editor, profile, workspace and dashboard actions onto the seam | `senior-backend-engineer`, `senior-frontend-engineer` | 3.5 | T3 | with T4, T5, T6 | #48 (part) |
 | P7S2T9 | Purge client state on sign-out and delete the sign-out route | `senior-frontend-engineer` | 4 | T4, T5, T8 | | #44 |
 | P7S2T10 | Isolation coverage rule | `qa-test-automation-engineer` | 2.5 | T4 to T8 | | #45 |
 | P7S2T11 | Independent security review | `security-analyst` | 1.5 | T9, T10, T13, T14 | | #39 |
 | P7S2T12 | Sweep the documentation | `documentation-manager` | 2.5 | T11 | | #39, #45 |
-| P7S2T13 | Add composite tenant keys | `senior-backend-engineer` | 3.5 | T5, T6 | | #41 |
+| P7S2T13 | Add composite tenant keys | `senior-backend-engineer` | 3.5 | T5, T6, T8 | | #41 |
 | P7S2T14 | Ask before signing out with unsaved work | `senior-frontend-engineer` | 1.5 | T9 | | #44 |
 | P7S2T15 | Correct the agent definitions | `documentation-manager` | 0.5 | none (first) | | #39 |
 | P7S2T16 | Developer checks (`type: dev-review`) | developer | 1.5 | T12 | | #46, new |
 
-The main session provisions the test database before it dispatches T1 to T10 and T13, and alone edits issues. The INITIAL
-report files the epic's task issues and the dev-review issue, comments on #40 to #45, #48 and #51 (the rate-limit part of
-#48 only; its shared store stays open), and files the follow-ups: count and byte caps (F-1, under #47), a purge on
-session expiry, and tag ownership in the database (an explicit join model).
+The main session provisions the shared test database before it dispatches T1 to T10, creates `prompthub_test_t13` for
+T13, and alone edits issues. The INITIAL report files the epic's task issues and the dev-review issue, comments on #40
+to #45, #48 and #51 (the rate-limit part of #48 only; its shared store stays open), and files the follow-ups: count and
+byte caps (F-1, under #47), a purge on session expiry, and tag ownership in the database (an explicit join model).
 
 ### Integration Points
 
@@ -333,11 +241,13 @@ bash scripts/audit-code-size.sh --summary
 ```bash
 npm test   # without TEST_DATABASE_URL the Postgres suites are skipped; the action-coverage rule still runs
 
-# The db service of docker-compose.yml publishes Postgres on host port 54322; set PGUSER and PGPASSWORD to its
+# The db service of docker-compose.yml publishes Postgres on host port 54322; the two exports below are its
 # POSTGRES_USER and POSTGRES_PASSWORD. The main session runs these; an agent creates no role or database. The name must
 # contain "test" and the host be loopback (src/test/db.ts refuses otherwise). Local Docker only, never Supabase.
+export PGUSER=postgres PGPASSWORD=postgres
 docker compose up -d --wait db
 docker compose exec db createdb -U "$PGUSER" prompthub_test || true   # "already exists" is fine
+docker compose exec db createdb -U "$PGUSER" prompthub_test_t13 || true   # Task 13 only: its own database
 export TEST_DATABASE_URL="postgresql://$PGUSER:$PGPASSWORD@localhost:54322/prompthub_test"
 DATABASE_URL="$TEST_DATABASE_URL" DIRECT_URL="$TEST_DATABASE_URL" npx prisma migrate deploy
 npm test
@@ -373,7 +283,8 @@ Chrome cannot start. No write action against a non-local target (`.claude/AGENT-
 - [ ] The register row and the `eslint-disable max-lines` comment for `prompts/actions.ts` are gone (Task 6)
 - [ ] Per-file coverage at least 80% on every measure for each new file in scope; exemptions recorded (the wrappers and
   `action-runtime.ts` need a request scope)
-- [ ] The composite-key migration applies from scratch on the local Docker Postgres; the audit ran on Supabase before it
+- [ ] The composite-key migration applies from scratch on the local Docker Postgres and fails, applying nothing, on a
+  seeded violation; the audit ran on Supabase before it
 - [ ] Every drift-register row is fixed or filed, including `.serena/memories/project_overview.md:23`; every edited file
   with a header has a changelog line; every edited file without a header (the ten of finding F-9) got one
 - [ ] No existing test was edited; if one had to be, the REPORT names it with the developer's approval
@@ -389,7 +300,7 @@ Chrome cannot start. No write action against a non-local target (`.claude/AGENT-
 - Do not return Supabase's, Zod's or an exception's message, and do not tell a missing row from a foreign one
 - Do not leave a mutation without a limit, or put saves back in the shared bucket
 - Do not call `createClient()` or `cookies()` at module load, or purge by `startsWith("prompt")`
-- Do not run `prisma migrate dev` or `deploy` against Supabase, or hand-write a migration
+- Do not run `prisma migrate dev` or `deploy` against Supabase, or commit migration SQL that Prisma did not print
 - Do not keep the old pattern beside the new: a converted action loses its old signature
 - Do not widen into #48's shared store, count caps, the expiry purge or database tag keys; file them
 

@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Action Contracts | 29/10/2026 16:50 GMT+10 | 29/10/2026 17:53 GMT+10 |
+| P7S2 Action Contracts | 29/10/2026 16:50 GMT+10 | 29/10/2026 18:17 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -17,13 +17,13 @@
 
 ## Purpose
 
-The interfaces and per-action rules for [the PRP](../P7S2-server-side-security-hardening.md), first half: the seam, the
-action matrix and the schemas. The per-area contracts (folders, `ensureProfileExists`, auth, prompts, the sign-out purge,
-the composite keys and the test conventions) are in [the domain contracts](P7S2-domain-contracts.md). The decisions
-behind them are in [the PRP's Decisions](../P7S2-server-side-security-hardening.md#decisions); the task order and the red
-tests are in [the task briefs](P7S2-task-briefs.md#briefs). Every file path was read on 29/10/2026 against `master` at
-`bff5fa6`. Code here is a contract, not a finished implementation: an executing agent writes the tests first, checks each
-cited symbol against the code, and reports a disagreement instead of working around it.
+The interfaces and per-action rules for [the PRP](../P7S2-server-side-security-hardening.md), first half: the seam,
+the action matrix and the schemas. The per-area contracts (folders, `ensureProfileExists`, auth, prompts, the sign-out
+purge, the composite keys and the test conventions) are in [the domain contracts](P7S2-domain-contracts.md). The
+decisions behind them are in [the PRP's Decisions](../P7S2-server-side-security-hardening.md#decisions); the task order
+and the red tests are in [the task briefs](P7S2-task-briefs.md#briefs). Every file path was read on 29/10/2026 against
+`master` at `bff5fa6`. Code here is a contract, not a finished implementation: an executing agent writes the tests
+first, checks each cited symbol against the code, and reports a disagreement instead of working around it.
 
 ## The Seam
 
@@ -149,9 +149,12 @@ export const actionDeps: ActionDeps = {
 }
 ```
 
-Rules for a wrapper file: it exports only `async function`s (a type export is erased and allowed); each body delegates
-once, plus the `revalidatePath` calls that exist today; the parameter type is `z.input<typeof schema>` so call sites
-type-check, while the handler still takes `unknown` and parses; an action that already takes `data: unknown` keeps it.
+Rules for a wrapper file: it exports only `async function`s (a type export is erased and allowed); it imports its
+handler module as `import * as handlers from "./<name>"`, whatever the module is called, because the coverage rule of
+[Task 10](P7S2-task-briefs-2.md#p7s2t10-isolation-coverage-rule) looks for `handlers.<action>(actionDeps` (`authDeps`
+in `auth/actions.ts`); each body delegates once, plus the `revalidatePath` calls that exist today; the parameter type is
+`z.input<typeof schema>` so call sites type-check, while the handler still takes `unknown` and parses; an action that
+already takes `data: unknown` keeps it.
 `createClient()` is called inside `getUser`, never at module load, because `cookies()` throws outside a request.
 
 ### What the seam leaves untested

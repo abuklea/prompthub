@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Domain Contracts | 29/10/2026 17:53 GMT+10 | 29/10/2026 17:53 GMT+10 |
+| P7S2 Domain Contracts | 29/10/2026 17:53 GMT+10 | 29/10/2026 18:17 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -123,6 +123,12 @@ export interface AuthDeps {
   auth: () => Pick<SupabaseClient["auth"], "signInWithPassword" | "signUp">
 }
 ```
+
+`clientIp` takes the first `x-forwarded-for` value, as `signUp` and `signIn` do today
+(`src/features/auth/actions.ts:25,53`). On the Docker stack `docker/gateway/nginx.conf` sets the header with
+`$proxy_add_x_forwarded_for`, which appends the real address to whatever the client sent, so the first value is the
+client's own claim and a client can pick its limiter bucket there. How the production host sets the header is
+unverified here. This is out of scope for P7S2 and is tracked under #48, with the shared limiter store.
 
 Flow: parse with `SignInSchema` or `SignUpSchema` (a failure returns the fixed text "Check your email and password and
 try again."), limit by IP with `checkAuthRateLimit`, call Supabase with exactly `{ email, password }` (never the parsed
@@ -261,17 +267,20 @@ database, no client generated):
 
 ```prisma
 model Folder {
+  // Reason: never use disconnect on parent or folder. Both relations include user_id, which is also the owner
+  // column, so a disconnect would null it. No code under src uses a Prisma disconnect today (searched 29/10/2026).
   parent  Folder? @relation("NestedFolders", fields: [parent_id, user_id], references: [id, user_id], onDelete: Cascade)
   // ... unchanged fields ...
   @@unique([id, user_id])
 }
 model Prompt {
+  // Reason: same as Folder.parent: no disconnect, because it would null user_id.
   folder  Folder? @relation(fields: [folder_id, user_id], references: [id, user_id], onDelete: Cascade)
 }
 ```
 
 ```sql
--- the script `prisma migrate diff` printed
+-- the five statements `prisma migrate diff` printed
 ALTER TABLE "Folder" DROP CONSTRAINT "Folder_parent_id_fkey";
 ALTER TABLE "Prompt" DROP CONSTRAINT "Prompt_folder_id_fkey";
 CREATE UNIQUE INDEX "Folder_id_user_id_key" ON "Folder"("id", "user_id");
@@ -303,15 +312,35 @@ SELECT pt."A" AS prompt_id, pt."B" AS tag_id
 FROM "_PromptToTag" pt JOIN "Prompt" p ON p.id = pt."A" JOIN "Tag" t ON t.id = pt."B" WHERE p.user_id <> t.user_id;
 ```
 
-If queries 1 or 2 return rows, the migration fails when it adds the constraint (Postgres refuses a foreign key that
-existing rows violate) and changes nothing, because Prisma runs the migration in one transaction on PostgreSQL
-(unverified here). The developer then cleans or reassigns those rows (move the folder or prompt to its owner's tree, or
-delete it) and re-runs the audit before applying. The migration is generated with `prisma migrate dev --create-only`
-against the local Docker Postgres and applied from scratch there. Prisma Migrate has no down migrations, so a rollback is
-a new forward migration that reverses the script above (drop the two new constraints and the unique index, then re-add
-`Folder_parent_id_fkey` and `Prompt_folder_id_fkey` on the single columns with `ON DELETE CASCADE ON UPDATE CASCADE`;
-the agent regenerates it with `prisma migrate diff` in the opposite direction and does not apply it). Applying the
-migration to Supabase is the developer's step ([Task 16](P7S2-task-briefs-2.md#p7s2t16-developer-checks)).
+If queries 1 or 2 return rows, the migration fails with `P3018` on the constraint it was adding (Postgres refuses a
+foreign key that existing rows violate) and applies nothing. Verified on 29/10/2026 on a throwaway database on the local
+Docker Postgres (Prisma 6.19, since dropped): with the eight existing migrations applied, a folder of user B under a
+folder of user A, and the script above added as a ninth migration, `prisma migrate deploy` failed on
+`Folder_parent_id_user_id_fkey`. Afterwards `Folder_parent_id_fkey` and `Prompt_folder_id_fkey` still existed and
+`Folder_id_user_id_key` did not, so the migration is all-or-nothing and needs no hand-written `BEGIN` and `COMMIT`.
+`_prisma_migrations` recorded it as failed (not finished, not rolled back), which blocks every later `deploy`. The
+recovery that worked: `prisma migrate resolve --rolled-back <migration_name>`, clean the violating rows (move the
+folder or prompt to its owner's tree, or delete it), then `prisma migrate deploy` again; the foreign keys on the two
+tables were then `Folder_parent_id_user_id_fkey`, `Folder_user_id_fkey`, `Prompt_folder_id_user_id_fkey` and
+`Prompt_user_id_fkey`. After the migration, inserting a child folder of user B under user A's folder was refused
+(`violates foreign key constraint "Folder_parent_id_user_id_fkey"`), while a root folder and an unfiled prompt inserted
+fine. None of this was run against Supabase; the runbook for the developer is
+[Task 16](P7S2-task-briefs-2.md#p7s2t16-developer-checks).
+
+The migration is generated with `prisma migrate dev --create-only` against Task 13's own database and applied from
+scratch there. Its SQL must be exactly the five statements above. Migration
+`20260717000001_add_case_insensitive_tag_index` created the expression index `Tag_name_user_id_ci_key` and
+`content_tsv` is an `Unsupported` column, and the schema expresses neither, so a generated migration may touch them: on
+any further statement, stop and report, and never commit a `DROP INDEX "Tag_name_user_id_ci_key"`, on which
+`createTag`'s `P2002` recovery depends. The alternative, which printed exactly the five statements on 29/10/2026, is
+`prisma migrate diff --from-schema-datamodel <the schema at HEAD, copied
+to a scratch file> --to-schema-datamodel prisma/schema.prisma --script`, with the printed script written unedited into a
+new `prisma/migrations/<timestamp>_composite_tenant_keys/migration.sql`.
+
+Prisma Migrate has no down migrations, so a rollback is a new forward migration that reverses the script above (drop
+the two new constraints and the unique index, then re-add `Folder_parent_id_fkey` and `Prompt_folder_id_fkey` on the
+single columns with `ON DELETE CASCADE ON UPDATE CASCADE`; the agent regenerates it with `prisma migrate diff` in the
+opposite direction and does not apply it).
 
 ## Test Conventions
 
@@ -340,5 +369,20 @@ default Postgres (`max_connections` is 100 by default; unverified here) can exha
 `connection_limit=5` to the URL unless it already has one. `assertSafeTestDatabaseUrl` rejects only the `host`,
 `hostaddr` and `port` query parameters (read in `src/test/db.ts`), so the parameter passes the guard. A test that needs
 a row to vanish between a handler's read and its write (the `P2025` path of `renameFolder` and `assignTagsToPrompt`)
-uses `src/test/racing-db.ts`, which mirrors `src/test/failing-db.ts`: a Proxy over the real client that deletes the
-named row immediately before the first `update` call and then delegates, so the real database raises the real `P2025`.
+uses `src/test/racing-db.ts`, which mirrors `src/test/failing-db.ts`:
+
+```typescript
+/**
+ * A client whose first `update` on `model` with `where.id === id` is preceded by deleting that row, so the real
+ * database raises the real P2025. Later calls, other models and other ids pass through.
+ */
+export function withRowDeletedBeforeUpdate(db: PrismaClient, model: "folder" | "prompt", id: string): PrismaClient
+```
+
+It returns a Proxy over `db` that intercepts `update` on the `model` delegate in two places: the top-level client, and
+the `tx` that `$transaction(async (tx) => ...)` passes to its callback (wrapped as `withFailingVersionCreate` wraps
+it; the array form of `$transaction` passes through). The delete is sent through the outer, unwrapped `db`, so it
+commits on its own connection before the intercepted `update` runs. For `renameFolder` the intercepted call is the
+direct `db.folder.update`; for `assignTagsToPrompt` it is `tx.prompt.update` inside the handler's `$transaction`, and
+the reads before it are not intercepted. Not verified: that the outer delete is never blocked by the open transaction
+(that transaction has only read the row); the Task 3 test shows it.

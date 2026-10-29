@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs, Part 2 | 29/10/2026 17:54 GMT+10 | 29/10/2026 17:54 GMT+10 |
+| P7S2 Task Briefs, Part 2 | 29/10/2026 17:54 GMT+10 | 29/10/2026 18:17 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -108,16 +108,20 @@ and `src/test/action-coverage.test.ts` (the real tree); MODIFY `docs/rules/testi
 
 Steps. The checker is a function of `{ path, text }[]` so it can be tested red without editing the real tree. It
 returns the names of the actions that lack an isolation test, found as: every file under `src` whose first statement is
-the `"use server"` directive, each `export async function <name>` in it, and a match for `<name>:` preceded by any
-quote character (`"`, `'` or a backtick) in a file named `*.isolation.test.ts`. The exceptions are `signIn` and
-`signUp`, whose tests are `auth/handlers.test.ts` titled `"signIn: ..."` and `"signUp: ..."` (the rule Task 4 states;
-the checker looks for that title there instead), and `signOut` (no tenant data, a redirect, no handler); 
-`getDashboardMetrics` is not an exception. It also reports a `"use server"` file that exports anything but an
-`async function` or a type, and `src/lib/ensure-profile.ts` if it has the directive or lacks `import "server-only"`.
-Write the fixture cases first (a covered action, an uncovered one, an excepted one, a bad export, each quote style),
-show them failing against the stub, implement, then add the real-tree test and watch it pass because Tasks 4 to 8
-delivered the tests. Edit `docs/rules/testing.md#rules` to require an isolation test for every new action and to state
-how it is named and found, with the header `Last modified`.
+the `"use server"` directive (leading comment blocks and line comments, the header block among them, are stripped
+first, and either quote style is accepted), each `export async function <name>` in it, and a match for `<name>:`
+preceded by any quote character (`"`, `'` or a backtick) in a file named `*.isolation.test.ts`. The exceptions are
+`signIn` and `signUp`, whose tests are `auth/handlers.test.ts` titled `"signIn: ..."` and `"signUp: ..."` (the rule
+Task 4 states; the checker looks for that title there instead), and `signOut` (no tenant data, a redirect, no
+handler); `getDashboardMetrics` is not an exception. The checker also asserts that each wrapper body calls
+`handlers.<name>(actionDeps` (`handlers.<name>(authDeps` for `signIn` and `signUp`), which makes the namespace import
+`handlers` mandatory in every wrapper file, and reports a wrapper that does not; `signOut` is exempt here too. It
+also reports a `"use server"` file that exports anything but an `async function` or a type, and
+`src/lib/ensure-profile.ts` if it has the directive or lacks `import "server-only"`. Write the fixture cases first (a
+covered action, an uncovered one, an excepted one, a bad export, each quote style, a leading header comment, a wrapper
+that does not call its handler), show them failing against the stub, implement, then add the real-tree test and watch
+it pass because Tasks 4 to 8 delivered the tests. Edit `docs/rules/testing.md#rules` to require an isolation test for
+every new action and to state how it is named and found, with the header `Last modified`.
 
 Done when `npm test` without a database still runs the coverage rule (it reads files only) and the isolation suites are
 reported skipped, not absent. The CI run of the Postgres-backed suites cannot happen before a pull request exists
@@ -165,24 +169,40 @@ P7S1 did. Search the repository for the old terms (`ensureProfileExists(userId`,
 Agent `senior-backend-engineer`, 3.5 hours, after T5 and T6. Developer decision of 29/10/2026 (Q8); finding F-2. The
 application checks of Tasks 5 and 6 stay: they give the friendly message, and the keys are the second layer.
 
-Files: MODIFY `prisma/schema.prisma`; CREATE `prisma/migrations/<timestamp>_composite_tenant_keys/migration.sql`
-(generated, never hand-written); CREATE `src/test/composite-fk.test.ts`.
+Files: MODIFY `prisma/schema.prisma`; CREATE `prisma/migrations/<timestamp>_composite_tenant_keys/migration.sql` (the
+SQL Prisma prints, never written by hand); CREATE `src/test/composite-fk.test.ts`.
 
-Steps. First, run the three audit queries of [the contract](P7S2-domain-contracts.md#composite-tenant-keys) against the
-disposable test database (they are read-only) and report their output; on a database the suites filled they return no
-rows. Second, write `composite-fk.test.ts` (`describeDb`) and show it failing: a folder whose `parent_id` is another
-user's folder, and a prompt whose `folder_id` is another user's folder, are rejected and leave no row; a root folder, an
-unfiled prompt, a child folder under its owner's parent and a prompt in its owner's folder are accepted; deleting a
-parent still cascades to child folders and prompts, and deleting a profile still cascades. The two rejection cases are
-the red: today the inserts succeed. Third, change the schema as in the contract and run `prisma validate`. Fourth,
-generate the migration with `prisma migrate dev --create-only --name composite_tenant_keys` against the test database on
-the local Docker Postgres (host port 54322), with `DATABASE_URL` and `DIRECT_URL` set to `TEST_DATABASE_URL`; Prisma
-creates and drops its own shadow database there, and the agent creates no role or database itself. Never run it against
-Supabase. Compare the generated SQL with the script in the contract. Fifth, apply every migration from scratch to that
-disposable database (`npx prisma migrate reset --force`, with the same variables; it erases the test database) and run
-`npx prisma generate` and the whole suite. Sixth, write the rollback as a forward migration text in the report (drop the
-two constraints and the unique index, re-add the two single-column keys; regenerate it with `prisma migrate diff` in
-the opposite direction) without applying or committing it.
+Database. The main session dispatches this task alone, with no other agent active, and supplies `TEST_DATABASE_URL`
+for its own database `prompthub_test_t13` on the local Docker Postgres (host port 54322); the name keeps the
+`"test"` that `src/test/db.ts` requires. Every `DATABASE_URL` and `DIRECT_URL` below is that value. The agent never
+touches the shared `prompthub_test`, because `migrate reset --force` erases the database it is pointed at, and never
+Supabase. It creates no role or database; Prisma creates and drops its own shadow database for `migrate dev`.
+
+Steps. First, apply the existing migrations with `npx prisma migrate deploy`, run the three audit queries of
+[the contract](P7S2-domain-contracts.md#composite-tenant-keys) against that database (they are read-only) and report
+their output; on a database the suites filled they return no rows. Second, write `composite-fk.test.ts`
+(`describeDb`) and show it failing: a folder whose `parent_id` is another user's folder, and a prompt whose `folder_id`
+is another user's folder, are rejected and leave no row; a root folder, an unfiled prompt, a child folder under its
+owner's parent and a prompt in its owner's folder are accepted; deleting a parent still cascades to child folders and
+prompts, and deleting a profile still cascades. The two rejection cases are the red: today the inserts succeed. Third,
+change the schema as in the contract, with its `// Reason:` comments, and run `prisma validate`. Fourth, generate the
+migration with `npx prisma migrate dev --create-only --name composite_tenant_keys`. Compare the SQL with the five
+statements of the contract. If it holds any other statement, in particular one that touches the expression index
+`Tag_name_user_id_ci_key` of migration `20260717000001_add_case_insensitive_tag_index` or the `content_tsv` column, stop
+and report; never commit a `DROP INDEX "Tag_name_user_id_ci_key"`, because `createTag`'s `P2002` recovery depends on
+it. The alternative is `npx prisma migrate diff --from-schema-datamodel <a scratch copy of the schema at HEAD>
+--to-schema-datamodel prisma/schema.prisma --script`, which printed exactly the five statements on 29/10/2026; write
+its output unedited into a new `prisma/migrations/<timestamp>_composite_tenant_keys/migration.sql` with a timestamp
+later than the newest existing folder. Fifth, the seeded-violation check, with the new migration still pending: insert
+two profiles, a folder of user A and a folder of user B whose `parent_id` is A's folder (read the schema for the
+required columns), with `docker compose exec db psql -U postgres -d prompthub_test_t13`. `npx prisma migrate deploy`
+must fail with `P3018` on `Folder_parent_id_user_id_fkey`, `Folder_parent_id_fkey` and `Prompt_folder_id_fkey` must
+still exist and `Folder_id_user_id_key` must not (the migration applied nothing). Run
+`npx prisma migrate resolve --rolled-back <migration_name>`, delete the violating rows and run `deploy` again; it must
+apply. Paste each output. Sixth, apply every migration from scratch (`npx prisma migrate reset --force`, same
+variables) and run `npx prisma generate` and the whole suite. Seventh, write the rollback as a forward migration text in
+the report (drop the two constraints and the unique index, re-add the two single-column keys; regenerate it with
+`prisma migrate diff` in the opposite direction) without applying or committing it.
 
 Done when the composite-key test, the folder and prompt handler suites and `tsc` pass after `prisma generate`. If the
 generated Prisma Client rejects creating a root folder or an unfiled prompt (partly null composite relation:
@@ -201,7 +221,8 @@ count); true with a tab whose `isDirty` is true; true with `prompt-v1-<id>`, wit
 legacy `prompt-<id>`; false when storage throws (the app could not have written a draft either). Then the Header: the
 form's submit handler prevents the default, and when `hasUnsavedClientWork()` is true it opens an `AlertDialog`
 (`src/components/ui/alert-dialog.tsx`) titled "Sign out and discard unsaved work?" with Cancel and Sign out; Sign out
-calls `purgeClientState()` then `await signOut()`, Cancel changes nothing, and with no unsaved work it signs out at once.
+calls `purgeClientState()` then `await signOut()`, Cancel changes nothing, and with no unsaved work it signs out at
+once.
 Keep hover, press and focus feedback on both buttons. Limitation to state in the report: another open browser tab is
 not asked and keeps its in-memory state
 ([the contract](P7S2-domain-contracts.md#sign-out-purge-and-the-workspace-cache)). The dialog itself is checked in the
@@ -238,10 +259,35 @@ keeps the session and the edits, and that confirming signs out and purges; confi
 turn the workspace preload off in Settings, sign out, sign in as the other user and confirm none of the first user's
 folder names appears; run `npm run build` and count the action ids
 ([Level 3](../P7S2-server-side-security-hardening.md#level-3-build-and-browser)). Third, the composite keys (Task 13):
-run the three audit queries of [the contract](P7S2-domain-contracts.md#composite-tenant-keys) against the Supabase
-database first (read-only, in the SQL editor or with `psql`). If queries 1 or 2 return rows, the migration would fail
-when it adds the constraints and change nothing; clean or reassign those rows, then re-run the audit. Only then apply
-the migration to Supabase, by the developer's usual route (`supabase link --project-ref`, then the CLI; never an
-agent), and re-run the audit afterwards. Query 3 (tag links) is information for a follow-up issue. Fourth, file the
-follow-up issues the PRP lists. Note the limitation of the sign-out check: other open tabs of the same browser are not
-asked.
+follow the runbook below. Fourth, file the follow-up issues the PRP lists. Note the limitation of the sign-out check:
+other open tabs of the same browser are not asked.
+
+Runbook for the composite keys on Supabase. Verified only on a throwaway local Postgres on 29/10/2026 (Prisma 6.19,
+[the contract](P7S2-domain-contracts.md#composite-tenant-keys) has the evidence); nothing here has been run against
+Supabase, and no agent runs it.
+
+1. Run audit queries 1 and 2 of the contract against the Supabase database (read-only, in the SQL editor or with
+   `psql`). Query 3 (tag links) is information for a follow-up issue.
+2. If either returns rows, clean or reassign them (move the folder or prompt to its owner's tree, or delete it) and
+   re-run both until neither returns a row.
+3. Apply the migration by the developer's usual route (`supabase link --project-ref`, then the CLI, or
+   `npx prisma migrate deploy` with `DATABASE_URL` and `DIRECT_URL` set in the shell); never an agent. The local
+   failure and recovery below were run with `prisma migrate deploy` and `prisma migrate resolve`.
+4. If the deploy fails with `P3018` on `Folder_parent_id_user_id_fkey` or `Prompt_folder_id_user_id_fkey`, a violating
+   row appeared after the audit. Nothing was applied: both queries below should still list the old keys
+   `Folder_parent_id_fkey` and `Prompt_folder_id_fkey` and no `Folder_id_user_id_key`. The failed run is recorded in
+   `_prisma_migrations` as neither finished nor rolled back, and that blocks every later deploy. Run
+   `npx prisma migrate resolve --rolled-back <migration_name>` (the folder name under `prisma/migrations`), repeat
+   steps 1 and 2, then `npx prisma migrate deploy` again.
+5. Afterwards re-run audit queries 1 and 2 (no rows) and the two queries below: the foreign keys should be
+   `Folder_parent_id_user_id_fkey`, `Folder_user_id_fkey`, `Prompt_folder_id_user_id_fkey` and `Prompt_user_id_fkey`,
+   and `Folder_id_user_id_key` should be listed.
+
+```sql
+SELECT conname FROM pg_constraint
+WHERE contype = 'f' AND conrelid IN ('"Folder"'::regclass, '"Prompt"'::regclass) ORDER BY conname;
+SELECT indexname FROM pg_indexes WHERE tablename = 'Folder' ORDER BY indexname;
+```
+
+The two queries ran on 29/10/2026 against the local Docker `postgres` database before the migration and listed the four
+old keys and no `Folder_id_user_id_key`.
