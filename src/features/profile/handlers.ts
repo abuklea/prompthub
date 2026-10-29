@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript Module
 
 Created: 29/10/2026 20:45 GMT+10
-Last modified: 29/10/2026 20:49 GMT+10
+Last modified: 29/10/2026 21:03 GMT+10
 ---------------
 The bodies of the profile's server actions, getProfileDetails and updateDisplayName, run through runAction. Both create
 the caller's profile first when it is missing, and both read or write only the profile whose id is the caller's: the
@@ -14,13 +14,13 @@ input carries no id. A plain module: no "use server", no Next.js import; the wra
 dependencies.
 
 Changelog:
+29/10/2026 21:03 GMT+10 | getProfileDetails uses the shared noInputSchema (P7S2T8)
 29/10/2026 20:49 GMT+10 | Implemented: runAction with ensureProfile; updateDisplayName parses { displayName } and is
                          limited as a mutation (P7S2T8, decisions Q3 and Q4)
 29/10/2026 20:45 GMT+10 | Stub created (P7S2T8, red phase)
 */
 import "server-only"
-import { z } from "zod"
-import { runAction } from "@/lib/action-runner"
+import { noInputSchema, runAction } from "@/lib/action-runner"
 import type { ActionDeps } from "@/lib/action-runner"
 import type { ActionResult } from "@/types/actions"
 import { updateDisplayNameSchema } from "./schemas"
@@ -50,7 +50,7 @@ export async function getProfileDetails(deps: ActionDeps, data: unknown): Promis
     deps,
     {
       name: "getProfileDetails",
-      schema: z.undefined(),
+      schema: noInputSchema,
       invalid: "Invalid input data",
       failure: "Failed to load profile",
       limit: "none",

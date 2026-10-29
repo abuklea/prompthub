@@ -6,21 +6,21 @@ MIME: text/typescript
 Type: TypeScript Module
 
 Created: 29/10/2026 20:45 GMT+10
-Last modified: 29/10/2026 20:52 GMT+10
+Last modified: 29/10/2026 21:03 GMT+10
 ---------------
 The body of the getWorkspaceSnapshot server action, run through runAction: every folder and every prompt listing (no
 content) of the caller, scoped by user_id, for the client's workspace cache. A plain module: no "use server", no
 Next.js import; the wrapper in ./actions passes the real dependencies.
 
 Changelog:
+29/10/2026 21:03 GMT+10 | getWorkspaceSnapshot uses the shared noInputSchema (P7S2T8)
 29/10/2026 20:49 GMT+10 | Implemented: the existing queries moved unchanged behind runAction (P7S2T8, decisions Q3 and
                          Q4)
 29/10/2026 20:45 GMT+10 | Stub created (P7S2T8, red phase)
 */
 import "server-only"
 import type { PrismaClient } from "@prisma/client"
-import { z } from "zod"
-import { runAction } from "@/lib/action-runner"
+import { noInputSchema, runAction } from "@/lib/action-runner"
 import type { ActionDeps } from "@/lib/action-runner"
 import type { ActionResult } from "@/types/actions"
 
@@ -71,7 +71,7 @@ export async function getWorkspaceSnapshot(deps: ActionDeps, data: unknown): Pro
     deps,
     {
       name: "getWorkspaceSnapshot",
-      schema: z.undefined(),
+      schema: noInputSchema,
       invalid: "Invalid input data",
       failure: "Failed to load workspace",
       limit: "none",

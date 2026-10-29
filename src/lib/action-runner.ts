@@ -6,14 +6,16 @@ MIME: text/typescript
 Type: TypeScript Module
 
 Created: 29/10/2026 20:17 GMT+10
-Last modified: 29/10/2026 20:19 GMT+10
+Last modified: 29/10/2026 21:03 GMT+10
 ---------------
 The action seam: runAction runs the body of one server action in a fixed order (parse, authenticate, rate-limit,
 optionally ensure the profile, run) against dependencies it is given, so a test drives it with a real test database and
 a fake getUser. A plain module: no "use server" and no Next.js import; the real dependencies are built in
-src/lib/action-runtime.ts.
+src/lib/action-runtime.ts. It also holds noInputSchema, the one schema of the actions that take no argument.
 
 Changelog:
+29/10/2026 21:03 GMT+10 | noInputSchema moved here from the folder schemas, so the four no-argument actions share one
+                         definition (P7S2T8)
 29/10/2026 20:19 GMT+10 | runAction implemented: the fixed order, the limiter per limit class, the digest rethrow
                          (P7S2T2, issue #110)
 29/10/2026 20:17 GMT+10 | Created: types and a stub runAction (P7S2T2)
@@ -21,10 +23,13 @@ Changelog:
 import "server-only"
 import type { PrismaClient } from "@prisma/client"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { z } from "zod"
+import { z } from "zod"
 import type { ActionResult } from "@/types/actions"
 import { ensureProfileExists } from "@/lib/ensure-profile"
 import { checkAutosaveRateLimit, checkMutationRateLimit, checkSaveRateLimit } from "@/lib/rate-limit"
+
+/** The schema of an action that takes no argument: any argument the client sends is refused. */
+export const noInputSchema = z.undefined()
 
 /** The signed-in user as a handler needs it: id and email from supabase.auth.getUser(). */
 export interface ActionUser {

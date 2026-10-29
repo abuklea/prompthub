@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Action Contracts | 29/10/2026 16:50 GMT+10 | 29/10/2026 18:17 GMT+10 |
+| P7S2 Action Contracts | 29/10/2026 16:50 GMT+10 | 29/10/2026 21:04 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -244,7 +244,6 @@ export const createFolderSchema = z.object({ name: folderName, parentId: folderI
 export const renameFolderSchema = z.object({ folderId, name: folderName })
 export const deleteFolderSchema = z.object({ folderId })
 export const getFolderChildrenSchema = z.object({ parentId: folderId })
-export const noInputSchema = z.undefined()   // getRootFolders and the other no-argument actions
 
 // src/features/prompts/schemas.ts  (MODIFY: add)
 const promptId = z.string().uuid("Invalid prompt ID")
@@ -266,6 +265,10 @@ export const getPromptsByFolderSchema = z.object({
 // src/features/profile/schemas.ts  (CREATE)
 export const updateDisplayNameSchema = z.object({ displayName: z.string().trim().max(100, "Display name is too long") })
 ```
+
+`noInputSchema = z.undefined()`, the schema of the four actions that take no argument (`getRootFolders`,
+`getProfileDetails`, `getWorkspaceSnapshot`, `getDashboardMetrics`), lives in `src/lib/action-runner.ts` beside
+`runAction`, not in the folder schemas (moved while executing Task 8 on 29/10/2026, because four features share it).
 
 `createPromptSchema` already caps `title` at 200 and `saveNewVersionSchema` and `autoSaveSchema` cap content at
 500,000 characters (`src/features/editor/schemas.ts:23`). The auth schemas in `src/features/auth/schemas.ts` are used

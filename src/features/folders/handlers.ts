@@ -6,29 +6,24 @@ MIME: text/typescript
 Type: TypeScript Module
 
 Created: 29/10/2026 20:44 GMT+10
-Last modified: 29/10/2026 20:46 GMT+10
+Last modified: 29/10/2026 21:03 GMT+10
 ---------------
 The bodies of the five folder actions, each run through runAction against the dependencies it is given: the "use
 server" wrappers in actions.ts pass the real ones, the tests pass the test database and a fake user. Every query is
 scoped by the caller's id, and a missing folder and another user's folder give the same result.
 
 Changelog:
+29/10/2026 21:03 GMT+10 | noInputSchema comes from @/lib/action-runner (P7S2T8)
 29/10/2026 20:46 GMT+10 | Handlers implemented: parent checked in the create transaction, rename maps P2025, delete
                          reads the whole tree before the cascade (P7S2T5, issue #113)
 29/10/2026 20:44 GMT+10 | Created: stub handlers for the red run (P7S2T5, issue #113)
 */
 import "server-only"
 import type { Folder, Prisma } from "@prisma/client"
-import { runAction, type ActionDeps } from "@/lib/action-runner"
+import { noInputSchema, runAction, type ActionDeps } from "@/lib/action-runner"
 import { isNotFoundError } from "@/lib/prisma-errors"
 import type { ActionResult } from "@/types/actions"
-import {
-  createFolderSchema,
-  deleteFolderSchema,
-  getFolderChildrenSchema,
-  noInputSchema,
-  renameFolderSchema,
-} from "./schemas"
+import { createFolderSchema, deleteFolderSchema, getFolderChildrenSchema, renameFolderSchema } from "./schemas"
 
 /** The ids a deleteFolder removed: the folder, its descendants and every prompt filed in them. */
 export interface DeletedFolderTree {
