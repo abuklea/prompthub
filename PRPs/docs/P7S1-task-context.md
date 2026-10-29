@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Task Context | 20/10/2026 14:41 GMT+10 | 22/10/2026 11:48 GMT+10 |
+| P7S1 Task Context | 20/10/2026 14:41 GMT+10 | 29/10/2026 22:26 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -209,15 +209,15 @@ export function EditorPane({ promptId, tabId }: EditorPaneProps) {
 // VERIFIED: server actions in one tab run one at a time in call order
 // (next/dist/shared/lib/router/action-queue.js:82-143). A router navigation marks the pending action discarded
 // (:121-135) and orphans the queued ones: handleResult returns before runRemainingActions (:60-71), so their promises
-// never settle. Header renders <Link>s (Header.tsx:47, 55), so navigation happens while the editor is mounted: every
+// never settle. Header renders <Link>s, so navigation happens while the editor is mounted: every
 // action and the document fetch runs under withTimeout (30 s).
 
 // VERIFIED: the Monaco wrapper applies a changed `value` with executeEdits and suppresses onChange for it
 // (node_modules/@monaco-editor/react/dist/index.js). Restore needs no extra editor call; Ctrl+Z afterwards is a user
 // edit. Editor.tsx handleMount applies the `value` of its first render, which is why the editor mounts only when ready.
 
-// VERIFIED: renamePrompt (prompts/actions.ts:248-257) sets updated_at, which is why updated_at is not a draft base.
-// VERIFIED: createPrompt stores title null and content "" for a new document (prompts/actions.ts:96-127).
+// VERIFIED: renamePrompt (prompts/handlers.ts) sets updated_at, which is why updated_at is not a draft base.
+// VERIFIED: createPrompt stores title null and content "" for a new document (prompts/handlers.ts).
 
 // CRITICAL: every export of a "use server" file is a public endpoint. service.ts takes userId: no directive, and no
 // import from a client module. Actions pass user.id from supabase.auth.getUser(), never an id from the request.

@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 - Server-side Security Hardening | 29/10/2026 16:55 GMT+10 | 29/10/2026 18:27 GMT+10 |
+| P7S2 - Server-side Security Hardening | 29/10/2026 16:55 GMT+10 | 30/10/2026 01:09 GMT+10 |
 
 ## Table of Contents
 - [Goal](#goal)
@@ -39,8 +39,8 @@ previous user, and deleting a folder closes the tab of every document it removes
 
 Epic #39 states the outcome. Application code is the enforced tenant boundary, because Prisma connects with a role that
 bypasses row-level security (`docs/rules/project.md#database-auth-and-tenancy`), so one missed check is a cross-tenant
-defect. Research on 26/10/2026 and 27/10/2026 ([notes](../wip/P7S2-research-notes.md),
-[drift register](../wip/P7S2-research-drift.md)) measured `481aae9`; the counts below were re-checked on `bff5fa6` on
+defect. Research on 26/10/2026 and 27/10/2026 ([notes](../../wip/P7S2-research-notes.md),
+[drift register](../../wip/P7S2-research-drift.md)) measured `481aae9`; the counts below were re-checked on `bff5fa6` on
 29/10/2026. Eight modules carry `"use server"` and export 27 functions. Twenty-four touch tenant data: the 22 tenant
 actions that get a cross-user test, plus `searchPrompts` and `ensureProfileExists`, which stop being actions; the other
 three are `signIn`, `signUp` and `signOut`. Of the 24 actions left once `searchPrompts`, `ensureProfileExists` and
@@ -140,15 +140,15 @@ earlier D4, D5, D9 and Q8 default. The planner's other decisions were not put to
 
 ## All Needed Context
 
-Per-task detail is in [the briefs](docs/P7S2-task-briefs.md#briefs), interfaces and per-action rules in
-[the action contracts](docs/P7S2-action-contracts.md) and [the domain contracts](docs/P7S2-domain-contracts.md), the
-trees and the call sites in [the context](docs/P7S2-task-context.md); Tasks 8 to 16 are in
-[the second briefs file](docs/P7S2-task-briefs-2.md#briefs). Read your task's section and the source it cites, and
+Per-task detail is in [the briefs](../docs/P7S2-task-briefs.md#briefs), interfaces and per-action rules in
+[the action contracts](../docs/P7S2-action-contracts.md) and [the domain contracts](../docs/P7S2-domain-contracts.md), the
+trees and the call sites in [the context](../docs/P7S2-task-context.md); Tasks 8 to 16 are in
+[the second briefs file](../docs/P7S2-task-briefs-2.md#briefs). Read your task's section and the source it cites, and
 check each cited path against the code first.
 
 The references to open first (the Next.js `server-only` documentation, the files each task mirrors, the research
 drift register) and the gotchas verified in the code or by the research are in
-[the context](docs/P7S2-task-context.md#references-and-gotchas). Three do the most damage when missed: a `"use server"`
+[the context](../docs/P7S2-task-context.md#references-and-gotchas). Three do the most damage when missed: a `"use server"`
 file may export only async functions, and importing any one export of an action module registers all of them;
 `cookies()` throws outside a request, so only `action-runtime.ts` calls `createClient()`, inside `getUser`; and the
 migration of Task 13 must never drop the hand-written index `Tag_name_user_id_ci_key`.
@@ -158,7 +158,7 @@ migration of Task 13 must never drop the hand-written index `Tag_name_user_id_ci
 ### Data models and structure
 
 The Prisma schema changes only in Task 13 (composite keys); the seam and the schemas are new types, in full in
-[the contracts](docs/P7S2-action-contracts.md#the-seam), with the flow diagram. In brief: `ActionDeps` is
+[the contracts](../docs/P7S2-action-contracts.md#the-seam), with the flow diagram. In brief: `ActionDeps` is
 `{ getUser, db }` and `getUser` yields `{ id, email }`; a handler calls `runAction(deps, spec, data)`, where the spec
 holds the schema, the two messages, the limit class (`mutation`, `save`, `autosave`, `none`) and a
 `run({ db, user, input })` body; the runner fixes the order parse, authenticate, limit, profile, run, catch.
@@ -166,8 +166,8 @@ holds the schema, the two messages, the limit class (`mutation`, `save`, `autosa
 ### Tasks
 
 The files each task creates, modifies or deletes, with the decision and finding each answers, are in
-[the file plan](docs/P7S2-task-context.md#file-plan-by-task); the red tests, the exact files and the done-when
-conditions are in [the briefs](docs/P7S2-task-briefs.md#briefs). The task order and agents are in the table below.
+[the file plan](../docs/P7S2-task-context.md#file-plan-by-task); the red tests, the exact files and the done-when
+conditions are in [the briefs](../docs/P7S2-task-briefs.md#briefs). The task order and agents are in the table below.
 
 ### Task List
 
@@ -260,7 +260,7 @@ npx vitest run --coverage --coverage.include=src/features/folders/handlers.ts --
 ```
 
 Read `coverage/coverage-summary.json`, not the text table. A cloud session without Docker follows
-[the P7S1 database recipe](docs/P7S1-task-context.md#environment-for-database-tests). CI runs the suites on
+[the P7S1 database recipe](../docs/P7S1-task-context.md#environment-for-database-tests). CI runs the suites on
 `postgres:17-alpine`; no pull request exists yet, so that run has not happened.
 
 ### Level 3: build and browser
@@ -316,8 +316,8 @@ the Prisma Client's handling of the nullable composite relation are unverified, 
 truth; the caller edits rely on `tsc` and the browser list.
 
 ----
-**Plan Status**: READY
-**PRP Status**: TODO
+**Plan Status**: COMPLETE
+**PRP Status**: COMPLETE
 **PRP ID**: P7S2
 **PRP Document**: P7S2-server-side-security-hardening
 **Tasks**: 16 tasks (P7S2T1 - P7S2T16)
@@ -333,8 +333,9 @@ Agents:
 - `documentation-manager` (Tasks 12, 15)
 Notes:
 - Q1-Q7 were taken by the developer on 27/10/2026; Q8, D4, D5, D9, D10 and the strict Q4 on 29/10/2026
-- Plan Status READY follows the CLAUDE.md override of documentation-prp.md for PRP footers; Task 15 runs before Task 1
+- Plan Status was READY (the CLAUDE.md override of documentation-prp.md for PRP footers) until execution started on 29/10/2026; Task 15 ran before Task 1
 - Tasks 5-8 are one commit each (backend step, then caller step); Task 16 is the developer's
 - Out of scope: the shared limiter store, count caps, the expiry purge, database tag keys
-- Nothing was run: browser checks, CI, the Supabase audit and migration and the rotation wait for Task 16 and a PR
+- All agent tasks are committed and in review; the completion report is PRPs/reports/P7S2-server-side-security-hardening-REPORT.md; the PRP was set to COMPLETE and archived by the developer's instruction on 30/10/2026, while epic #39 stays open for dev-review #123 (the browser checks, the Supabase audit and migration, and the credential check #46 are the developer's and have not run)
+- At planning nothing was run; the results are in the REPORT. The composite-key update rule was changed from CASCADE to RESTRICT on 30/10/2026 (review finding S-4, the developer's choice)
 **Estimated Implementation Time (FTE)**: 42-50 hours (6 days)

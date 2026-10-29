@@ -16,7 +16,7 @@ The backend leverages a serverless approach using Next.js and Supabase for simpl
 - **Data Validation:** **Zod** will be used to define schemas and validate all incoming data within Server Actions, ensuring type safety and data integrity before it reaches the database.
 - **Database:** A cloud-hosted **Supabase (Postgres)** instance will serve as the primary database.
 - **ORM:** **Prisma** will be the interface for all database operations, providing a type-safe client to interact with the Postgres database from within Server Actions.
-- **Data Caching:** To ensure the UI remains synchronized with the backend state, we will use Next.js's built-in caching utilities. After a successful mutation (e.g., creating a folder), Server Actions will call `revalidateTag` or `revalidatePath` to intelligently invalidate the relevant caches and trigger a re-fetch of data on the client.
+- **Data Caching:** To ensure the UI remains synchronized with the backend state, we will use Next.js's built-in caching utilities. After a successful mutation (e.g., creating a folder), Server Actions call `revalidatePath` to intelligently invalidate the relevant caches and trigger a re-fetch of data on the client.
 
 ### Testing Strategy (MVP)
 The testing strategy for the MVP is lean and focused on ensuring the reliability of critical functionalities without bloating the timeline.
@@ -30,12 +30,12 @@ This feature handles user sign-up, login, and profile management using Supabase'
 
 #### Technology
 - **Supabase Auth:** Manages the entire authentication lifecycle.
-- **Next.js Middleware:** Protects routes using `@supabase/auth-helpers-nextjs`.
-- **Supabase (Postgres):** A `profiles` table, populated by a trigger, will store application-specific user data.
+- **Route protection:** The `(app)` layout redirects a visitor without a user to the login page; `src/middleware.ts` redirects a signed-in user away from `/login`.
+- **Supabase (Postgres):** A `Profile` table, populated by application code (`ensureProfileExists`), stores application-specific user data.
 - **Prisma:** Used to query the `profiles` table.
 
 #### Requirements
-- A Postgres trigger must automatically create a new user profile upon sign-up.
+- The application must create a user's profile on first use, in application code: Supabase Cloud does not permit triggers on `auth.users`.
 - The system must differentiate between public and private routes.
 
 ### Prompt Organization & Retrieval
@@ -160,7 +160,7 @@ graph TD
     F -- "Contains" --> L
     F -- "Maintains" --> M
 
-    G -- "1-to-1 (Trigger)" --> H
+    G -- "1-to-1 (created in application code)" --> H
     H -- "1-to-many" --> J
     H -- "1-to-many" --> I
     I -- "Self-ref (1-to-many)" --> I
@@ -186,6 +186,6 @@ graph TD
 
 ## Security & Compliance
 - **Authentication:** All user authentication and session management is handled by Supabase Auth, which provides a secure, battle-tested system.
-- **Authorization (RLS):** **Row Level Security (RLS)** will be enabled on all tables in the Supabase database. Policies will be written to ensure that users can only access and modify their own data. For example, a policy on the `Prompts` table will ensure that `SELECT` or `UPDATE` queries are only allowed if the `user_id` column matches the ID of the currently authenticated user (`auth.uid()`).
+- **Authorization:** Every Server Action authenticates the user and scopes every Prisma query by the user's `user_id`, so users can only access and modify their own data. Prisma connects with a database role, which **Row Level Security (RLS)** does not constrain; RLS policies (`wip/P3S1-rls-policies.sql`) are optional defence-in-depth for connections that carry the end-user JWT. Composite keys make the database refuse a folder or prompt filed under another user's folder.
 - **Data Validation:** All input from the client will be rigorously validated within Server Actions using **Zod** schemas. This prevents malformed data from reaching the database and acts as a primary defense against injection-style attacks.
 - **Environment Variables:** All secrets and credentials will be stored as environment variables and will never be exposed to the client-side bundle. Vercel and Supabase provide secure mechanisms for managing these variables.

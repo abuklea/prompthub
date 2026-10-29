@@ -2,7 +2,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Testing Rules | 07/11/2025 12:46 GMT+10 | 22/10/2026 08:22 GMT+10 |
+| Testing Rules | 07/11/2025 12:46 GMT+10 | 29/10/2026 21:32 GMT+10 |
 
 ## Table of Contents
 - [Test-Driven Development](#test-driven-development)
@@ -43,6 +43,14 @@ known-correct fixtures.
 - Never mock a module of this repository. Inject seams (clock, fetch, filesystem, storage, browser APIs) with real
   defaults, and drive them from fakes.
 - Assert behaviour and values, not call counts.
+- Every new server action ships with an isolation test: user B calls the action with user A's ids and the test asserts
+  the result equals what a missing id returns and that A's rows are unchanged. Name it `"<action>: user B ..."` (the
+  action's exact name, a colon, then the case) in a `*.isolation.test.ts` file beside its handlers, inside
+  `describeDb`. `src/test/action-coverage.test.ts` enforces it without a database: it fails and names any action
+  (an `export async function` of a file whose first statement is `"use server"`) with no such title, any wrapper that
+  does not call `handlers.<action>(actionDeps` over its handler, any other export from a `"use server"` file, and an
+  `ensure-profile.ts` that is not server-only. Exceptions: `signIn` and `signUp` (titled `"signIn: ..."` and
+  `"signUp: ..."` in `src/features/auth/handlers.test.ts`, with `authDeps`) and `signOut` (no tenant data, no handler).
 - Never edit an existing test to make a change pass. If a test is wrong, stop and say which test and why: that
   decision is the developer's.
 - Never raise a timeout to make a test pass. A timeout that passes on one re-run under load is load: report it.

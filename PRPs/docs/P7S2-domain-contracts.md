@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Domain Contracts | 29/10/2026 17:53 GMT+10 | 29/10/2026 18:27 GMT+10 |
+| P7S2 Domain Contracts | 29/10/2026 17:53 GMT+10 | 30/10/2026 01:07 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -17,7 +17,7 @@
 
 ## Purpose
 
-The per-area rules for [the PRP](../P7S2-server-side-security-hardening.md), second half. The seam, the action matrix,
+The per-area rules for [the PRP](../complete/P7S2-server-side-security-hardening.md), second half. The seam, the action matrix,
 the messages and the schemas are in [the action contracts](P7S2-action-contracts.md). Sketches write `userId` for the
 handler's `user.id`. Every path was read on 29/10/2026 against `master` at `bff5fa6`.
 
@@ -271,13 +271,15 @@ database, no client generated):
 model Folder {
   // Reason: never use disconnect on parent or folder. Both relations include user_id, which is also the owner
   // column, so a disconnect would null it. No code under src uses a Prisma disconnect today (searched 29/10/2026).
-  parent  Folder? @relation("NestedFolders", fields: [parent_id, user_id], references: [id, user_id], onDelete: Cascade)
+  // A changed user_id is refused while anything references the folder, instead of moving its subtree (finding S-4).
+  parent  Folder? @relation("NestedFolders", fields: [parent_id, user_id], references: [id, user_id], onDelete: Cascade, onUpdate: Restrict)
   // ... unchanged fields ...
   @@unique([id, user_id])
 }
 model Prompt {
-  // Reason: same as Folder.parent: no disconnect, because it would null user_id.
-  folder  Folder? @relation(fields: [folder_id, user_id], references: [id, user_id], onDelete: Cascade)
+  // Reason: same as Folder.parent: no disconnect, because it would null user_id. A changed folder user_id is refused
+  // while a prompt is filed in it (finding S-4).
+  folder  Folder? @relation(fields: [folder_id, user_id], references: [id, user_id], onDelete: Cascade, onUpdate: Restrict)
 }
 ```
 
@@ -287,10 +289,18 @@ ALTER TABLE "Folder" DROP CONSTRAINT "Folder_parent_id_fkey";
 ALTER TABLE "Prompt" DROP CONSTRAINT "Prompt_folder_id_fkey";
 CREATE UNIQUE INDEX "Folder_id_user_id_key" ON "Folder"("id", "user_id");
 ALTER TABLE "Folder" ADD CONSTRAINT "Folder_parent_id_user_id_fkey" FOREIGN KEY ("parent_id", "user_id")
-  REFERENCES "Folder"("id", "user_id") ON DELETE CASCADE ON UPDATE CASCADE;
+  REFERENCES "Folder"("id", "user_id") ON DELETE CASCADE ON UPDATE RESTRICT;
 ALTER TABLE "Prompt" ADD CONSTRAINT "Prompt_folder_id_user_id_fkey" FOREIGN KEY ("folder_id", "user_id")
-  REFERENCES "Folder"("id", "user_id") ON DELETE CASCADE ON UPDATE CASCADE;
+  REFERENCES "Folder"("id", "user_id") ON DELETE CASCADE ON UPDATE RESTRICT;
 ```
+
+The two new keys were planned with `ON UPDATE CASCADE`, which Prisma prints for a relation without an `onUpdate`. The
+independent review (finding S-4) pointed out that both keys include `user_id`, so a changed `user_id` would have moved a
+folder's whole subtree to the new owner instead of being refused. On 30/10/2026 the developer chose `onUpdate: Restrict`,
+and the migration was regenerated in place, with the same folder name, before any shared database had it. An owner
+change is now refused while a sub-folder or a prompt references the folder; deleting a folder still cascades. No code
+changes a folder's `user_id`, so this is a guard and not a behaviour change; `src/test/composite-fk.update.test.ts` is
+the check.
 
 Postgres skips a composite foreign key whose referencing columns include a NULL (the default `MATCH SIMPLE`), so a root
 folder (`parent_id` NULL) and an unfiled prompt (`folder_id` NULL) stay valid. Not verified: how the generated Prisma

@@ -1,3 +1,20 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/stores/use-ui-store.ts
+MIME: text/typescript
+Type: TypeScript Zustand Store
+
+Created: 06/11/2025 14:33 GMT+10
+Last modified: 29/10/2026 21:12 GMT+10
+---------------
+Zustand store of the workspace UI: folder and document selection, sort and filter state, refetch triggers, the
+document listing of the selected folder and the workspace preload state. Not persisted.
+
+Changelog:
+29/10/2026 21:12 GMT+10 | P7S2T9: resetSession for the sign-out purge (decision D8, issue #44); header added (F-9)
+06/11/2025 14:33 GMT+10 | Created (commit fb2faa7)
+*/
 import { create } from 'zustand'
 import type { PromptListItem } from '@/features/prompts/types'
 
@@ -54,6 +71,9 @@ interface UiState {
   updatePromptTitle: (promptId: string, newTitle: string) => void
   addPrompt: (prompt: PromptListItem) => void
   removePrompt: (promptId: string) => void
+
+  // Sign-out: drops the user's selection, listing, filters and snapshot time; sort orders and refetch counters stay
+  resetSession: () => void
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -129,4 +149,16 @@ export const useUiStore = create<UiState>((set) => ({
     set((state) => ({
       prompts: state.prompts.filter((prompt) => prompt.id !== promptId),
     })),
+  // P7S2T9 (decision D8): a client navigation keeps this module, so sign-out empties what belonged to the user
+  resetSession: () =>
+    set({
+      expandedFolders: new Set(),
+      selectedFolder: null,
+      selectedPrompt: null,
+      prompts: [],
+      folderFilter: '',
+      docFilter: '',
+      selectedTagIds: [],
+      workspaceLoadedAt: null,
+    }),
 }))

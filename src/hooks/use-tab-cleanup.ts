@@ -6,7 +6,7 @@ MIME: text/x-typescript
 Type: TypeScript React Hook
 
 Created: 08/11/2025 13:54 GMT+10
-Last modified: 08/11/2025 13:54 GMT+10
+Last modified: 29/10/2026 20:54 GMT+10
 ---------------
 Hook to clean orphaned tabs on mount.
 
@@ -14,6 +14,7 @@ Validates document tabs against database and closes tabs for deleted documents.
 Prevents orphaned tabs from persisting after logout/login via localStorage.
 
 Changelog:
+29/10/2026 20:54 GMT+10 | P7S2T6: validatePrompts takes { promptIds } (issue #114)
 08/11/2025 13:54 GMT+10 | Initial implementation - P5S4cT15
 */
 
@@ -57,7 +58,7 @@ export function useTabCleanup() {
       const uniqueIds = Array.from(new Set(documentTabs.map(t => t.promptId!)))
 
       // Reason: Batch validate all promptIds exist in database
-      const result = await validatePrompts(uniqueIds)
+      const result = await validatePrompts({ promptIds: uniqueIds })
 
       if (!result.success) {
         console.error('Tab cleanup validation failed:', result.error)

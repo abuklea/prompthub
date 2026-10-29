@@ -6,7 +6,7 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 07/11/2025 13:41 GMT+10
-Last modified: 22/10/2026 10:31 GMT+10
+Last modified: 29/10/2026 21:19 GMT+10
 ---------------
 Editor pane component for the right section of the 3-pane layout.
 Displays selected prompt details and provides editing interface with Monaco Editor.
@@ -14,6 +14,8 @@ Composes the document loader with useDocumentPersistence: autosave against the b
 drafts, the cache and tab metadata, the manual save (Ctrl+S) and the version restore.
 
 Changelog:
+29/10/2026 21:19 GMT+10 | getPromptVersionHistory and restorePromptVersion imported from
+                         @/features/prompts/history-actions (P7S2T7, issue #51)
 22/10/2026 10:31 GMT+10 | Restore moved into useDocumentPersistence; the dialog takes loadHistory and onRestore (P7S1T8)
 22/10/2026 10:22 GMT+10 | documentActions runs each action under the request timeout (withActionTimeout, P7S1T7)
 22/10/2026 10:07 GMT+10 | Save, autosave, draft and cache/tab logic moved into useDocumentPersistence and its hooks;
@@ -49,7 +51,8 @@ import { SetTitleDialog } from "@/features/prompts/components/SetTitleDialog"
 import { useDocumentLoader, type DocumentLoaderIo } from "@/features/editor/hooks/useDocumentLoader"
 import { useDocumentPersistence } from "@/features/editor/hooks/useDocumentPersistence"
 import { withActionTimeout } from "@/features/editor/document-actions"
-import { getPromptDetails, getPromptVersionHistory, restorePromptVersion } from "@/features/prompts/actions"
+import { getPromptDetails } from "@/features/prompts/actions"
+import { getPromptVersionHistory, restorePromptVersion } from "@/features/prompts/history-actions"
 import { createClient } from "@/lib/supabase/client"
 import { withTimeout } from "@/features/editor/request-timeout"
 import { ANONYMOUS } from "@/features/editor/document-cache"

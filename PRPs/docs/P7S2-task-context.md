@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Context | 29/10/2026 16:57 GMT+10 | 29/10/2026 18:17 GMT+10 |
+| P7S2 Task Context | 29/10/2026 16:57 GMT+10 | 30/10/2026 01:13 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -15,7 +15,7 @@
 ## Purpose
 
 The references and gotchas an executing agent reads first, the files each task touches, the file layout before and
-after [the PRP](../P7S2-server-side-security-hardening.md), and the call sites that change when an action's result or
+after [the PRP](../complete/P7S2-server-side-security-hardening.md), and the call sites that change when an action's result or
 arguments change. Every path was read on 29/10/2026 against `master` at `bff5fa6`. The validation commands are in the
 PRP itself; the interfaces are in [the contracts](P7S2-action-contracts.md).
 
@@ -94,7 +94,7 @@ Moved here from the PRP's All Needed Context so that the PRP stays inside its si
 ## File Plan by Task
 
 Moved here from the PRP's Tasks section. The briefs hold the exact file lists; this is the overview. The order, agents
-and dependencies are in [the PRP's Task List](../P7S2-server-side-security-hardening.md#task-list).
+and dependencies are in [the PRP's Task List](../complete/P7S2-server-side-security-hardening.md#task-list).
 
 ```yaml
 Task 15 (documentation-manager): correct the agent definitions - runs FIRST        # DR-4, DR-5, DR-21

@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Research Notes | 27/10/2026 00:18 GMT+10 | 29/10/2026 18:27 GMT+10 |
+| P7S2 Research Notes | 27/10/2026 00:18 GMT+10 | 30/10/2026 01:13 GMT+10 |
 
 ## Table of Contents
 - [Purpose and sources](#purpose-and-sources)
@@ -19,7 +19,7 @@
 ## Purpose and sources
 
 This is the Stage 1 research dossier for P7S2, server-side security hardening (epic #39). The PRP will be
-`PRPs/P7S2-server-side-security-hardening.md`, the ID the epic reserved. The drift register is
+`PRPs/complete/P7S2-server-side-security-hardening.md`, the ID the epic reserved. The drift register is
 [P7S2-research-drift.md](P7S2-research-drift.md). Research ran on 26/10/2026 and 27/10/2026 against `master` at
 `481aae9`, and covered four things:
 
@@ -175,7 +175,7 @@ set up for the suite, so the 29 database-backed tests skipped here; CI runs them
 
 ## Candidate task breakdown
 
-Superseded by the task list of `PRPs/P7S2-server-side-security-hardening.md` (29/10/2026): the numbering and some
+Superseded by the task list of `PRPs/complete/P7S2-server-side-security-hardening.md` (29/10/2026): the numbering and some
 choices below (an upsert in T2, cache getters that check the user) were replaced by later decisions.
 
 The order assumes Q1 is answered with the injected seam. `[P]` marks tasks that can run in parallel once the harness
@@ -207,7 +207,8 @@ The developer answered Q1 to Q7 on 27/10/2026 and accepted each recommendation b
 - Q6: the `/auth/sign-out` route is deleted.
 - Q7: the sign-out purge clears the tab store too.
 
-Q8 was not put to the developer, so its recommendation stands as the default until the PRP review.
+The developer answered Q8 on 29/10/2026 against the recommendation in the table: composite foreign keys are in P7S2
+(Task 13), and the application checks stay as the first layer.
 
 | ID | Question | Recommendation |
 |---|---|---|

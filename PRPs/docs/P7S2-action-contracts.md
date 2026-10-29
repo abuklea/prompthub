@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Action Contracts | 29/10/2026 16:50 GMT+10 | 29/10/2026 18:17 GMT+10 |
+| P7S2 Action Contracts | 29/10/2026 16:50 GMT+10 | 30/10/2026 01:13 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -17,10 +17,10 @@
 
 ## Purpose
 
-The interfaces and per-action rules for [the PRP](../P7S2-server-side-security-hardening.md), first half: the seam,
+The interfaces and per-action rules for [the PRP](../complete/P7S2-server-side-security-hardening.md), first half: the seam,
 the action matrix and the schemas. The per-area contracts (folders, `ensureProfileExists`, auth, prompts, the sign-out
 purge, the composite keys and the test conventions) are in [the domain contracts](P7S2-domain-contracts.md). The
-decisions behind them are in [the PRP's Decisions](../P7S2-server-side-security-hardening.md#decisions); the task order
+decisions behind them are in [the PRP's Decisions](../complete/P7S2-server-side-security-hardening.md#decisions); the task order
 and the red tests are in [the task briefs](P7S2-task-briefs.md#briefs). Every file path was read on 29/10/2026 against
 `master` at `bff5fa6`. Code here is a contract, not a finished implementation: an executing agent writes the tests
 first, checks each cited symbol against the code, and reports a disagreement instead of working around it.
@@ -164,7 +164,7 @@ scope and a GoTrue. The research on 26/10/2026 showed that driving them from a t
 async storage, the cookies adapter and a static-generation store) and a fake auth server, and that it bypasses the
 `src/test/db.ts` guard. The wrappers are exempt from the per-file coverage target and are checked by the build
 (`npm run build` fails on a non-async export of a `"use server"` file), by the manifest count in
-[the validation loop](../P7S2-server-side-security-hardening.md#level-3-build-and-browser) and by the browser checks.
+[the validation loop](../complete/P7S2-server-side-security-hardening.md#level-3-build-and-browser) and by the browser checks.
 
 ## Action Matrix
 
@@ -244,7 +244,6 @@ export const createFolderSchema = z.object({ name: folderName, parentId: folderI
 export const renameFolderSchema = z.object({ folderId, name: folderName })
 export const deleteFolderSchema = z.object({ folderId })
 export const getFolderChildrenSchema = z.object({ parentId: folderId })
-export const noInputSchema = z.undefined()   // getRootFolders and the other no-argument actions
 
 // src/features/prompts/schemas.ts  (MODIFY: add)
 const promptId = z.string().uuid("Invalid prompt ID")
@@ -266,6 +265,10 @@ export const getPromptsByFolderSchema = z.object({
 // src/features/profile/schemas.ts  (CREATE)
 export const updateDisplayNameSchema = z.object({ displayName: z.string().trim().max(100, "Display name is too long") })
 ```
+
+`noInputSchema = z.undefined()`, the schema of the four actions that take no argument (`getRootFolders`,
+`getProfileDetails`, `getWorkspaceSnapshot`, `getDashboardMetrics`), lives in `src/lib/action-runner.ts` beside
+`runAction`, not in the folder schemas (moved while executing Task 8 on 29/10/2026, because four features share it).
 
 `createPromptSchema` already caps `title` at 200 and `saveNewVersionSchema` and `autoSaveSchema` cap content at
 500,000 characters (`src/features/editor/schemas.ts:23`). The auth schemas in `src/features/auth/schemas.ts` are used

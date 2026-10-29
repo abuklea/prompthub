@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 22/10/2026 11:48 GMT+10 |
+| P7S1 Editor Persistence Contracts | 20/10/2026 12:36 GMT+10 | 29/10/2026 22:26 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -385,7 +385,7 @@ Verified in the pinned Next 14.2.35 (the lines of `action-queue.js` are in
 [the task context](P7S1-task-context.md#known-gotchas)): within one tab server actions run one at a time in call order
 and complete in call order, so `markSynced` needs no ordering guard, only the same-document check. A router navigation
 marks the pending action discarded and the actions queued behind it never settle. Navigation does happen while the
-editor is mounted: `Header` renders `<Link>`s (`Header.tsx:47` and `:55`), signing out redirects, and back and forward
+editor is mounted: `Header` renders `<Link>`s, signing out redirects, and back and forward
 navigate. Hence the 30-second limit on every request: an orphaned request rejects, its handler resets its busy flag, and
 a write whose response is lost leaves the server ahead of the client, which S-10 and S-10b cover. If a later Next
 version runs actions concurrently, an out-of-order completion can leave `synced` briefly stale and cost one redundant

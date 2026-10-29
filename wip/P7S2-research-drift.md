@@ -3,11 +3,12 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Research Drift Register | 27/10/2026 00:18 GMT+10 | 29/10/2026 16:45 GMT+10 |
+| P7S2 Research Drift Register | 27/10/2026 00:18 GMT+10 | 29/10/2026 22:27 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
 - [Register](#register)
+- [Closing notes](#closing-notes)
 - [Stale citations in the issue bodies](#stale-citations-in-the-issue-bodies)
 - [Not drift](#not-drift)
 
@@ -50,6 +51,40 @@ fixes every row still open when it starts; the REPORT confirms each is fixed or 
 | DR-24 | `PRPs/docs/P7S1-task-context.md:212,219-220`, `PRPs/docs/P7S1-task-briefs-client.md:154`, `PRPs/docs/P7S1-editor-persistence-contracts.md:388` cite lines in `prompts/actions.ts` and `Header.tsx` that have moved | The current lines: `renamePrompt`'s write at `:271-280`, `createPrompt` at `:96-163`, `Header.tsx:23-24` imports, links at `:48,:56` | The code | Now (low; working documents of a completed PRP) | Docs task: drop the line numbers, or file a `type: docs` issue |
 | DR-25 | `docs/rules/project.md:76` "one route handler (`src/app/auth/sign-out`)" | The route has no caller in `src` (`grep "auth/sign-out" src` finds none) | The code | When P7S2 lands: the developer decided Q6 on 27/10/2026, so the route is deleted and `project.md:76` must drop it | The sign-out task, with the deletion |
 | DR-26 | `.gemini/AGENT-CONTRACT.md:23,32`, `.gemini/agents/technical-writer.md:15`, `.gemini/agents/serena-worker.md:14` cite `GEMINI.md` | No `GEMINI.md` exists | The filesystem | Now | Outside P7S2's area: a `type: docs` issue |
+
+## Closing notes
+
+Written by task P7S2T12 (issue #122) at `069a03d` on 29/10/2026; each cites the document or code that now holds the
+right text.
+
+| ID | Closing note |
+|---|---|
+| DR-1 | Fixed in `docs/rules/project.md#database-auth-and-tenancy`: the "Some actions do not comply yet" sentence is gone, replaced by the `runAction` order, the isolation tests and the coverage test |
+| DR-2 | Fixed: `README.md` step 6 and the Core Features line now describe `runAction` and the handlers' `user_id` scope, which the code does since T5 to T8 |
+| DR-3 | Fixed in `README.md`: the "Known gaps ... #41" sentence is replaced by what validation, authentication, limits and scope do |
+| DR-4 | Fixed in task 15 and refreshed here: `.claude/agents/senior-backend-engineer.md` and the `.gemini` copy no longer say actions miss the scope; they name `runAction` and the handlers |
+| DR-5 | Fixed here in both copies: the order is `runAction`'s (parse, authenticate, rate-limit, ensure profile, run) and the example is `src/features/folders/handlers.ts` |
+| DR-6 | Fixed in T1: `src/lib/ensure-profile.ts` has a header and takes the database client; its description matches the code |
+| DR-7 | Confirmed: name and file unchanged; `project.md` Layout now lists `action-runner`, `action-runtime`, `prisma-errors` and `bounded-array` beside `ensure-profile` |
+| DR-8 | Fixed in `docs/project/PromptHub_05_TECH_01.md` (section 3.1) and `PromptHub_01_MVP_01.md` (technology, requirements, diagram): profiles are created in application code |
+| DR-9 | Fixed in both specs: application code is the boundary and RLS is optional defence-in-depth (TECH sections 1, 2.1, 6.1; MVP security section) |
+| DR-10 | Fixed in TECH sections 3.2 and 5.1: the folder actions take one object and return an `ActionResult`; `renameFolder`; `deleteFolder` returns the removed folder and prompt ids |
+| DR-11 | Fixed in TECH section 5.1: `createPrompt({ folderId, title? })` returns `ActionResult<PromptListItem>`; `updatePrompt` removed; the prompt actions are listed as they are |
+| DR-12 | Closed by the code: every action parses its input with Zod, so "Validate every user input with Zod" is true; the spec lines needed no change |
+| DR-13 | Fixed in TECH sections 2.1 and 4.2 and MVP: `revalidatePath("/")`; `moveFolder` and `store.ts` removed from the structure |
+| DR-14 | Fixed in TECH section 3.1: `signUp(values)`, `signIn(values)`, `signOut`, `getProfileDetails`, `updateDisplayName`; the password-reset action is stated as not implemented |
+| DR-15 | Fixed in TECH sections 3.1 and 6.1 and MVP: the `(app)` layout gates routes; `src/middleware.ts` only redirects a signed-in user away from `/login` |
+| DR-16 | Confirmed fixed by T9: the Header comment and the `signOut` comment name `purgeClientState`; `grep "Clear document cache"` finds nothing |
+| DR-17 | Confirmed fixed by T5: `FolderItem.tsx` and `FolderToolbar.tsx` say the ids cover the deleted folder, every descendant folder and every prompt in them |
+| DR-18 | Confirmed fixed by T6: `src/features/prompts/actions.ts` and `handlers.ts` document the created prompt with `tags: []` |
+| DR-19 | Confirmed fixed by T6: `handlers.ts` says the `user_id` filter is the tenant boundary and RLS does not apply to Prisma |
+| DR-20 | Confirmed fixed by T7: `prompts/actions.ts` is 112 lines and the Code Size Register has no rows |
+| DR-21 | Fixed in task 15 and refreshed here: both `qa-test-automation-engineer.md` copies say to run handlers against a real Postgres with `testDeps` and to write the isolation test |
+| DR-22 | Fixed in `README.md#database-backed-tests`: the handler, isolation, composite-key and runner suites are Postgres-backed; the `ci.yml` comment is still true and unchanged |
+| DR-23 | The developer's, in #46: left open |
+| DR-24 | Fixed: the line numbers are dropped from `PRPs/docs/P7S1-task-context.md`, `P7S1-task-briefs-client.md` and `P7S1-editor-persistence-contracts.md` |
+| DR-25 | Confirmed fixed by T9: `project.md` Stack row says no route handler, `.serena/memories/project_overview.md` says the same, and `src/app/auth` is gone |
+| DR-26 | Outside the area: filed as a `type: docs` issue by the main session (recommended in the T12 report); the `.gemini` files are unchanged |
 
 ## Stale citations in the issue bodies
 

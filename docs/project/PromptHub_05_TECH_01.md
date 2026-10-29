@@ -5,7 +5,7 @@
 - **Key Technical Decisions and Rationale:**
     - **Framework:** Next.js with the App Router is chosen for its performance, hybrid rendering capabilities (Server and Client Components), and integrated backend logic via Server Actions.
     - **Backend Logic:** Next.js Server Actions will be the exclusive method for all backend logic, co-locating mutations and queries with the components that use them, simplifying the architecture and eliminating the need for a separate API layer.
-    - **Database & Auth:** Supabase is selected for its integrated solution, providing a managed Postgres database, a robust authentication system, and powerful Row Level Security (RLS) for data isolation.
+    - **Database & Auth:** Supabase is selected for its integrated solution, providing a managed Postgres database and a robust authentication system. Prisma connects with a database role, which Row Level Security (RLS) does not constrain, so data isolation is enforced in application code: every Server Action authenticates the user and scopes every query by `user_id`. RLS is optional defence-in-depth (section 6.1).
     - **ORM & Validation:** Prisma will serve as the type-safe ORM to interact with the database, while Zod will enforce strict data validation on all Server Action inputs, ensuring data integrity.
     - **UI & Theming:** `shadcn/ui` provides a foundation of unstyled, accessible components, which will be styled using Tailwind CSS. Theming is managed via CSS variables, allowing for easy customization and dark/light mode implementation.
     - **State Management:** Zustand is chosen for client-side global state management due to its simplicity, minimal boilerplate, and performance. It will manage UI state like folder tree expansion and the currently active prompt.
@@ -26,7 +26,7 @@
 
         subgraph "Cloud Service (Supabase)"
             E[Supabase Auth]
-            F[Postgres Database w/ RLS]
+            F[Postgres Database]
         end
 
         subgraph "Database Schema (in Postgres)"
@@ -80,21 +80,21 @@
 ### 2.1 Architecture Overview
 - **System Components:**
     - **Next.js Frontend:** A client-side application built with React and `shadcn/ui` components. It handles all rendering, user interactions, and manages UI state with Zustand. It communicates with the backend exclusively through Server Actions.
-    - **Next.js Backend (Server Actions):** A serverless backend co-located within the Next.js application. Server Actions, protected by Supabase Auth middleware, handle all business logic, data validation (Zod), and database communication (Prisma).
-    - **Supabase:** A managed cloud service providing the core data persistence layer (Postgres), user authentication, and authorization via Row Level Security.
+    - **Next.js Backend (Server Actions):** A serverless backend co-located within the Next.js application. Each Server Action authenticates the caller with `supabase.auth.getUser()` and handles the business logic, data validation (Zod), and database communication (Prisma).
+    - **Supabase:** A managed cloud service providing the core data persistence layer (Postgres) and user authentication. Authorization is the `user_id` scope of the application's queries; RLS is optional defence-in-depth.
 - **Data Flow Diagrams:**
     - **Read Operation (e.g., Fetching Prompts):**
         1.  User clicks a folder in the React client.
-        2.  The client component invokes a Server Action, e.g., `getPromptsByFolder(folderId)`.
+        2.  The client component invokes a Server Action, e.g., `getPromptsByFolder({ folderId })`.
         3.  The Server Action validates the user's session.
-        4.  Prisma client queries the Supabase DB for prompts where `folder_id` matches and `user_id` matches the authenticated user's ID (enforced by RLS).
+        4.  Prisma client queries the Supabase DB for prompts where `folder_id` matches and `user_id` matches the authenticated user's ID (enforced by the query's `user_id` filter).
         5.  Data is returned to the client component and rendered.
     - **Write Operation (e.g., Creating a Folder):**
         1.  User submits a "New Folder" form.
         2.  A Server Action, e.g., `createFolder(data)`, is invoked.
         3.  Zod validates the input `data` schema.
         4.  Prisma client executes an `INSERT` command into the `Folders` table.
-        5.  The Server Action calls `revalidateTag('folders')` to invalidate the client-side cache.
+        5.  The Server Action calls `revalidatePath("/")` to invalidate the client-side cache.
         6.  The client UI automatically re-fetches the updated folder list.
 - **Project Structure:** A feature-based organization will be used within the `src` directory to promote modularity and scalability.
     ```
@@ -111,21 +111,24 @@
     ├── features/             # Feature-based modules
     │   ├── auth/
     │   │   ├── components/   # SignInForm.tsx, SignUpForm.tsx
-    │   │   └── actions.ts    # signIn, signUp server actions
+    │   │   ├── actions.ts    # signIn, signUp, signOut server actions
+    │   │   └── handlers.ts   # signIn, signUp bodies: (deps, data)
     │   ├── folders/
     │   │   ├── components/   # FolderTree.tsx, FolderItem.tsx
-    │   │   ├── actions.ts    # createFolder, moveFolder server actions
-    │   │   └── store.ts      # Zustand store for folder tree state
+    │   │   ├── actions.ts    # createFolder, renameFolder, deleteFolder... server actions (wrappers)
+    │   │   └── handlers.ts   # their bodies on runAction: (deps, data)
     │   └── editor/
     │       ├── components/   # EditorPane.tsx, VersionHistory.tsx
-    │       ├── actions.ts    # saveNewVersion, autoSavePrompt server actions
+    │       ├── actions.ts    # saveNewVersion, autoSavePrompt server actions (wrappers)
+    │       ├── handlers.ts   # their bodies on runAction
     │       ├── service.ts    # save and restore logic taking (db, userId, input)
     │       └── ...
     ├── components/           # Shared, primitive UI components (from shadcn/ui)
     │   └── ui/               # Button.tsx, Card.tsx, etc.
     ├── lib/                  # Shared libraries and utilities
     │   ├── db.ts             # Prisma client instance
-    │   ├── supabase.ts       # Supabase client instance
+    │   ├── action-runner.ts  # runAction: parse, authenticate, rate-limit, ensure profile, run
+    │   ├── supabase/         # Supabase browser and server clients
     │   └── utils.ts          # General utility functions
     ├── styles/
     │   └── globals.css       # Global styles and Tailwind directives
@@ -164,23 +167,23 @@
     - As a user, I want to reset my password if I forget it.
 - **Technical Requirements:**
     - Use `@supabase/ssr` library for server-side auth handling.
-    - Implement protected routes using Next.js middleware.
-    - Create a trigger in Supabase to automatically create a `Profiles` entry upon user sign-up.
+    - Protect the `(app)` routes in their layout (`src/app/(app)/layout.tsx` redirects to the login page without a user); `src/middleware.ts` only redirects a signed-in user away from `/login`.
+    - Create the `Profiles` entry in application code (`ensureProfileExists`), not in a trigger: Supabase Cloud does not permit triggers on `auth.users`.
     - The UI must handle default, loading, and error states as defined in the UI/UX guide.
 - **Implementation Approach:**
     1.  **Sign-Up/Login UI:** Create a client component `AuthForm.tsx` that toggles between Sign In and Sign Up views.
     2.  **Server Actions:**
-        -   `signUp(formData)`: Calls Supabase's `signUp` method.
-        -   `signIn(formData)`: Calls Supabase's `signInWithPassword` method.
-        -   `signOut()`: Calls Supabase's `signOut` method.
-        -   `sendPasswordReset(email)`: Calls Supabase's `resetPasswordForEmail`.
-    3.  **Middleware:** `src/middleware.ts` will use `createMiddlewareClient` from `@supabase/ssr` to protect routes under the `(app)` group and refresh user sessions.
-    4.  **Profile Management:** A simple form on a `/profile` page will call a Server Action `updateProfile(formData)` which uses Prisma to update the `display_name` in the `Profiles` table.
+        -   `signUp(values)`: Calls Supabase's `signUp` method.
+        -   `signIn(values)`: Calls Supabase's `signInWithPassword` method.
+        -   `signOut()`: Calls Supabase's `signOut` method, after the Header has purged the client state.
+    3.  **Route protection:** the `(app)` layout looks up the user on the server and redirects to the login page without one. `src/middleware.ts` matches `/login` only and redirects a user who carries a Supabase auth cookie to `/dashboard`; it does not refresh sessions.
+    4.  **Profile Management:** The profile page calls the Server Action `updateDisplayName`, which uses Prisma to update the `display_name` in the `Profile` table. A password-reset action is not implemented.
 - **API (Server Actions):**
-    - `signUp(payload: z.infer<typeof SignUpSchema>): Promise<...>`
-    - `signIn(payload: z.infer<typeof SignInSchema>): Promise<...>`
-    - `signOut(): Promise<void>`
-    - `updateProfile(payload: z.infer<typeof ProfileSchema>): Promise<...>`
+    - `signUp(values: z.input<typeof SignUpSchema>): Promise<ActionResult<{ redirectTo: string }>>`
+    - `signIn(values: z.input<typeof SignInSchema>): Promise<ActionResult<{ redirectTo: string }>>`
+    - `signOut(): Promise<void>`: redirects to the login page.
+    - `getProfileDetails(): Promise<ActionResult<ProfileDetails>>`
+    - `updateDisplayName(data: { displayName }): Promise<ActionResult<{ displayName: string }>>`
 - **Data Models Involved:** `Profiles`, `auth.users` (Supabase).
 - **Error Handling:** Zod schemas will validate form data. Supabase auth errors will be caught and returned to the client component to be displayed as an error message below the form.
 
@@ -195,15 +198,15 @@
     - Drag-and-drop operations must use pessimistic UI updates. The UI change is only committed after server confirmation.
     - Full-text search must be performant, utilizing a GIN index on a `tsvector` column in the database.
 - **Implementation Approach:**
-    1.  **Folder Tree:** The `FolderTree.tsx` component will fetch initial root folders (`parentId` is `NULL`). Each `FolderItem.tsx` with children will have a disclosure triangle. Clicking it will invoke a Server Action `getFoldersByParentId(parentId)` and render the children.
+    1.  **Folder Tree:** The `FolderTree.tsx` component will fetch initial root folders (`parentId` is `NULL`). Each `FolderItem.tsx` with children will have a disclosure triangle. Clicking it will invoke a Server Action `getFolderChildren({ parentId })` and render the children.
     2.  **State Management:** A Zustand store will manage the expanded/collapsed state of folders in the tree.
     3.  **Drag and Drop:** A library like `dnd-kit` will be used. On drop, a Server Action `moveItem(itemId, targetFolderId)` is called. The client UI will show a loading state on the dragged item until the action completes.
-    4.  **Full-Text Search:** An input field will trigger a Server Action `searchPrompts(query)` on change (with debouncing). This action will use Prisma's raw query capabilities to search against the `content_tsv` column.
+    4.  **Full-Text Search:** An input field will call the Server Action `getPromptsByFolder({ folderId, query })` on change (with debouncing). With a non-blank `query` the handler (`search-handlers.ts`, not an action of its own) uses Prisma's raw query capabilities to search against the `content_tsv` column.
 - **API (Server Actions):**
-    - `getFoldersByParentId(parentId: string | null): Promise<Folder[]>`
-    - `createFolder(name: string, parentId: string | null): Promise<Folder>`
-    - `moveItem(itemId: string, itemType: 'prompt' | 'folder', targetFolderId: string | null): Promise<{ success: boolean }>`
-    - `searchPrompts(query: string): Promise<Prompt[]>`
+    - `getRootFolders(): Promise<ActionResult<Folder[]>>`, `getFolderChildren({ parentId }): Promise<ActionResult<Folder[]>>`
+    - `createFolder({ name, parentId }): Promise<ActionResult<Folder>>`
+    - `moveItem(itemId: string, itemType: 'prompt' | 'folder', targetFolderId: string | null): Promise<{ success: boolean }>`: planned with drag and drop; not implemented
+    - `getPromptsByFolder({ folderId, query?, tagIds? }): Promise<ActionResult<PromptListItem[]>>`: lists the folder, or searches it when `query` is non-blank
 - **Data Models Involved:** `Folders`, `Prompts`.
 - **Error Handling:** Network errors during lazy-loading or search will display a toast notification. Failed drag-and-drop operations will revert the item to its original position and show an error toast.
 
@@ -228,12 +231,12 @@
     5.  **Restore:** The panel's "Restore this version" button asks "Restore this version?" and only then calls `restorePromptVersion({ promptId, versionId })`. Holding the prompt row lock, it records the current unsaved row as a version when the newest version differs from it, writes the restored title and content to the prompt, records the restored state as a version unless the newest version already holds it, and returns the restored `{ title, content }`, which the editor then shows.
     6.  **Diff View:** Selecting two versions from the history panel will switch the Monaco editor into its diff mode, feeding it the `content_snapshot` of the two versions.
 - **API (Server Actions):**
-    - `getPromptDetails({ promptId }): ActionResult<Prompt>` (in `features/prompts/actions.ts`; it does not include versions)
+    - `getPromptDetails({ promptId }): ActionResult<PromptDetails>` (in `features/prompts/actions.ts`; the prompt with its folder, without versions)
     - `saveNewVersion({ promptId, newTitle, newContent }): ActionResult<{ versionId: number }>`
     - `autoSavePrompt({ promptId, title, content }): ActionResult<void>`
-    - `getPromptVersionHistory({ promptId }): ActionResult<PromptVersionHistoryItem[]>` (in `features/prompts/actions.ts`)
-    - `restorePromptVersion({ promptId, versionId }): ActionResult<{ title: string | null, content: string }>` (in `features/prompts/actions.ts`)
-- **Server logic:** `features/editor/service.ts` holds `saveVersion`, `autoSaveDocument`, `restoreVersion` and `listVersions`, each taking `(db, userId, input)`. The actions validate and authenticate (`saveNewVersion` also rate-limits), then call them.
+    - `getPromptVersionHistory({ promptId }): ActionResult<PromptVersionHistoryItem[]>` (in `features/prompts/history-actions.ts`)
+    - `restorePromptVersion({ promptId, versionId }): ActionResult<{ title: string | null, content: string }>` (in `features/prompts/history-actions.ts`)
+- **Server logic:** `features/editor/service.ts` holds `saveVersion`, `autoSaveDocument`, `restoreVersion` and `listVersions`, each taking `(db, userId, input)`. The handlers validate, authenticate and rate-limit (saves and restores 30 a minute in their own bucket, autosaves 240 a minute, history reads not limited), then call them.
 - **Data Models Involved:** `Prompts`, `PromptVersions`.
 
 ## 4. Data Architecture
@@ -329,33 +332,37 @@ model Tag {
 ### 4.2 Data Storage
 - **Database:** Supabase managed Postgres database.
 - **Data Persistence:** All application data will be persisted in the Postgres database via Prisma. The editor's unsaved content is kept as a per-document draft in the user's browser `localStorage` (section 3.3) until a save catches up.
-- **Caching:** Next.js's server-side data cache will be used for read operations. Server Actions will use `revalidateTag` and `revalidatePath` to invalidate caches after mutations, ensuring UI consistency.
+- **Caching:** Next.js's server-side data cache will be used for read operations. Server Actions use `revalidatePath` to invalidate caches after mutations, ensuring UI consistency.
 - **Backup and Recovery:** Handled automatically by the Supabase platform.
 
 ## 5. API Specifications
 
 ### 5.1 Internal APIs
-The internal API is composed of Next.js Server Actions. All actions must perform user session validation.
+The internal API is composed of Next.js Server Actions. All actions perform user session validation. Every action but `signOut` is a wrapper over a handler `(deps, data: unknown)` built on `runAction`, which parses the input with Zod, authenticates, rate-limits mutations, runs and catches, and returns an `ActionResult` (`{ success: true, data } | { success: false, error }`) with a fixed message on failure. The input is one object argument.
 
 - **`features/auth/actions.ts`**
-    - `signUp(data)`: Creates a new user in Supabase Auth.
-    - `signIn(data)`: Signs in an existing user.
-    - `signOut()`: Signs out the current user.
+    - `signUp(values)`: Creates a new user in Supabase Auth.
+    - `signIn(values)`: Signs in an existing user.
+    - `signOut()`: Signs out the current user and redirects to the login page.
 - **`features/folders/actions.ts`**
-    - `getRootFolders(): Promise<Folder[]>`: Fetches folders where `parent_id` is null.
-    - `getFolderChildren(parentId: string): Promise<Folder[]>`: Fetches child folders.
-    - `createFolder(data: { name: string, parentId: string | null }): Promise<Folder>`: Creates a new folder.
-    - `updateFolderName(folderId: string, newName: string): Promise<Folder>`: Renames a folder.
-    - `deleteFolder(folderId: string): Promise<{ success: boolean }>`: Deletes a folder (and its contents via cascade).
+    - `getRootFolders(): ActionResult<Folder[]>`: Fetches folders where `parent_id` is null.
+    - `getFolderChildren({ parentId }): ActionResult<Folder[]>`: Fetches child folders.
+    - `createFolder({ name, parentId }): ActionResult<Folder>`: Creates a new folder at the root or under one of the caller's folders.
+    - `renameFolder({ folderId, name }): ActionResult<Folder>`: Renames a folder.
+    - `deleteFolder({ folderId }): ActionResult<{ folderIds: string[], promptIds: string[] }>`: Deletes a folder, its descendants and their prompts (via cascade), and returns every deleted folder id and prompt id.
 - **`features/prompts/actions.ts`**
-    - `getPromptsByFolder(folderId: string): Promise<Prompt[]>`: Fetches all prompts within a folder.
-    - `createPrompt(data: { title: string, folderId: string | null }): Promise<Prompt>`: Creates a new, empty prompt.
-    - `updatePrompt(promptId: string, data: { title?: string, content?: string }): Promise<Prompt>`: Updates prompt details.
-    - `deletePrompt(promptId: string): Promise<{ success: boolean }>`: Deletes a prompt.
+    - `getPromptsByFolder({ folderId, query?, tagIds? }): ActionResult<PromptListItem[]>`: Fetches the prompts within a folder, or searches them.
+    - `createPrompt({ folderId, title? }): ActionResult<PromptListItem>`: Creates a new, empty prompt in one of the caller's folders.
+    - `getPromptDetails({ promptId }): ActionResult<PromptDetails>`: Fetches one prompt with its folder.
+    - `renamePrompt({ promptId, newTitle }): ActionResult<void>`: Renames a prompt.
+    - `deletePrompt({ promptId }): ActionResult<void>`: Deletes a prompt.
+    - `validatePrompts({ promptIds }): ActionResult<{ validIds: string[] }>`: Reports which of up to 200 ids are the caller's prompts.
 - **`features/editor/actions.ts`**
     - `saveNewVersion({ promptId, newTitle, newContent }): ActionResult<{ versionId: number }>`: Saves the prompt and records the saved state as a version, unless the newest version already holds it.
     - `autoSavePrompt({ promptId, title, content }): ActionResult<void>`: Saves the prompt without recording a version.
-- **`features/prompts/actions.ts`** (version history)
+- **`features/prompts/tag-actions.ts`**
+    - `getTags({ folderId? }): ActionResult<Tag[]>`, `createTag({ name }): ActionResult<{ id, name }>`, `assignTagsToPrompt({ promptId, tagIds }): ActionResult<void>`: tags are scoped by `user_id` in the queries; the database does not enforce tag ownership (#107).
+- **`features/prompts/history-actions.ts`** (version history)
     - `getPromptVersionHistory({ promptId }): ActionResult<PromptVersionHistoryItem[]>`: Fetches the 50 newest versions of a prompt, newest first.
     - `restorePromptVersion({ promptId, versionId }): ActionResult<{ title: string | null, content: string }>`: Restores the prompt to a version and records the working copy and the restored state in the history.
 
@@ -367,8 +374,8 @@ The internal API is composed of Next.js Server Actions. All actions must perform
 ## 6. Security and Privacy
 
 ### 6.1 Authentication and Authorization
-- **Authentication:** Managed by Supabase Auth using secure cookies. The `middleware.ts` file will handle session validation for all protected routes.
-- **Authorization:** Implemented via **Row Level Security (RLS)** in Supabase. RLS policies will be enabled on all tables containing user data.
+- **Authentication:** Managed by Supabase Auth using secure cookies. Every Server Action validates the session with `supabase.auth.getUser()`, and the `(app)` layout redirects a visitor without a user to the login page.
+- **Authorization:** Implemented in application code. Every Server Action scopes every Prisma query by the authenticated user's `user_id`; the composite keys of migration `20261029114511_composite_tenant_keys` make the database refuse a folder under another user's folder and a prompt in another user's folder. Prisma connects with a database role, so **Row Level Security (RLS)** does not constrain it. RLS policies (`wip/P3S1-rls-policies.sql`) are optional defence-in-depth for connections that carry the end-user JWT.
 - **Example RLS Policy for `Prompts` table:**
     ```sql
     -- Enable RLS on the table
@@ -394,7 +401,7 @@ The internal API is composed of Next.js Server Actions. All actions must perform
     ON "Prompts" FOR DELETE
     USING (auth.uid() = user_id);
     ```
-    *Similar policies will be applied to `Folders`, `Tags`, and `Profiles`.*
+    *Similar policies apply to `Folders`, `Tags`, and `Profiles` in the optional policy file.*
 
 ### 6.2 Data Security
 - **Encryption:** Data in transit is encrypted via HTTPS. Data at rest is encrypted by Supabase's underlying cloud provider.

@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 29/10/2026 18:27 GMT+10 |
+| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 30/10/2026 01:13 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
@@ -19,12 +19,12 @@
 
 ## Purpose
 
-The per-task detail for [the PRP](../P7S2-server-side-security-hardening.md), Tasks 1 to 7. Tasks 8 to 16 are in
+The per-task detail for [the PRP](../complete/P7S2-server-side-security-hardening.md), Tasks 1 to 7. Tasks 8 to 16 are in
 [the second briefs file](P7S2-task-briefs-2.md#briefs). Interfaces, the action matrix and the schemas are in
 [the action contracts](P7S2-action-contracts.md), the per-area rules and test conventions in
 [the domain contracts](P7S2-domain-contracts.md), the references, gotchas, file plan, trees and call sites in
 [the context](P7S2-task-context.md#references-and-gotchas), and the database environment in
-[the PRP's validation loop](../P7S2-server-side-security-hardening.md#level-2-unit-and-postgres-backed-tests). An agent given one
+[the PRP's validation loop](../complete/P7S2-server-side-security-hardening.md#level-2-unit-and-postgres-backed-tests). An agent given one
 task reads its brief, the contracts section it names and the source it cites, and checks every cited path against the
 code first. Agents never commit, push, branch or touch issues
 ([Never](../../.claude/AGENT-CONTRACT.md#never)): the main session reviews each diff, runs every gate and commits with
@@ -77,7 +77,8 @@ Steps. First, install the package and confirm that `node_modules/server-only/emp
 at it (the package's `exports` map names `./empty.js` under the `react-server` condition, from `npm view server-only`
 on 29/10/2026; the file's presence is unverified until the install). Second, write
 `src/lib/server-only-alias.test.ts`, which does `await import("server-only")` and expects it not to throw, and watch it
-fail with the package's own throw. Third, add the alias to `vitest.config.ts` as a regular expression
+fail with the package's own throw (the import line carries `// @ts-expect-error` with a `Reason:`, because the package
+ships no type declarations and `tsc` covers test files; found while executing, 29/10/2026). Third, add the alias to `vitest.config.ts` as a regular expression
 `/^server-only$/` mapped to the absolute path of `node_modules/server-only/empty.js` (a global `react-server`
 condition would break the jsdom suites), and watch the test pass. Fourth, add to the same edit the coverage `include`
 patterns for every file the later tasks create or measure, so no later task edits the list: `src/lib/action-runner.ts`,

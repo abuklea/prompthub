@@ -1,3 +1,24 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/features/folders/components/FolderToolbar.tsx
+MIME: text/x-typescript
+Type: TypeScript React Component
+
+Created: 07/11/2025 16:21 GMT+10
+Last modified: 29/10/2026 20:55 GMT+10
+---------------
+The folder panel toolbar: creates a root folder, renames and deletes the selected folder, and sets the folder sort and
+filter. A delete closes the tabs of every prompt in the deleted tree, drops the tree from the workspace cache, clears
+the selection and refetches both panels.
+
+Changelog:
+29/10/2026 20:55 GMT+10 | P7S2T5: every folder action call branches on its ActionResult and toasts its error; a
+                         delete closes the tabs of every returned prompt id and calls removeFolderTreeFromCache with the
+                         returned folder and prompt ids (findings F-2, F-6, issue #113); header added (F-9)
+07/11/2025 16:21 GMT+10 | Created (commit 43fd886)
+*/
+
 "use client"
 
 import { useState } from "react"
@@ -11,6 +32,7 @@ import { createFolder, renameFolder, deleteFolder } from "../actions"
 import { CreateFolderDialog, RenameFolderDialog, DeleteFolderDialog } from "./FolderDialogs"
 import { Plus, Edit, Trash2, ArrowUpDown } from "lucide-react"
 import { toast } from "sonner"
+import { removeFolderTreeFromCache } from "@/features/workspace/cache"
 
 export function FolderToolbar() {
   const { selectedFolder, folderSort, folderFilter, setFolderSort, setFolderFilter, triggerFolderRefetch, triggerPromptRefetch, selectFolder } = useUiStore()
@@ -21,7 +43,11 @@ export function FolderToolbar() {
 
   const handleCreateFolder = async (name: string) => {
     try {
-      await createFolder(name, null)
+      const result = await createFolder({ name, parentId: null })
+      if (!result.success) {
+        toast.error(result.error, { duration: 6000 })
+        return
+      }
       triggerFolderRefetch()
       toast.success("Folder created successfully", { duration: 3000 })
     } catch (error) {
@@ -33,7 +59,11 @@ export function FolderToolbar() {
   const handleRenameFolder = async (newName: string) => {
     if (!selectedFolder) return
     try {
-      await renameFolder(selectedFolder, newName)
+      const result = await renameFolder({ folderId: selectedFolder, name: newName })
+      if (!result.success) {
+        toast.error(result.error, { duration: 6000 })
+        return
+      }
       triggerFolderRefetch()
       toast.success("Folder renamed successfully", { duration: 3000 })
     } catch (error) {
@@ -45,13 +75,20 @@ export function FolderToolbar() {
   const handleDeleteFolder = async () => {
     if (!selectedFolder) return
     try {
-      // Reason: deleteFolder now returns promptIds from the deleted folder
-      const promptIds = await deleteFolder(selectedFolder)
+      const result = await deleteFolder({ folderId: selectedFolder })
+      if (!result.success) {
+        toast.error(result.error, { duration: 6000 })
+        return
+      }
+      // Reason: the ids cover the deleted folder and every descendant folder, and every prompt filed in any of them
+      const { folderIds, promptIds } = result.data
 
-      // Reason: Close all tabs for documents in this folder
-      promptIds.forEach(promptId => {
+      // Reason: close the tabs of every deleted prompt, then drop the whole tree from the workspace cache, so the
+      // refetch below does not show the deleted folders from the cache first
+      promptIds.forEach((promptId) => {
         closeTabsByPromptId(promptId)
       })
+      removeFolderTreeFromCache({ folderIds, promptIds })
 
       // Reason: Clear folder selection since it's been deleted (P5S4b - folder deletion fix)
       selectFolder(null)
