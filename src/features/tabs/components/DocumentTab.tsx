@@ -6,12 +6,13 @@ MIME: text/typescript
 Type: TypeScript React Component
 
 Created: 08/11/2025 12:58 GMT+10
-Last modified: 08/11/2025 13:50 GMT+10
+Last modified: 29/10/2026 20:54 GMT+10
 ---------------
 Individual tab component with drag handle, title, close button, and dirty indicator.
 Uses dnd-kit for drag-and-drop functionality with click-and-hold pattern.
 
 Changelog:
+29/10/2026 20:54 GMT+10 | P7S2T6: deletePrompt takes { promptId } (issue #114)
 08/11/2025 13:50 GMT+10 | Implemented click-and-hold drag pattern (click = switch, hold = drag)
 08/11/2025 13:38 GMT+10 | Added italic styling for preview tabs (isPreview)
 08/11/2025 13:35 GMT+10 | Fixed tab click not switching content - moved onClick to parent div
@@ -134,7 +135,7 @@ export function DocumentTab({ tab, isActive, onClose, onClick }: DocumentTabProp
     try {
       // Delete document from database if it was persisted
       if (tab.promptId) {
-        const result = await deletePrompt(tab.promptId)
+        const result = await deletePrompt({ promptId: tab.promptId })
         if (!result.success) {
           toast.error(result.error)
           setShowUnsavedDialog(false)

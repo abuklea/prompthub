@@ -23,11 +23,16 @@ model Folder {
   created_at DateTime @default(now())
   user_id    String
   parent_id  String?
-  parent     Folder?  @relation("NestedFolders", fields: [parent_id], references: [id], onDelete: Cascade)
+  // Reason: never use disconnect on parent or folder. Both relations include user_id, which is also the owner
+  // column, so a disconnect would null it. No code under src uses a Prisma disconnect today (searched 29/10/2026).
+  // A changed user_id is refused while anything references the folder, instead of moving its subtree
+  // (review finding S-4).
+  parent     Folder?  @relation("NestedFolders", fields: [parent_id, user_id], references: [id, user_id], onDelete: Cascade, onUpdate: Restrict)
   children   Folder[] @relation("NestedFolders")
   user       Profile  @relation(fields: [user_id], references: [id], onDelete: Cascade)
   prompts    Prompt[]
 
+  @@unique([id, user_id])
   @@index([user_id, parent_id])
 }
 
@@ -42,7 +47,9 @@ model Prompt {
   updated_at  DateTime                 @updatedAt
   user_id     String
   folder_id   String?
-  folder      Folder?                  @relation(fields: [folder_id], references: [id], onDelete: Cascade)
+  // Reason: same as Folder.parent: no disconnect, because it would null user_id. A changed folder user_id is refused
+  // while a prompt is filed in it, instead of moving the prompt to the new owner (review finding S-4).
+  folder      Folder?                  @relation(fields: [folder_id, user_id], references: [id, user_id], onDelete: Cascade, onUpdate: Restrict)
   user        Profile                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
   versions    PromptVersion[]
   tags        Tag[]

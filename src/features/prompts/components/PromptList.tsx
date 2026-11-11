@@ -6,12 +6,12 @@ MIME: text/typescript
 Type: React Component (TypeScript)
 
 Created: 08/11/2025 13:08 GMT+10
-Last modified: 22/10/2026 14:39 GMT+10
+Last modified: 29/10/2026 20:54 GMT+10
 ---------------
-Component for displaying and managing the list of prompts in a folder.
-Now uses tab system for opening documents instead of selectedPrompt.
+Lists and manages the prompts of the selected folder and opens them in tabs; a failed load keeps the shown list.
 
 Changelog:
+29/10/2026 20:54 GMT+10 | P7S2T6: getPromptsByFolder takes one object; a failed result shows a toast (issue #114)
 22/10/2026 14:39 GMT+10 | Active-tab folder sync moved to useActiveTabFolderSync, hosted by ActiveTabFolderSync (#95)
 08/11/2025 15:16 GMT+10 | Added ErrorBoundary to prevent application crashes from render errors (P5S4T3)
 08/11/2025 15:11 GMT+10 | CRITICAL FIX: Moved activeTab calculation outside map using useMemo to prevent infinite render loop (P5S4T1)
@@ -74,9 +74,13 @@ export function PromptList() {
       }
 
       try {
-        const folderPrompts = await getPromptsByFolder(selectedFolder, { query: docFilter, tagIds: selectedTagIds })
-        setPrompts(folderPrompts)
-        setPromptsForFolderInCache(selectedFolder, folderPrompts)
+        const result = await getPromptsByFolder({ folderId: selectedFolder, query: docFilter, tagIds: selectedTagIds })
+        if (result.success) {
+          setPrompts(result.data)
+          setPromptsForFolderInCache(selectedFolder, result.data)
+        } else {
+          toast.error(result.error, { duration: 6000 })
+        }
       } catch (error) {
         console.error("Failed to fetch prompts:", error)
       } finally {

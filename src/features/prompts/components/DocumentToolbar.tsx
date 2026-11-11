@@ -1,3 +1,24 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/features/prompts/components/DocumentToolbar.tsx
+MIME: text/typescript
+Type: React Component (TypeScript)
+
+Created: 07/11/2025 16:21 GMT+10
+Last modified: 29/10/2026 21:18 GMT+10
+---------------
+Toolbar above the document list: creates, renames and deletes the selected document (optimistically, refetching the
+list when the server refuses), sorts and filters the list, and filters by and assigns tags.
+
+Changelog:
+29/10/2026 21:18 GMT+10 | P7S2T7: getTags, createTag and assignTagsToPrompt come from ../tag-actions; a failed
+                         getTags shows its error and keeps the listed tags (issues #41 and #51)
+29/10/2026 20:54 GMT+10 | P7S2T6: renamePrompt takes { promptId, newTitle } and deletePrompt { promptId }; header
+                         added (issue #114)
+07/11/2025 16:21 GMT+10 | Created (commit 43fd886)
+*/
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -17,7 +38,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUiStore, type DocSort } from "@/stores/use-ui-store"
 import { useTabStore } from "@/stores/use-tab-store"
-import { assignTagsToPrompt, createPrompt, createTag, deletePrompt, getTags, renamePrompt } from "../actions"
+import { createPrompt, deletePrompt, renamePrompt } from "../actions"
+import { assignTagsToPrompt, createTag, getTags } from "../tag-actions"
 import { toast } from "sonner"
 import { Plus, Edit, Trash2, ArrowUpDown, Tag } from "lucide-react"
 import { CreateDocumentDialog, RenameDocumentDialog, DeleteDocumentDialog } from "./DocumentDialogs"
@@ -103,8 +125,13 @@ export function DocumentToolbar() {
 
   useEffect(() => {
     async function loadTags() {
-      const fetched = await getTags({ folderId: selectedFolder || undefined })
-      setTags(fetched)
+      const result = await getTags({ folderId: selectedFolder || undefined })
+      if (!result.success) {
+        // Reason: a failed refresh keeps the tags already listed; the toast carries the server's reason
+        toast.error(result.error)
+        return
+      }
+      setTags(result.data)
     }
     loadTags()
   }, [selectedFolder, prompts])
@@ -161,7 +188,7 @@ export function DocumentToolbar() {
     // P5S5T3: Optimistic update - update title in store immediately (no refetch needed)
     updatePromptTitle(selectedPrompt, newTitle)
 
-    const result = await renamePrompt(selectedPrompt, newTitle)
+    const result = await renamePrompt({ promptId: selectedPrompt, newTitle })
     if (result.success) {
       toast.success("Document renamed successfully", { duration: 3000 })
     } else {
@@ -185,7 +212,7 @@ export function DocumentToolbar() {
     selectPrompt(null)
     closeTabsByPromptId(promptIdToDelete)
 
-    const result = await deletePrompt(promptIdToDelete)
+    const result = await deletePrompt({ promptId: promptIdToDelete })
     if (result.success) {
       toast.success("Document deleted successfully", { duration: 3000 })
     } else {

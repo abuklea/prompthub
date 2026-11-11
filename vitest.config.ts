@@ -6,12 +6,14 @@ MIME: text/typescript
 Type: TypeScript Module
 
 Created: 08/07/2026 09:20 GMT+10
-Last modified: 22/10/2026 08:17 GMT+10
+Last modified: 29/10/2026 20:03 GMT+10
 ---------------
 Vitest configuration: node environment by default (a DOM test opts in with a `// @vitest-environment jsdom` comment on
-its first line), the automatic JSX transform, and the files held to the coverage target.
+its first line), the automatic JSX transform, the server-only alias, and the files held to the coverage target.
 
 Changelog:
+29/10/2026 20:03 GMT+10 | Aliased the bare server-only import to the package's empty module; coverage scope of P7S2
+                         (P7S2T1)
 22/10/2026 08:17 GMT+10 | Added the header; include .test.tsx; automatic JSX transform; coverage scope of P7S1;
                          dropped the absent src/lib/diff-utils.ts
 */
@@ -22,9 +24,16 @@ export default defineConfig({
   // Reason: tsconfig sets "jsx": "preserve" for Next.js, so a JSX test would fail with "React is not defined".
   esbuild: { jsx: 'automatic' },
   resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
+    alias: [
+      { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
+      // Reason: Next resolves server-only to empty.js under its react-server condition; Vitest takes the default
+      // export, which throws. Only this import is aliased: a global react-server condition would break the jsdom
+      // suites.
+      {
+        find: /^server-only$/,
+        replacement: fileURLToPath(new URL('./node_modules/server-only/empty.js', import.meta.url)),
+      },
+    ],
   },
   test: {
     environment: 'node',
@@ -56,6 +65,17 @@ export default defineConfig({
         'src/features/editor/components/VersionHistoryDialog.tsx',
         'src/features/editor/service.ts',
         'src/test/db.ts',
+        'src/lib/action-runner.ts',
+        'src/lib/prisma-errors.ts',
+        'src/lib/ensure-profile.ts',
+        'src/lib/rate-limit.ts',
+        'src/features/*/handlers.ts',
+        'src/features/prompts/*-handlers.ts',
+        'src/features/folders/schemas.ts',
+        'src/features/profile/schemas.ts',
+        'src/features/auth/client-purge.ts',
+        'src/features/workspace/cache.ts',
+        'src/test/action-coverage.ts',
       ],
       reporter: ['text', 'html'],
     },

@@ -6,12 +6,14 @@ MIME: text/typescript
 Type: TypeScript Zustand Store
 
 Created: 08/11/2025 12:57 GMT+10
-Last modified: 08/11/2025 13:50 GMT+10
+Last modified: 29/10/2026 21:12 GMT+10
 ---------------
 Zustand store for managing tabbed editor state.
 Handles tab lifecycle, layout management, and localStorage persistence.
 
 Changelog:
+29/10/2026 21:12 GMT+10 | Added resetTabs for the sign-out purge: every tab, pinned ones included, and the layout
+                         (P7S2T9, decision Q7, issue #44)
 08/11/2025 13:50 GMT+10 | Added closeTabsByPromptId and closeTabsByFolderId for auto-cleanup on delete
 08/11/2025 13:37 GMT+10 | Added preview tab support (isPreview) with VSCode-style behavior
 08/11/2025 12:57 GMT+10 | Initial creation - Tab state management
@@ -23,12 +25,18 @@ import type { TabData, TabState, LayoutNode, PanelNode } from '@/features/tabs/t
 
 const STORAGE_KEY = 'prompthub-tabs-state'
 
+/** The layout of a store with no tab: one empty panel. */
+const emptyLayout = (): PanelNode => ({ type: 'panel', tabId: '', tabs: [] })
+
 export const useTabStore = create<TabState>()(
   persist(
     (set, get) => ({
       tabs: [],
       activeTabId: null,
-      layout: { type: 'panel', tabId: '', tabs: [] } as PanelNode,
+      layout: emptyLayout(),
+
+      // Reason: the persisted tabs carry document titles, so sign-out empties them on disk too (decision Q7).
+      resetTabs: () => set({ tabs: [], activeTabId: null, layout: emptyLayout() }),
 
       openTab: (tabInput) => {
         const tabs = get().tabs

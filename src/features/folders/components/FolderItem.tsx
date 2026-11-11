@@ -1,3 +1,24 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/features/folders/components/FolderItem.tsx
+MIME: text/x-typescript
+Type: TypeScript React Component
+
+Created: 06/11/2025 14:33 GMT+10
+Last modified: 29/10/2026 20:54 GMT+10
+---------------
+One folder of the folder tree: expands to load its children, and renames, deletes and adds subfolders through the
+folder actions, with optimistic updates that roll back when an action fails. A delete closes the tabs of every prompt
+in the deleted tree and drops the tree from the workspace cache.
+
+Changelog:
+29/10/2026 20:54 GMT+10 | P7S2T5: every folder action call branches on its ActionResult and toasts its error; a
+                         delete closes the tabs of every returned prompt id and calls removeFolderTreeFromCache with the
+                         returned folder and prompt ids (findings F-2, F-6, issue #113); header added (F-9)
+06/11/2025 14:33 GMT+10 | Created (commit fb2faa7)
+*/
+
 "use client"
 
 import { useState } from "react"
@@ -11,7 +32,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { CreateFolderDialog, RenameFolderDialog, DeleteFolderDialog } from "./FolderDialogs"
 import { OverflowTooltipText } from "@/components/ui/overflow-tooltip-text"
-import { getFolderChildrenFromCache, removeFolderFromCache, upsertFolderInCache } from "@/features/workspace/cache"
+import { getFolderChildrenFromCache, removeFolderTreeFromCache, upsertFolderInCache } from "@/features/workspace/cache"
 
 interface FolderItemProps {
   folder: Folder
@@ -42,9 +63,13 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
 
       setLoading(true)
       try {
-        const childFolders = await getFolderChildren(folder.id)
-        setChildren(childFolders)
-        childFolders.forEach((child) => upsertFolderInCache(child))
+        const result = await getFolderChildren({ parentId: folder.id })
+        if (!result.success) {
+          console.error("Failed to fetch folder children:", result.error)
+          return
+        }
+        setChildren(result.data)
+        result.data.forEach((child) => upsertFolderInCache(child))
       } catch (error) {
         console.error("Failed to fetch folder children:", error)
       } finally {
@@ -59,6 +84,11 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
 
   const handleConfirmRename = async (newName: string) => {
     const previousName = folder.name
+    const rollback = () => {
+      if (onUpdate) {
+        onUpdate(folder.id, { ...folder, name: previousName })
+      }
+    }
 
     // Optimistic update for snappy UI
     if (onUpdate) {
@@ -66,7 +96,13 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
     }
 
     try {
-      const updatedFolder = await renameFolder(folder.id, newName)
+      const result = await renameFolder({ folderId: folder.id, name: newName })
+      if (!result.success) {
+        rollback()
+        toast.error(result.error, { duration: 6000 })
+        return
+      }
+      const updatedFolder = result.data
       // Reconcile with server response
       if (onUpdate) {
         onUpdate(folder.id, updatedFolder)
@@ -78,10 +114,8 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
       )
       toast.success("Folder renamed successfully", { duration: 3000 })
     } catch (error) {
-      // Rollback optimistic update
-      if (onUpdate) {
-        onUpdate(folder.id, { ...folder, name: previousName })
-      }
+      // Reason: a rejected call (a network failure, say), not a failed result; roll back the optimistic update
+      rollback()
       console.error("Failed to rename folder:", error)
       toast.error("Failed to rename folder", { duration: 6000 })
     }
@@ -93,15 +127,19 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
 
   const handleConfirmDelete = async () => {
     try {
-      // Reason: deleteFolder now returns promptIds from the deleted folder
-      const promptIds = await deleteFolder(folder.id)
+      const result = await deleteFolder({ folderId: folder.id })
+      if (!result.success) {
+        toast.error(result.error, { duration: 6000 })
+        return
+      }
+      // Reason: the ids cover the deleted folder and every descendant folder, and every prompt filed in any of them
+      const { folderIds, promptIds } = result.data
 
-      // Reason: Close all tabs for documents in this folder
-      promptIds.forEach(promptId => {
+      // Reason: close the tabs of every deleted prompt, then drop the whole tree from the workspace cache
+      promptIds.forEach((promptId) => {
         closeTabsByPromptId(promptId)
       })
-
-      removeFolderFromCache(folder.id, folder.parent_id)
+      removeFolderTreeFromCache({ folderIds, promptIds })
       if (onDelete) {
         onDelete(folder.id)
       }
@@ -126,11 +164,19 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
       created_at: new Date(),
     }
 
+    const rollback = () => setChildren((prev) => prev.filter((child) => child.id !== tempId))
+
     // Optimistic add to children
     setChildren((prev) => [...prev, optimisticFolder].sort((a, b) => a.name.localeCompare(b.name)))
 
     try {
-      const newFolder = await createFolder(name, folder.id)
+      const result = await createFolder({ name, parentId: folder.id })
+      if (!result.success) {
+        rollback()
+        toast.error(result.error, { duration: 6000 })
+        return
+      }
+      const newFolder = result.data
       upsertFolderInCache(newFolder)
       // Reconcile optimistic child with server response
       setChildren((prev) =>
@@ -144,8 +190,8 @@ export function FolderItem({ folder, depth = 0, onUpdate, onDelete }: FolderItem
       }
       toast.success("Subfolder created successfully", { duration: 3000 })
     } catch (error) {
-      // Rollback optimistic add
-      setChildren((prev) => prev.filter((child) => child.id !== tempId))
+      // Reason: a rejected call (a network failure, say), not a failed result; roll back the optimistic add
+      rollback()
       console.error("Failed to create subfolder:", error)
       toast.error("Failed to create subfolder", { duration: 6000 })
     }

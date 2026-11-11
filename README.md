@@ -9,7 +9,7 @@ PromptHub is a web application for storing, organizing and managing AI prompts, 
 -   **Rich Prompt Editor:** Create and edit prompts in a VS Code-like environment powered by the Monaco Editor.
 -   **Version History:** A manual save records the saved title and content as a version, unless the newest version already holds that state; autosave records none. A restore keeps the unsaved text as a version when it differs from the newest one, writes the restored state, and records that state as a version unless the newest version already holds it.
 -   **Tagging System:** Organize and filter prompts using descriptive tags.
--   **Authentication and Per-User Data:** Users sign in with Supabase Authentication, and server actions filter queries by the signed-in user. Row Level Security is optional defence-in-depth (step 6). Known gaps in input validation and ownership checks are tracked in [#41](https://github.com/abuklea/prompthub/issues/41).
+-   **Authentication and Per-User Data:** Users sign in with Supabase Authentication, and each server action validates its input, authenticates the user, limits mutations per user and filters its queries by the signed-in user. A database migrated with `prisma/migrations/` also refuses a folder under another user's folder and a prompt in another user's folder. Row Level Security is optional defence-in-depth (step 6).
 
 ## Technology Stack
 
@@ -94,10 +94,13 @@ This command will sync your Supabase database with the schema defined in `prisma
 
 ### 6. (Optional) Apply Row Level Security Policies
 
-Tenant isolation is enforced in application code: every server action authenticates the
-user and scopes every Prisma query by `user_id`. You do **not** need any database trigger
-for the app to work — new `Profile` rows are created in application code via
-`ensureProfileExists()`, and Supabase Cloud does not permit triggers on `auth.users`.
+Tenant isolation is enforced in application code: every server action but `signOut` runs through
+`runAction` (`src/lib/action-runner.ts`), which validates the input, authenticates the user and
+rate-limits before the handler scopes every Prisma query by `user_id`. The composite keys of migration
+`20261029114511_composite_tenant_keys` add a second layer in the database for folders and prompts; tags are
+not covered yet. You do **not** need any database trigger for the app to work — new `Profile` rows are
+created in application code via `ensureProfileExists(db, userId)`, and Supabase Cloud does not permit
+triggers on `auth.users`.
 
 If you additionally want Postgres Row Level Security as defence-in-depth (it constrains
 connections that carry the end-user JWT, i.e. the Supabase client), open the **SQL Editor**
@@ -135,9 +138,12 @@ editor test environment, the storage and draft fakes) live in `src/test/`.
 
 ### Database-backed tests
 
-The suites for the editor's server logic (`src/features/editor/service.*.test.ts`) run against a real Postgres. They
-need `TEST_DATABASE_URL`, a connection string for a disposable database; without it they are skipped and `npm test`
-still passes. They create and delete rows, so `src/test/db.ts` refuses a URL unless all of these hold:
+The suites for the action handlers (`src/features/*/*handlers*.test.ts`, including the `*.isolation.test.ts` suites
+that call each action as a second user), the editor's server logic (`src/features/editor/service.*.test.ts`), the
+composite tenant keys (`src/test/composite-fk.test.ts`) and the action runner and profile helper in `src/lib/` run
+against a real Postgres. They need `TEST_DATABASE_URL`, a connection string for a disposable database; without it
+they are skipped and `npm test` still passes. `src/test/action-coverage.test.ts` needs no database: it fails when a
+server action has no isolation test. They create and delete rows, so `src/test/db.ts` refuses a URL unless all of these hold:
 
 -   the host is `localhost`, `127.0.0.1` or `[::1]`;
 -   the database name contains `test`;

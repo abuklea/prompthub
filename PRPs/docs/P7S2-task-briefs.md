@@ -3,233 +3,269 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| P7S2 Task Briefs | 27/10/2026 00:40 GMT+10 | 27/10/2026 00:40 GMT+10 |
+| P7S2 Task Briefs | 29/10/2026 16:53 GMT+10 | 30/10/2026 01:13 GMT+10 |
 
 ## Table of Contents
 - [Purpose](#purpose)
+- [Red to Green Map](#red-to-green-map)
 - [Briefs](#briefs)
-  - [P7S2T1 Add the action runner, its dependencies and the test seam](#p7s2t1-add-the-action-runner-its-dependencies-and-the-test-seam)
-  - [P7S2T2 Make ensureProfileExists a race-free server-only helper](#p7s2t2-make-ensureprofileexists-a-race-free-server-only-helper)
-  - [P7S2T3 Validate the auth actions and delete the sign-out route](#p7s2t3-validate-the-auth-actions-and-delete-the-sign-out-route)
-  - [P7S2T4 Move the folder actions onto the runner with ownership checks](#p7s2t4-move-the-folder-actions-onto-the-runner-with-ownership-checks)
-  - [P7S2T5 Update the folder components for ActionResult and nested deletes](#p7s2t5-update-the-folder-components-for-actionresult-and-nested-deletes)
-  - [P7S2T6 Split the prompt actions and harden prompt CRUD and search](#p7s2t6-split-the-prompt-actions-and-harden-prompt-crud-and-search)
-  - [P7S2T7 Move tags, history and the editor actions onto the runner](#p7s2t7-move-tags-history-and-the-editor-actions-onto-the-runner)
-  - [P7S2T8 Move the profile, workspace and dashboard actions onto the runner](#p7s2t8-move-the-profile-workspace-and-dashboard-actions-onto-the-runner)
-  - [P7S2T9 Purge client state on sign-out and bind the workspace cache](#p7s2t9-purge-client-state-on-sign-out-and-bind-the-workspace-cache)
-  - [P7S2T10 Enforce the isolation rule with an inventory test](#p7s2t10-enforce-the-isolation-rule-with-an-inventory-test)
-  - [P7S2T11 Sweep the documentation and reconcile the wip files](#p7s2t11-sweep-the-documentation-and-reconcile-the-wip-files)
+  - [P7S2T1 Add server-only and fix ensureProfileExists](#p7s2t1-add-server-only-and-fix-ensureprofileexists)
+  - [P7S2T2 Add the action seam and the autosave limit](#p7s2t2-add-the-action-seam-and-the-autosave-limit)
+  - [P7S2T3 Add the test factories and the fake deps](#p7s2t3-add-the-test-factories-and-the-fake-deps)
+  - [P7S2T4 Validate and sanitise signIn and signUp](#p7s2t4-validate-and-sanitise-signin-and-signup)
+  - [P7S2T5 Harden the folder actions and close the tabs of a deleted tree](#p7s2t5-harden-the-folder-actions-and-close-the-tabs-of-a-deleted-tree)
+  - [P7S2T6 Harden the prompt CRUD and listing actions](#p7s2t6-harden-the-prompt-crud-and-listing-actions)
+  - [P7S2T7 Split the rest of prompts/actions.ts and harden tags and history](#p7s2t7-split-the-rest-of-promptsactionsts-and-harden-tags-and-history)
 
 ## Purpose
 
-The per-task detail for [the PRP](../P7S2-server-side-security-hardening.md). Interfaces, the action table, messages and
-budgets are in [the action contract](P7S2-action-contract.md) and are not repeated. The findings (F-1 to F-9) and
-gotchas are in [the research notes](../../wip/P7S2-research-notes.md#findings), and the drift rows (DR-1 to DR-26) in
-[the drift register](../../wip/P7S2-research-drift.md#register). An agent given one task reads its brief, the contract,
-and the source the brief cites, and checks every cited path and line against the code first. Agents never commit,
-push, branch or touch issues ([Never](../../.claude/AGENT-CONTRACT.md#never)); the main session reviews each diff, runs
-every gate and commits with `Refs #NN`. A step that names a red test is finished only when that test has been run and
-shown failing for the stated reason. Every file a task edits gains a source header if it has none (F-9), and a
-changelog line if it has one.
+The per-task detail for [the PRP](../complete/P7S2-server-side-security-hardening.md), Tasks 1 to 7. Tasks 8 to 16 are in
+[the second briefs file](P7S2-task-briefs-2.md#briefs). Interfaces, the action matrix and the schemas are in
+[the action contracts](P7S2-action-contracts.md), the per-area rules and test conventions in
+[the domain contracts](P7S2-domain-contracts.md), the references, gotchas, file plan, trees and call sites in
+[the context](P7S2-task-context.md#references-and-gotchas), and the database environment in
+[the PRP's validation loop](../complete/P7S2-server-side-security-hardening.md#level-2-unit-and-postgres-backed-tests). An agent given one
+task reads its brief, the contracts section it names and the source it cites, and checks every cited path against the
+code first. Agents never commit, push, branch or touch issues
+([Never](../../.claude/AGENT-CONTRACT.md#never)): the main session reviews each diff, runs every gate and commits with
+`Refs #NN`. A step that names a red test is finished only when that test has been run and shown failing for the stated
+reason, and the agent pastes the failing output. A task is finished when all six
+[validation gates](../../.claude/AGENT-CONTRACT.md#validation-gates) pass, or each one that cannot run is reported as
+not run with the reason.
+
+Three rules apply to every task. A new source file carries the header block of
+`docs/rules/documentation.md#source-file-headers` (this includes the new test files), and an edited file with a header
+gets a changelog line and a new `Last modified`; every edited file without a header (the ten of finding F-9) gets one.
+A task that needs the database is dispatched with `TEST_DATABASE_URL`; an agent without it writes its failing tests,
+reports "red not shown: no database" and stops, and creates no role or database. Tasks marked `[P]` in the PRP run in
+separate worktrees, so that no agent sees another's intentionally failing tests; the main session merges them.
+
+Several tasks end with a frontend step that updates the callers of an action whose result changed. The two steps belong
+to one commit: the backend step leaves the tree failing `tsc` until the frontend step is done, so the dispatcher runs
+both in the same worktree before it commits, and the gates run once at the end. Task 15 (the agent definitions) runs
+before Task 1.
+
+## Red to Green Map
+
+| Task | New tests | First red run fails because |
+|---|---|---|
+| T1 | `src/lib/server-only-alias.test.ts`, `src/lib/ensure-profile.test.ts` | `import "server-only"` throws under Vitest before the alias; the 50-call concurrency case rejects with Prisma `P2002` against a find-then-create body in the new signature |
+| T2 | `src/lib/action-runner.test.ts`, `prisma-errors.test.ts`, `rate-limit.autosave.test.ts` | the stub `runAction` and the limiter functions return nothing useful, so each assertion on the result fails |
+| T3 | `src/test/db.helpers.test.ts` | the factories are stubs that throw or return empty rows |
+| T4 | `src/features/auth/handlers.test.ts` | the handler stubs forward the whole object and return Supabase's message |
+| T5 | `folders/handlers.test.ts`, `handlers.isolation.test.ts`, `workspace/cache.tree.test.ts` | stub handlers return `NOT_FOUND` for everything or the shallow prompt ids; the descendant case fails on the missing ids |
+| T6 | `prompts/handlers.test.ts`, `handlers.isolation.test.ts` | `createPrompt` with a foreign folder succeeds (finding F-2) |
+| T7 | `prompts/tag-handlers.test.ts`, `history-handlers.test.ts`, `*.isolation.test.ts` | the unscoped `update` still writes; the stubs for the moved handlers fail on their assertions |
+
+The red runs of T8 to T14 are in [the second file](P7S2-task-briefs-2.md#red-to-green-map).
 
 ## Briefs
 
-### P7S2T1 Add the action runner, its dependencies and the test seam
+### P7S2T1 Add server-only and fix ensureProfileExists
 
-Agent `senior-backend-engineer`, 3 hours, after nothing. Covers Q1 and Q5.
+Agent `senior-backend-engineer`, 3 hours, after T15. Issue #40; decisions Q5, D9.
 
-1. Add `server-only` (0.0.1, the version on npm on 27/10/2026) as a dependency with `npm install server-only@0.0.1`,
-   and in `vitest.config.ts` add the alias `'server-only'` to `./node_modules/server-only/empty.js`, the file Next
-   selects on server layers (`node_modules/next/dist/build/create-compiler-aliases.js:135`). Never set a global
-   `react-server` condition: the jsdom suites would break.
-2. Red: `src/lib/action-runner.test.ts` (node, no database) covering each step of
-   [the runner](P7S2-action-contract.md#the-runner): invalid input returns `invalid` or `INVALID_INPUT` and never calls
-   `getUser`; no user returns `UNAUTHORIZED` and never calls `run`; a refused limit returns `RATE_LIMITED` and never
-   calls `run`; a read with no `limit` never calls `allow`; success revalidates only when declared and only on success;
-   a thrown error returns `failure`; a redirect error (`redirect("/x")` from `next/navigation`, caught) and a not-found
-   error are rethrown. The `db` passed to `run` is an opaque object the test checks by identity. It fails because the
-   module does not exist.
-3. Green: `src/lib/action-runner.ts`, `src/lib/action-deps.ts`, the autosave limiter in `src/lib/rate-limit.ts` (with a
-   test in `src/lib/rate-limit.test.ts` that the autosave bucket allows 120 and refuses the 121st within a window,
-   added before the code), `src/test/action-deps.ts`, and the `createTestFolder` and `createTestTag` factories and
-   table checks in `src/test/db.ts` with tests in `src/test/db.test.ts` (database-backed, so they skip without
-   `TEST_DATABASE_URL`).
-4. Add `import "server-only"` to `src/features/editor/service.ts` and run `npm run build` with the placeholder
-   environment: it must pass, which proves a guarded module imported by an action that a client component imports does
-   not reach the client bundle. Then append the coverage scope ([Coverage Scope](P7S2-action-contract.md#coverage-scope)).
+Files: MODIFY `package.json` and `package-lock.json` (one dependency, `npm install server-only`; the lock diff must
+show only that package, and `git diff` of both files is part of the report); MODIFY `vitest.config.ts`; MODIFY
+`src/lib/ensure-profile.ts`; MODIFY `src/features/editor/service.ts` (add `import "server-only"` and a changelog line;
+its existing suites must still pass under the alias); the four callers `src/features/auth/actions.ts`,
+`folders/actions.ts`, `profile/actions.ts` and `prompts/actions.ts` (each call becomes `ensureProfileExists(db, id)`;
+`auth/actions.ts` gains `import db from "@/lib/db"` until Task 4 rewrites it); CREATE
+`src/lib/server-only-alias.test.ts` and `src/lib/ensure-profile.test.ts`.
 
-Done when every gate passes and the runner reaches 80% on all four coverage measures.
+Steps. First, install the package and confirm that `node_modules/server-only/empty.js` exists, because the alias points
+at it (the package's `exports` map names `./empty.js` under the `react-server` condition, from `npm view server-only`
+on 29/10/2026; the file's presence is unverified until the install). Second, write
+`src/lib/server-only-alias.test.ts`, which does `await import("server-only")` and expects it not to throw, and watch it
+fail with the package's own throw (the import line carries `// @ts-expect-error` with a `Reason:`, because the package
+ships no type declarations and `tsc` covers test files; found while executing, 29/10/2026). Third, add the alias to `vitest.config.ts` as a regular expression
+`/^server-only$/` mapped to the absolute path of `node_modules/server-only/empty.js` (a global `react-server`
+condition would break the jsdom suites), and watch the test pass. Fourth, add to the same edit the coverage `include`
+patterns for every file the later tasks create or measure, so no later task edits the list: `src/lib/action-runner.ts`,
+`src/lib/prisma-errors.ts`, `src/lib/ensure-profile.ts`, `src/lib/rate-limit.ts`, `src/features/*/handlers.ts`,
+`src/features/prompts/*-handlers.ts`, `src/features/folders/schemas.ts`, `src/features/profile/schemas.ts`,
+`src/features/auth/client-purge.ts`, `src/features/workspace/cache.ts` and `src/test/action-coverage.ts`. Exempt, as
+`src/test/failing-db.ts` already is: the test helpers `src/test/action-deps.ts` and `src/test/racing-db.ts`, and
+`action-runtime.ts` and the wrappers (they need a request scope); the report says so. Fifth,
+write `src/lib/ensure-profile.test.ts` (`describeDb`) with: creates the profile when absent; a second call changes
+nothing and leaves an existing `display_name` untouched; and 50 concurrent calls for a new id all resolve and leave
+one row. Create the module in the new signature `(db, userId)` with the old find-then-create body first and show the
+concurrency case failing with `P2002`; then replace the body with the `createMany` with `skipDuplicates` of
+[the contract](P7S2-domain-contracts.md#ensureprofileexists). Sixth, remove `"use server"`, add `import "server-only"`
+and the file header (DR-6), and run the gates.
 
-### P7S2T2 Make ensureProfileExists a race-free server-only helper
+Done when `grep -rn "ensureProfileExists" src` shows the helper, its test and its four callers only; the build no
+longer treats the module as an action; the concurrency test passes against the `createMany` form (the developer chose
+it on 29/10/2026 over the `upsert` wording of #40); `src/features/editor/service.ts` imports `server-only`; and no
+dependency other than `server-only` changed.
 
-Agent `senior-backend-engineer`, 1.5 hours, after T1. Covers #40 and F-3; fixes DR-6.
+### P7S2T2 Add the action seam and the autosave limit
 
-1. Red: `src/lib/ensure-profile.test.ts` (database-backed): one call creates the row; a second call changes nothing
-   (`created_at` and `display_name` read back equal); 50 concurrent calls for one new id all resolve and leave one
-   row. Against the current code the concurrent case raises `P2002` (research: 205 to 210 of 240 calls failed).
-2. Green: rewrite `src/lib/ensure-profile.ts` without `"use server"`, with `import "server-only"`, a header, and
-   `ensureProfileExists(db, userId)` doing `db.profile.upsert({ where: { id }, create: { id }, update: { id } })`. The
-   `update: { id }` is required: Prisma 6.19 turns an empty `update` into SELECT then INSERT, which races. Say so in a
-   `Reason:` comment.
-3. Update the four call sites to pass `db` (`src/features/auth/actions.ts:15`, `folders/actions.ts:35`,
-   `profile/actions.ts:15,41`, `prompts/actions.ts:116`). Later tasks move them into services.
+Agent `senior-backend-engineer`, 3 hours, after T1. Decisions Q1, D1, D4; the rate-limit part of #48.
 
-Done when the test passes, `grep -rn '"use server"' src/lib` finds nothing, and every gate passes.
+Files: CREATE `src/lib/action-runner.ts`, `src/lib/action-runtime.ts`, `src/lib/prisma-errors.ts`; MODIFY
+`src/lib/rate-limit.ts`; CREATE `src/lib/action-runner.test.ts`, `src/lib/prisma-errors.test.ts` and
+`src/lib/rate-limit.autosave.test.ts` (a new file: the existing `rate-limit.test.ts` is not edited).
 
-### P7S2T3 Validate the auth actions and delete the sign-out route
+Steps. Write the stubs of `runAction`, `isNotFoundError`, `checkSaveRateLimit` and `checkAutosaveRateLimit`, then the
+tests, and show them failing. `action-runner.test.ts` covers, one case each: a parse failure returns `spec.invalid` and
+neither `getUser` nor `run` is called; a null user returns "Unauthorized. Please sign in."; the 31st call of a fresh
+user in a `mutation` spec returns "Too many requests. Please slow down." while a `save` spec and an `autosave` spec for
+the same user are still allowed (and the 31st `save` call is refused); a `none` spec is never limited; `run` receives
+the `user` (id and email) from `getUser` and the parsed input; a thrown error returns `spec.failure`; an object with a
+string `digest` (`NEXT_REDIRECT;replace;/x;307;`, `NEXT_NOT_FOUND`, `DYNAMIC_SERVER_USAGE`) is rethrown while a plain
+`Error` and a Prisma error are not; a `getUser` that rejects returns `spec.failure`; and `ensureProfile: true` leaves a
+profile row (`describeDb`). DB-free cases pass a `db` that throws when touched, which proves the runner does not use
+it. `prisma-errors.test.ts` checks `isNotFoundError` for a real `P2025` raised by `db.folder.update` on a missing row
+(`describeDb`) and false for other errors. `rate-limit.autosave.test.ts` checks 240 allowed and the 241st refused for
+one identifier, `checkSaveRateLimit` 30 and the 31st, and independence of the `mutation`, `save` and `autosave` stores
+from one another. Then implement [the contract](P7S2-action-contracts.md#the-seam); `action-runtime.ts` builds
+`actionDeps` (`getUser` maps `{ id, email: user.email ?? null }`) and `authDeps` (`clientIp` from `headers()`, `auth`
+from `createClient().auth`, both lazily) and carries `import "server-only"`.
 
-Agent `senior-backend-engineer`, 2.5 hours, after T2. Covers #42, F-4, Q6; fixes DR-25 and the `signOut` half of DR-16.
+Done when `action-runner.ts` and `prisma-errors.ts` have no `next/*` import, `action-runtime.ts` is imported by no test,
+the new modules have headers, and per-file coverage of `action-runner.ts`, `prisma-errors.ts` and `rate-limit.ts` is at
+least 80% on every measure (`action-runtime.ts` is exempt: it needs a request scope). Baseline measured on 29/10/2026:
+`rate-limit.ts` has 91.11% lines but 60% functions, because `checkAuthRateLimit` and `checkMutationRateLimit` (lines
+79-84) have no test; the new tests cover them and the save limiter.
 
-1. Red: `src/features/auth/handlers.test.ts` (node, no database) drives `signIn` and `signUp` from
-   [Auth Handlers](P7S2-action-contract.md#auth-handlers) with a recording fake `auth` and a real limiter from
-   `createRateLimiter`. Cases: extra fields (`options`, `confirmPassword`, `data`) never reach the fake, which receives
-   exactly `{ email, password }`; an invalid email or a short password returns the fixed message and calls nothing;
-   each Supabase error maps to its fixed message and never echoes `error.message`; a thrown error returns the
-   unexpected message; the sixth call from one IP within a minute is refused before the fake is called;
-   `ensureProfile` runs with the returned id and its failure does not fail the sign-in; success revalidates `/` as a
-   layout and returns `{ redirectTo: "/dashboard" }`.
-2. Green: `src/features/auth/handlers.ts`, `authDeps()` in `src/lib/action-deps.ts`, and `src/features/auth/actions.ts`
-   reduced to the two wrappers and `signOut`, whose comment at `:80` is corrected (the Header purges first; T9).
-   `AuthForm.tsx` is unchanged.
-3. Delete `src/app/auth/sign-out/route.ts` (`grep -rn "auth/sign-out" src` finds no caller) and change
-   `docs/rules/project.md:76` to say there is no route handler.
+### P7S2T3 Add the test factories and the fake deps
 
-Done when the tests pass and every gate passes; the build output lists no `/auth/sign-out` route.
+Agent `qa-test-automation-engineer`, 2.5 hours, after T2. Issue #45 (harness).
 
-### P7S2T4 Move the folder actions onto the runner with ownership checks
+Files: MODIFY `src/test/db.ts` (add `createTestFolder` with a `parentId` field, `createTestTag`, `deleteTestUser`, a
+`folderId` field on `createTestPrompt`, and the pool cap in `useTestDatabase`); CREATE `src/test/action-deps.ts`,
+`src/test/racing-db.ts` and `src/test/db.helpers.test.ts`. The existing `src/test/db.test.ts` is not edited.
 
-Agent `senior-backend-engineer`, 4 hours, after T2. Covers #41 (folder part), #43, F-6 (server half) and F-2 for
-folders; fixes DR-17 in the action file.
+Steps. Write the helper test first (`describeDb`): `createTestFolder` makes a root folder and a child linked by
+`parent_id`; `createTestTag` makes a tag for a user; `deleteTestUser` removes a user's tags, prompts, versions, folders
+and profile and leaves another user's rows (the tags need an explicit delete: `Tag` has no relation to `Profile`).
+Show it failing against stubs, then implement. `action-deps.ts` exports `testDeps(db, userId)` and `signedOutDeps(db)`
+of [the conventions](P7S2-domain-contracts.md#test-conventions); `testDeps` returns a user with an id and an email.
+Also test: `createTestPrompt` with `folderId` files the prompt in that folder; a pure `withConnectionLimit(url)`
+(exported from `db.ts`) adds `connection_limit=5` only when the URL has none and leaves the rest of the URL intact, and
+`useTestDatabase` uses it (the guard allows the parameter). `racing-db.ts` exports
+`withRowDeletedBeforeUpdate(db, model, id): PrismaClient` of
+[the conventions](P7S2-domain-contracts.md#test-conventions) (mirror `src/test/failing-db.ts`). Test both paths it
+intercepts: a top-level `folder.update` of the named row raises `P2025` from the real database, and so does a
+`tx.prompt.update` inside `$transaction(async (tx) => ...)`; a second `update`, another id and another model are not
+intercepted, and the outer delete leaves other rows alone.
 
-1. Red: `src/features/folders/handlers.isolation.test.ts`, by [the convention](P7S2-action-contract.md#isolation-test-convention).
-   For each of the five actions: user B with A's ids gets `FOLDER_NOT_FOUND` or an empty list, and A's folders read
-   back unchanged; `createFolder: user B cannot create under user A's folder` writes no row. Plus the behaviour cases:
-   a nested delete (A, A/B, A/B/C, with prompts in A and C) returns every folder id and both prompt ids and leaves none
-   of them; deleting a missing folder returns `FOLDER_NOT_FOUND`; `"   "`, a 101-character name and a non-uuid
-   `parentId` are rejected and write nothing; a name is stored trimmed; create, rename and delete each record one
-   `revalidate("/")`. They fail because the handlers do not exist.
-2. Green: `src/features/folders/{schemas,service,handlers}.ts` and `actions.ts` as five wrappers, per
-   [the action table](P7S2-action-contract.md#action-table) and the service rules beneath it. `deleteFolder` runs the
-   recursive CTE and the delete in one transaction. The components are not touched here: the action signatures change,
-   so `npx tsc --noEmit` fails until T5. Run T4 and T5 back to back in one checkout, or T5 in the same worktree, and
-   gate them together.
+Done when `src/test/db.ts` coverage stays at or above its P7S1 figures (97.18% lines, 87.87% branches) and the helpers
+are used by the first isolation suite of Task 4 or 5.
 
-Done when the suite passes against Postgres, and, with T5, every gate passes.
+### P7S2T4 Validate and sanitise signIn and signUp
 
-### P7S2T5 Update the folder components for ActionResult and nested deletes
+Agent `senior-backend-engineer`, 3 hours, after T3, `[P]`. Issue #42; finding F-4; decision D7.
 
-Agent `senior-frontend-engineer`, 3 hours, after T4. Covers #41 (callers), #43 (tabs) and F-6 (cache); fixes DR-17 in
-the components.
+Files: CREATE `src/features/auth/handlers.ts` and `src/features/auth/handlers.test.ts`; MODIFY
+`src/features/auth/actions.ts` (it gains a header block, finding F-9); `AuthForm.tsx` is not expected to change,
+because the wrapper parameters stay assignable from its typed values; verify with `tsc`.
 
-1. Red: in a new `src/features/workspace/cache.test.ts` (node), `removeFolderTreeFromCache(folderIds, parentId)`
-   removes the folder from its parent's list and drops every listed folder's children list and prompts, from both the
-   per-folder and the by-id maps. It fails because the function does not exist.
-2. Green: add the function to `src/features/workspace/cache.ts`. Then change each caller in the
-   [action table](P7S2-action-contract.md#action-table) row of the folder actions to pass an object, branch on
-   `result.success`, roll back its optimistic change and show `result.error` in the error toast on failure, and use
-   `result.data`. On delete, close the tabs of every `promptIds` entry and call `removeFolderTreeFromCache` with
-   `folderIds`. The comments at `FolderItem.tsx:96,99` and `FolderToolbar.tsx:48,51` describe every descendant.
+Steps. Write the tests first with a fake `auth` that records its arguments and returns a configured `{ data, error }`.
+Title each test `"signIn: ..."` or `"signUp: ..."`: Task 10's coverage rule finds them by that title. Cases: valid input
+reaches `signInWithPassword` and `signUp` with exactly `{ email, password }`, also when the input carries
+`confirmPassword` and an `options` object; an invalid email, a short password and a `SignUpSchema` mismatch return
+"Check your email and password and try again." and never call `auth`; a rejection with `code: "email_not_confirmed"`,
+one with another code and one with no code give the messages of
+[the table](P7S2-domain-contracts.md#auth); a thrown error returns "Something went wrong. Please try again." with no
+part of the original message; the sixth attempt from one IP within a minute is refused, a different IP is not; a
+profile failure after a successful sign-in still succeeds (`describeDb` for the profile row, with a `db` whose
+`profile.createMany` rejects for the failure case). Show them failing, implement, then make `actions.ts` three thin
+wrappers: `signUp` and `signIn` call the handlers and call `revalidatePath("/", "layout")` on success; `signOut` keeps
+its body.
 
-Done when every gate passes. The browser flows (create, rename, delete a nested folder with a tab open from its
-sub-folder, and a forced failure) are listed in the INITIAL report's dev-review issue; agents report them as not run.
+Done when `grep -n "error.message" src/features/auth` finds nothing returned to a client, and the tests above pass.
+`signIn` and `signUp` are not tenant actions, so they need these tests and no isolation test.
 
-### P7S2T6 Split the prompt actions and harden prompt CRUD and search
+### P7S2T5 Harden the folder actions and close the tabs of a deleted tree
 
-Agent `senior-backend-engineer`, 4 hours, after T2. Covers #41 (prompt part), #51 (split, CRUD and search seams, the
-`tags: []` field) and F-2 for prompts; fixes DR-18, DR-19.
+Agents `senior-backend-engineer` (steps 1 to 4), `senior-frontend-engineer` (step 5), 4 hours, after T3, `[P]`.
+Issues #41 (folders), #43; findings F-2, F-6.
 
-1. Red: `src/features/prompts/handlers.isolation.test.ts` for `getPromptsByFolder` (with and without a query: B gets an
-   empty list for A's folder), `createPrompt` (B into A's folder: `FOLDER_NOT_FOUND`, no row), `getPromptDetails`,
-   `renamePrompt`, `deletePrompt` (B: not found, A's row unchanged) and `validatePrompts` (B's call with A's ids returns
-   no ids). Behaviour cases: a rename to `"[Untitled Doc 2]"`, to `"  "` and to 201 characters is refused; a
-   `validatePrompts` call with 201 ids is refused; `getPromptDetails` returns no `tags` key; a search for a word in A's
-   content returns A's prompt to A only; a mutation over the limit returns `RATE_LIMITED` (one test, with
-   `testDeps(..., { allow: () => false })`).
-2. Green: `src/features/prompts/service.ts`, `search-service.ts` (the raw query moves unchanged), the CRUD specs in a
-   new `handlers.ts`, and the six wrappers in `actions.ts`. `searchPrompts` is no longer exported. The tag and history
-   actions stay as they are in `actions.ts` until T7. Update the callers in the action table (`PromptList.tsx:77`,
-   `DocumentToolbar.tsx:164,188`, `DocumentTab.tsx:137`, `use-tab-cleanup.ts:60`).
+Files: CREATE `src/features/folders/schemas.ts`, `handlers.ts`, `handlers.test.ts`, `handlers.isolation.test.ts`; MODIFY
+`src/features/folders/actions.ts`; MODIFY `src/features/folders/components/FolderItem.tsx`, `FolderTree.tsx`,
+`FolderToolbar.tsx`; MODIFY `src/features/workspace/cache.ts`; CREATE `src/features/workspace/cache.tree.test.ts`.
 
-Done when the suite passes against Postgres, every gate passes, and `actions.ts` is under 600 lines.
+Steps. Write the schemas of [the contract](P7S2-action-contracts.md#schemas). Write the tests first. Behaviour
+(`handlers.test.ts`): a name is trimmed and capped at 100; a blank name is refused; a child folder is created under an
+owned parent; rename returns the updated folder, and a folder that vanishes between the handler's read and write
+(`withRowDeletedBeforeUpdate(db, "folder", id)`, which intercepts the direct `db.folder.update`) gives NOT_FOUND through
+`P2025`. Isolation (`handlers.isolation.test.ts`), one test per action, each
+titled `"<action>: user B ..."`: `createFolder` with A's folder as parent returns NOT_FOUND and creates no row;
+`renameFolder` and `deleteFolder` of A's folder return NOT_FOUND and A's tree is intact; `getFolderChildren` of A's
+folder returns an empty list; `getRootFolders` returns none of A's. The nested case: A has folder X, child Y, grandchild
+Z, with a prompt in each; `deleteFolder(X)` returns all three folder ids and all three prompt ids, and the database has
+none of those rows; a second user's tree is untouched. The cache test: `removeFolderTreeFromCache` removes the given
+folders from every parent list and key, their prompt lists, and the prompt entries, and leaves siblings. Show red, then
+implement the handlers and the CTE of [the contract](P7S2-domain-contracts.md#folders) and the wrappers. Step 5 changes
+the callers: each branches on `result.success`, shows `result.error` in the existing toast on failure, keeps its
+optimistic rollback, replaces the thrown-error paths, closes a tab for every returned prompt id, and calls
+`removeFolderTreeFromCache` with both id lists (replacing `removeFolderFromCache`). Optimistic folders with `temp-` ids
+are not guarded (the contract says why). The three components carry a header block after this step (F-9).
 
-### P7S2T7 Move tags, history and the editor actions onto the runner
+Done when no caller relies on a thrown error from a folder action. The components have no unit test today and the PRP
+adds none; the callers are checked by `tsc` and by the browser list of Task 16, and the report says so.
 
-Agent `senior-backend-engineer`, 3.5 hours, after T6. Covers #41 (the `assignTagsToPrompt` write), #51 (tags and
-history seams, the one redirect helper), Q3 for the remaining mutations; fixes DR-20.
+### P7S2T6 Harden the prompt CRUD and listing actions
 
-1. Red: `src/features/prompts/tags.isolation.test.ts` for `getTags` (B sees none of A's tags, with and without A's
-   `folderId`), `createTag` (B creating A's tag name gets B's own tag, A's untouched), `assignTagsToPrompt` (B on A's
-   prompt: not found and A's tags unchanged; A assigning one of B's tags: `One or more tags are invalid`),
-   `getPromptVersionHistory` and `restorePromptVersion`; and `src/features/editor/handlers.isolation.test.ts` for
-   `saveNewVersion` and `autoSavePrompt`. Plus: `autoSavePrompt` charges `autosave`, never `mutation` (an `allow` that
-   refuses only `mutation` lets it through), and `saveNewVersion` with a placeholder title returns
-   `Please provide a valid title for your document`.
-2. Green: `src/features/prompts/tag-service.ts`, the remaining specs in `prompts/handlers.ts`,
-   `src/features/editor/handlers.ts`, and both `actions.ts` files reduced to wrappers. No `NEXT_REDIRECT` string is
-   left in `src` outside `src/lib/action-runner.ts`. Delete the `eslint-disable max-lines` line and the
-   `src/features/prompts/actions.ts` row of `docs/rules/code-size-register.md`.
+Agents `senior-backend-engineer` (steps 1 to 4), `senior-frontend-engineer` (step 5), 4 hours, after T3, `[P]`.
+Issue #41 (prompts); finding F-2; drift rows DR-18, DR-19.
 
-Done when the suites pass against Postgres, every gate passes, and the size audit shows no RED source file.
+Files: MODIFY `src/features/prompts/schemas.ts`; CREATE `src/features/prompts/handlers.ts`, `handlers.test.ts`,
+`handlers.isolation.test.ts`, `search-handlers.ts`; MODIFY `src/features/prompts/actions.ts` (the six CRUD and listing
+actions become wrappers; the tag and history functions move in Task 7). With search and the CRUD actions gone the file
+is about 300 lines and leaves RED here, so Task 6 deletes the `eslint-disable max-lines` comment and the register row
+in `docs/rules/code-size-register.md` (`reportUnusedDisableDirectives` is on in `.eslintrc.json`, so a stale directive
+would be a new warning, and the audit reports a stale row); MODIFY the callers `PromptList.tsx`,
+`DocumentToolbar.tsx`, `src/features/tabs/components/DocumentTab.tsx` and `src/hooks/use-tab-cleanup.ts`.
 
-### P7S2T8 Move the profile, workspace and dashboard actions onto the runner
+Steps. Add the schemas of the contract. Tests first. `createPrompt` with a folder owned by another user returns
+"Folder not found or access denied" and creates no row (the red that matters: it succeeds today); with an owned folder
+it still creates, still rejects a duplicate title case-insensitively and still stores a null title. `renamePrompt`
+refuses an empty, a 201-character and a placeholder title, trims, and refuses a duplicate in the folder; `deletePrompt`
+and `renamePrompt` of A's prompt by B return the existing not-found text and change nothing; `validatePrompts` returns
+only the caller's ids from a list that includes A's, and refuses 201 ids; `getPromptDetails` of A's prompt returns the
+text a missing id returns and carries no `tags` field; `getPromptsByFolder` for A's folder returns an empty list, and
+with a `query` delegates to the search function, which stays scoped by `user_id` (move `searchPrompts` into
+`search-handlers.ts` unchanged apart from the signature, which becomes `(db, userId, input)`; decision D3 removes it as
+an action). Keep `searchPromptsSchema` in `schemas.ts`: the search function still parses its input with it, and
+`prompts/schemas.test.ts` covers it. Implement; update the
+header description of `actions.ts` and the `@returns` text of `createPrompt` (DR-18) and the "enforce RLS" comment
+(DR-19). Step 5: callers use the object arguments (`renamePrompt({ promptId, newTitle })`, `deletePrompt({ promptId })`,
+`validatePrompts({ promptIds })`, `getPromptsByFolder({ folderId, query, tagIds })`) and branch on `success` for
+`getPromptsByFolder`; `PromptList`, its only caller, shows the error in a toast and keeps its previous list.
 
-Agent `senior-backend-engineer`, 3 hours, after T2. Covers Q4 for the remaining actions; fixes DR-12 for them.
+Done when the six actions are wrappers, `searchPrompts` is no longer exported, and the isolation test of each action
+exists and passes.
 
-1. Red: `handlers.isolation.test.ts` in `src/features/profile`, `workspace` and `dashboard`. B's
-   `getProfileDetails` and `updateDisplayName` read and write only B's profile; B's `getWorkspaceSnapshot` holds none of
-   A's folders or prompts and `userId` is B's; B's `getDashboardMetrics` counts none of A's rows. Plus: a 51-character
-   display name is refused; `"  "` is stored as null.
-2. Green: services, handlers and wrappers per the action table; `DashboardMetrics` moves to
-   `src/features/dashboard/types.ts`. Update `profile/page.tsx:22,41` (show `result.error` in the toast),
-   `WorkspacePreloader.tsx:27` (hydrate only on success) and `dashboard/page.tsx:22` (on failure render a short
-   "Could not load the dashboard" message instead of the cards).
+### P7S2T7 Split the rest of prompts/actions.ts and harden tags and history
 
-Done when the suites pass against Postgres and every gate passes.
+Agents `senior-backend-engineer` (steps 1 to 4), `senior-frontend-engineer` (step 5), 4 hours, after T6 and T8.
+Issues #41 (`assignTagsToPrompt`), #51; drift row DR-20.
 
-### P7S2T9 Purge client state on sign-out and bind the workspace cache
+Files: CREATE `src/features/prompts/tag-handlers.ts`, `tag-actions.ts`, `history-handlers.ts`, `history-actions.ts` and
+the tests `tag-handlers.test.ts`, `tag-handlers.isolation.test.ts`, `history-handlers.test.ts`,
+`history-handlers.isolation.test.ts`; MODIFY `src/features/prompts/actions.ts` (delete the moved functions); MODIFY the
+importers `DocumentToolbar.tsx` (tags), `src/features/editor/components/EditorPane.tsx` (`getPromptVersionHistory`,
+`restorePromptVersion`).
 
-Agent `senior-frontend-engineer`, 3 hours, after T5 and T8 (both edit files this task touches). Covers #44, F-8, Q7;
-fixes the rest of DR-16.
+Steps. Tests first. Tags: `getTags` returns only the caller's, and `getTags({ folderId })` by B with A's folder id
+returns `[]` (titled `"getTags: user B ..."`); `createTag` returns the existing tag for a case-insensitive duplicate of
+the caller's own tag, B creating a tag with the name of A's tag gets a new id and A's tag keeps its id and name (titled
+`"createTag: user B ..."`), and it survives the concurrent-create `P2002` path (keep the existing recovery, with a test
+that calls it twice in parallel); `assignTagsToPrompt` by B on A's prompt returns "Prompt not found or access denied"
+and A's tags are unchanged; B assigning A's tag id to B's own prompt returns "One or more tags are invalid" and assigns
+nothing; the write is `update({ where: { id, user_id } })` inside one transaction with the reads, and a prompt that is
+deleted between the reads and the write (`withRowDeletedBeforeUpdate(db, "prompt", id)`, which intercepts the
+`tx.prompt.update` inside the handler's `$transaction`) maps `P2025` to the same not-found text. History:
+`getPromptVersionHistory` and `restorePromptVersion` by B on A's prompt return "Prompt not found or access denied" and
+A's row and versions are unchanged (the lower-layer cases already exist in `service.*.test.ts`; these test the handler
+path and the limit; `restorePromptVersion` uses the `save` bucket). Implement the handlers and wrappers per
+[the contract](P7S2-domain-contracts.md#prompts-tags-and-history) and move the functions out of `actions.ts` with their
+doc comments. Confirm that Task 6 already removed the `eslint-disable` and the register row, and that
+`bash scripts/audit-code-size.sh --summary` reports no RED file. The `document-actions.test.ts` suite and
+`editor-env.ts` name the actions through an injected interface and are not edited.
 
-1. Red, in `src/features/workspace/cache.test.ts`: after `hydrateWorkspaceCache` for A, `bindWorkspaceCacheUser(B)`
-   makes every getter return an empty list or undefined and `hasWorkspaceSnapshot()` false; binding A again does not
-   clear A's data; an upsert of a folder or prompt whose `user_id` is not the bound user is ignored;
-   `clearWorkspaceCache()` empties everything including the user. In a new jsdom
-   `src/features/auth/sign-out-purge.test.ts`: `purgeClientState(window.localStorage)` removes every key starting
-   `prompt-` (`prompt-<id>`, `prompt-v1-<id>`, `prompt-v1-<id>:conflict`) and `prompthub-tabs-state`, keeps
-   `prompthub:user-settings:v1` and unrelated keys, empties the document and workspace caches, leaves the tab store with
-   no tabs; a storage whose every call throws does not make it throw.
-2. Green: `bindWorkspaceCacheUser`, `clearWorkspaceCache` and the upsert checks in `cache.ts`; `resetTabs()` in
-   `src/stores/use-tab-store.ts` (sets the initial `tabs`, `activeTabId` and `layout`); `sign-out-purge.ts`, which
-   collects the keys first and then removes them (removal shifts `key(i)`), then calls `resetTabs()` and
-   `useTabStore.persist.clearStorage()`. The `(app)` layout passes `userId={data.user.id}` to `WorkspacePreloader`,
-   which binds before it preloads; `Header.handleSignOut` calls `purgeClientState` before `signOut()` and its comment
-   at `:37` says what is purged.
-
-The existing `useActiveTabFolderSync.test.tsx` must pass unedited: it hydrates and never binds, so a bound user of ""
-must not hide hydrated data. Done when every gate passes; the sign-out flow between two users joins the dev-review
-issue.
-
-### P7S2T10 Enforce the isolation rule with an inventory test
-
-Agent `qa-test-automation-engineer`, 2 hours, after T3 to T9. Covers #45.
-
-1. Write `src/test/action-inventory.test.ts` per [the convention](P7S2-action-contract.md#isolation-test-convention).
-   Show it red first by running it on a scratch copy with one isolation test renamed, and record the output; restore.
-2. Add the rule to `docs/rules/testing.md#rules`: every server action is a wrapper over a handler, and every tenant
-   action has a cross-user test in its feature's `*.isolation.test.ts`, which the inventory test enforces. Add the
-   handler layer and the runner to `docs/rules/project.md#files-and-documents`.
-3. Confirm `.github/workflows/ci.yml` needs no change (the isolation suites use `TEST_DATABASE_URL`, already set), and
-   record per-file coverage for the scope with the database set.
-
-Done when the inventory test passes, every gate passes, and coverage is recorded.
-
-### P7S2T11 Sweep the documentation and reconcile the wip files
-
-Agent `documentation-manager`, 3 hours, after T10. Fixes every open row of the drift register.
-
-Fix DR-1 to DR-5, DR-7 to DR-15, DR-21, DR-22 and DR-24 as the register says (both copies of each agent file under
-`.claude/agents/` and `.gemini/agents/`), and confirm that DR-6, DR-16 to DR-20 and DR-25 were fixed by their tasks.
-DR-23 belongs to #46 and DR-26 becomes a `type: docs` issue filed by the main session. The README gains the handler
-layer and the isolation suites in its Testing section. Mark both `wip/P7S2-*` files reconciled in their footers; the
-main session deletes them with the REPORT.
+Done when `src/features/prompts/actions.ts` is under 300 lines, `grep -rn "eslint-disable max-lines" src` finds no
+registered-RED comment, and every moved action has an isolation test.

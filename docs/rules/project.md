@@ -3,7 +3,7 @@
 
 | `Title` | `Created` | `Last modified` |
 |---------|-----------|-----------------|
-| Project Rules | 07/11/2025 12:46 GMT+10 | 22/10/2026 09:03 GMT+10 |
+| Project Rules | 07/11/2025 12:46 GMT+10 | 30/10/2026 01:10 GMT+10 |
 
 ## Table of Contents
 - [Project Variables](#project-variables)
@@ -53,8 +53,10 @@ files where they conflict. `[TODO: …]` marks a decision not made yet: ask, or 
 ### Layout
 
 ```text
-src/            app/ routes, components/ (ui/ and layout/), features/<name>/ (actions, schemas, components, hooks),
-                lib/ (db, supabase clients, rate-limit, ensure-profile), stores/ (Zustand), hooks/,
+src/            app/ routes, components/ (ui/ and layout/),
+                features/<name>/ (actions, handlers, schemas, components, hooks),
+                lib/ (db, supabase clients, action-runner, action-runtime, prisma-errors, bounded-array, rate-limit,
+                ensure-profile), stores/ (Zustand), hooks/,
                 test/ (shared test helpers and fakes), types/, styles/, middleware.ts
 prisma/         schema.prisma and migrations/
 docs/           rules/ (agent rules), guides/, project/ (specs), review/, plans/
@@ -73,7 +75,7 @@ public/         static assets; public/monaco-editor is copied at install and git
 | Layer | Choice |
 |---|---|
 | Frontend | Next.js 14 (App Router), React 18, TypeScript (strict), Tailwind CSS, Shadcn/UI (new-york), Framer Motion |
-| Backend | Supabase Auth + PostgreSQL accessed through Prisma; Next.js Server Actions; one route handler (`src/app/auth/sign-out`) |
+| Backend | Supabase Auth + PostgreSQL accessed through Prisma; Next.js Server Actions as wrappers over `server-only` handlers (see Database, Auth and Tenancy), sign-out included (`src/features/auth/actions.ts`); no route handler |
 | State | Zustand (global), React Hook Form + Zod (forms), local React state |
 | Tests | Vitest (`src/**/*.test.{ts,tsx}`); node environment, jsdom per file via `// @vitest-environment jsdom` on the first line; database suites run against a disposable local Postgres behind `TEST_DATABASE_URL` and skip without it; coverage scope in `vitest.config.ts` |
 | Build | `npm run build` (`prisma generate && next build`); Vercel hosting |
@@ -132,7 +134,8 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
 |---|---|---|
 | Components | PascalCase.tsx | `ResizablePanelsLayout.tsx` |
 | Hooks, stores | `use-*.ts` or `useX.ts`, matching the neighbouring files | `use-tab-store.ts` |
-| Server actions | `actions.ts` per feature | `src/features/auth/actions.ts` |
+| Server actions | `actions.ts` per feature (also `tag-actions.ts`, `history-actions.ts`): `"use server"`, one-line wrappers that pass `actionDeps` to a handler, and nothing else exported | `src/features/folders/actions.ts` |
+| Action handlers | `handlers.ts` per feature (also `tag-handlers.ts`, `history-handlers.ts`, `search-handlers.ts`): `server-only` modules of functions `(deps, data: unknown)` built on `runAction`, tested against a real Postgres with `testDeps` and a `*.isolation.test.ts` | `src/features/folders/handlers.ts` |
 | Server logic | `service.ts` per feature: functions taking `(db, userId, input)`, no `"use server"` directive, called only by actions, tested against a real Postgres | `src/features/editor/service.ts` |
 | Schemas, types | `schemas.ts`, `types.ts` per feature | `src/features/editor/schemas.ts` |
 
@@ -155,16 +158,33 @@ A dispatched agent is a subagent from `.claude/agents/` started with a prompt. T
 - Prisma Migrate has no down migrations: ship a rollback as a new forward migration. Before a database commit, apply
   the migration from scratch to the local Docker Postgres (`docker-compose.yml`), never to the Supabase project.
 - **Auth**: Supabase JWT, validated server-side with `supabase.auth.getUser()`.
-- **Tenant isolation (authoritative)**: application code. Every server action authenticates the user and scopes
-  every Prisma query with `where: { user_id: user.id }`. Prisma connects with a database role over `DATABASE_URL`,
-  so Postgres RLS does not constrain Prisma queries: the application filter is the enforced boundary. Some actions do
-  not comply yet; they are tracked under #39 (P7S2).
+- **Server actions**: every action but `signOut` is a one-line wrapper over a handler `(deps, data: unknown)` built on
+  `runAction` (`src/lib/action-runner.ts`), which fixes the order: parse with Zod, authenticate with
+  `supabase.auth.getUser()`, rate-limit by the user's id, ensure the profile where the spec sets it, run, and catch.
+  The user comes only from `deps.getUser`, never from the input. Every action but `signOut` returns an
+  `ActionResult` with a fixed message on failure. `signIn` and `signUp` run before any user exists and use `AuthDeps`
+  with an IP-keyed limit instead. A new action adds a wrapper, a handler and an isolation test.
+- **Tenant isolation (authoritative)**: application code. Every handler scopes every Prisma query with
+  `where: { user_id: user.id }`, and a missing row and another user's row give the same result. Prisma connects with
+  a database role over `DATABASE_URL`, so Postgres RLS does not constrain Prisma queries: the application filter is
+  the enforced boundary. Each tenant action has a `"<action>: user B ..."` test in a `*.isolation.test.ts` file
+  against a real Postgres, and `src/test/action-coverage.test.ts` fails when one is missing.
+- **Composite tenant keys (second layer)**: migration `20261029114511_composite_tenant_keys` makes the database
+  refuse a folder under another user's folder and a prompt in another user's folder (`Folder_id_user_id_key` and the
+  foreign keys `Folder_parent_id_user_id_fkey` and `Prompt_folder_id_user_id_fkey`). Both keys are `ON DELETE CASCADE ON
+  UPDATE RESTRICT`: deleting a folder takes its sub-folders and prompts with it, and a changed `user_id` is refused
+  while anything references the folder. Tags are not covered (#107). The migration is applied to the local Docker
+  Postgres; it is not applied to the Supabase project yet (#123).
 - **RLS (optional defence-in-depth)**: policies live in `wip/P3S1-rls-policies.sql`, outside `prisma migrate`, and
   apply only to connections that carry the end-user JWT (the Supabase client). Treat them as a secondary layer.
 - NEVER create triggers on `auth.users` (not permitted on Supabase Cloud). Create `Profile` rows in application code
-  with `ensureProfileExists()` (`src/lib/ensure-profile.ts`).
-- Rate-limit server actions with `src/lib/rate-limit.ts` (in-memory, single instance; a multi-instance deploy needs a
-  shared store).
+  with `ensureProfileExists(db, userId)` (`src/lib/ensure-profile.ts`): a `server-only` helper, not an action, that
+  writes with `createMany` and `skipDuplicates`. `server-only` is a dependency; Vitest aliases it to an empty module.
+- Rate-limit every mutation with `src/lib/rate-limit.ts` through `runAction`: the shared mutation bucket allows 30 a
+  minute per user, saves and restores 30 a minute in their own bucket, autosave 240 a minute, sign-in and sign-up 5 a
+  minute per IP; reads are not limited. The store is in memory and per instance; a multi-instance deploy needs a
+  shared store (#48). The IP is the first `x-forwarded-for` value, which a client can choose behind the Docker gateway,
+  and the store never evicts an entry (finding S-3, tracked by #48): the sign-in limit is not a brute-force control.
 - Validate every user input with Zod; use Prisma's parameterized queries only.
 - Validate required environment variables on startup and fail fast when one is missing. Not implemented yet: #65.
 - NEVER commit secrets or env values.
@@ -199,13 +219,20 @@ Names and purposes (template: `.env.example`; CI supplies placeholders):
 - Performance targets: initial load < 2 s, time to interactive < 3 s, Lighthouse > 90.
 
 ```typescript
-// Isolation pattern: authenticate, then scope EVERY query by user_id.
-const { data: { user } } = await supabase.auth.getUser();
-if (!user) throw new Error("Unauthorized");
-
-const prompts = await db.prompt.findMany({
-  where: { user_id: user.id }, // application-enforced tenant boundary
-});
+// Isolation pattern: runAction parses, authenticates and rate-limits; `run` scopes EVERY query by user.id.
+return runAction(deps, {
+  name: "getPromptsByFolder",
+  schema: getPromptsByFolderSchema,
+  invalid: "Invalid folder ID",
+  failure: "Failed to load prompts",
+  limit: "none",
+  run: async ({ db, user, input }) => ({
+    success: true,
+    data: await db.prompt.findMany({
+      where: { user_id: user.id, folder_id: input.folderId }, // application-enforced tenant boundary
+    }),
+  }),
+}, data);
 ```
 
 ## Pre-commit

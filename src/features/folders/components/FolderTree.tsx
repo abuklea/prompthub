@@ -1,3 +1,22 @@
+/*
+Project: PromptHub
+Author: Allan James
+Source: src/features/folders/components/FolderTree.tsx
+MIME: text/x-typescript
+Type: TypeScript React Component
+
+Created: 06/11/2025 14:33 GMT+10
+Last modified: 29/10/2026 20:54 GMT+10
+---------------
+The folder tree panel: shows the cached root folders at once, then the fetched ones, filtered and sorted from the UI
+store, and creates a root folder optimistically, rolling it back when the action fails.
+
+Changelog:
+29/10/2026 20:54 GMT+10 | P7S2T5: getRootFolders and createFolder results branch on success; a failed create rolls
+                         back and toasts the action's error (finding F-2, issue #113); header added (F-9)
+06/11/2025 14:33 GMT+10 | Created (commit fb2faa7)
+*/
+
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
@@ -26,9 +45,13 @@ export function FolderTree() {
       }
 
       try {
-        const rootFolders = await getRootFolders()
-        setFolders(rootFolders)
-        rootFolders.forEach((folder) => upsertFolderInCache(folder))
+        const result = await getRootFolders()
+        if (!result.success) {
+          console.error("Failed to fetch root folders:", result.error)
+          return
+        }
+        setFolders(result.data)
+        result.data.forEach((folder) => upsertFolderInCache(folder))
       } catch (error) {
         console.error("Failed to fetch root folders:", error)
       } finally {
@@ -56,10 +79,18 @@ export function FolderTree() {
       user_id: folders[0]?.user_id ?? "",
     }
 
+    const rollback = () => setFolders((prev) => prev.filter((folder) => folder.id !== tempFolder.id))
+
     setFolders((prev) => [...prev, tempFolder].sort((a, b) => a.name.localeCompare(b.name)))
 
     try {
-      const newFolder = await createFolder(name, null)
+      const result = await createFolder({ name, parentId: null })
+      if (!result.success) {
+        rollback()
+        toast.error(result.error, { duration: 6000 })
+        return
+      }
+      const newFolder = result.data
       setFolders((prev) =>
         prev
           .map((folder) => (folder.id === tempFolder.id ? newFolder : folder))
@@ -68,7 +99,8 @@ export function FolderTree() {
       upsertFolderInCache(newFolder)
       toast.success("Folder created successfully", { duration: 3000 })
     } catch (error) {
-      setFolders((prev) => prev.filter((folder) => folder.id !== tempFolder.id))
+      // Reason: a rejected call (a network failure, say), not a failed result; roll back the optimistic add
+      rollback()
       console.error("Failed to create folder:", error)
       toast.error("Failed to create folder", { duration: 6000 })
     }

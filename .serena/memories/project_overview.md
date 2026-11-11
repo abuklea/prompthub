@@ -18,9 +18,9 @@ PromptHub is a centralized repository where users can efficiently store, organiz
 - Framer Motion 11.2.4
 
 **Backend**:
-- Supabase (PostgreSQL + Auth + Storage + RLS)
+- Supabase (PostgreSQL + Auth + Storage)
 - Prisma 6.19.0 (ORM)
-- Next.js Server Actions (one route handler: `src/app/auth/sign-out`)
+- Next.js Server Actions, sign-out included (no route handler)
 
 **State Management**:
 - Zustand 4.5.2 (global state)
@@ -60,8 +60,10 @@ browser drafts are now written only by `useDraftSync` (P7S1T6).
 
 ## Active PRPs (Product Requirements & Planning)
 
-- None in flight. Last completed: **P7S1**, editor data integrity (`PRPs/complete/P7S1-editor-data-integrity.md`, report in
-  `PRPs/reports/P7S1-editor-data-integrity-REPORT.md`); its browser checks are tracked in GitHub issue #38
+- None in flight. Last completed: **P7S2**, server-side security hardening (`PRPs/complete/P7S2-server-side-security-hardening.md`,
+  report in `PRPs/reports/P7S2-server-side-security-hardening-REPORT.md`); its browser checks, the Supabase migration and the
+  credential check are tracked in GitHub issues #123 and #46. Before it: **P7S1**, editor data integrity
+  (`PRPs/complete/P7S1-editor-data-integrity.md`); its browser checks are tracked in GitHub issue #38
 
 ## Core Features
 
@@ -71,7 +73,7 @@ browser drafts are now written only by `useDraftSync` (P7S1T6).
 4. **Auto-Save**: 500ms debounce to the server (`autoSavePrompt`), written only when the title or content differ from
    what the server holds; a content-only browser draft (`prompt-v1-<promptId>`) is the safety net
 5. **Version History**: a full title and content snapshot per saved version; restore writes the chosen snapshot back
-6. **User Authentication**: Supabase Auth with JWT and RLS policies
+6. **User Authentication**: Supabase Auth with JWT; every server action scopes its queries by the user's id (RLS is optional defence-in-depth)
 7. **Full-Text Search**: PostgreSQL tsvector for prompt search
 
 ## Critical Development Rules
